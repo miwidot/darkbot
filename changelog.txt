@@ -1,0 +1,15 @@
+2026-11-16 17:16 +08 — Initial darkbot v0.1.0
+- New Go/Wails desktop app (same stack as streamerchat): native window, no listening ports.
+- Twitch: device code login, TokenManager with automatic refresh (15 min before expiry,
+  hourly validation, 401 retry, single-use refresh token serialized + deduped), OS keyring storage.
+- EventSub WebSocket client for channel.channel_points_custom_reward_redemption.add
+  (keepalive watchdog, server reconnect handover, backoff, duplicate message filter).
+- Bot core: reward → sound mapping (by reward ID, title fallback), global + per-viewer
+  cooldowns, sequential play queue (max 20).
+- Outputs: "Audio device" (webview playback with setSinkId device selection) and
+  "OBS media source" (obs-websocket v5, configurable tracks 1–6, auto-created source).
+- UI: Sounds, Audio output, Connections, Log tabs.
+- Build: Makefile (mac/windows/linux), GitHub Actions matrix build, tests for token refresh,
+  device flow, Helix 401 retry, EventSub parsing, cooldowns, config, sound file handler.
+- Why: user wants a simpler Streamer.bot for channel-point sounds; Fyne/malgo approach dropped
+  in favour of the Wails stack (no C compiler for Windows builds, consistent with streamerchat).

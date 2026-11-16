@@ -1,0 +1,12 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "darkbot",
+  "outputfilename": "darkbot",
+  "frontend:install": "true",
+  "frontend:build": "true",
+  "frontend:dir": "frontend",
+  "wailsjsdir": "",
+  "author": {
+    "name": "MiwiDot"
+  }
+}

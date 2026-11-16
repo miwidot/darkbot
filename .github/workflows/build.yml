@@ -1,0 +1,42 @@
+# Builds darkbot for all three platforms. Linux and macOS need native runners
+# (cgo + system web view); Windows needs no C compiler at all.
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: linux
+            artifact: build/bin/darkbot-linux
+          - os: macos-14
+            target: mac
+            artifact: build/bin/darkbot.app
+          - os: ubuntu-24.04
+            target: windows
+            artifact: build/bin/darkbot.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Linux GUI dependencies
+        if: matrix.target == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+      - name: Test
+        run: go vet ./internal/... && go test -race ./internal/...
+      - name: Build
+        run: make ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: darkbot-${{ matrix.target }}
+          path: ${{ matrix.artifact }}

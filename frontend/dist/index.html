@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>darkbot</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">darkbot</div>
+  <div class="pills">
+    <span class="pill" id="pillTwitch">Twitch</span>
+    <span class="pill" id="pillEvents">Redemptions</span>
+    <span class="pill" id="pillObs">OBS</span>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-tab="sounds" role="tab">Sounds</button>
+  <button class="tab" data-tab="output" role="tab">Audio output</button>
+  <button class="tab" data-tab="connections" role="tab">Connections</button>
+  <button class="tab" data-tab="log" role="tab">Log</button>
+</nav>
+
+<main>
+  <!-- SOUNDS -->
+  <section class="panel active" id="tab-sounds">
+    <div class="row-between">
+      <p class="hint">Each channel point reward can play one sound. Cooldowns are checked by darkbot.</p>
+      <button class="btn primary" id="addSound">+ Add sound</button>
+    </div>
+    <div id="soundList" class="list"></div>
+    <p class="empty hidden" id="soundEmpty">No sounds yet. Log in to Twitch, then add your first sound.</p>
+  </section>
+
+  <!-- OUTPUT -->
+  <section class="panel" id="tab-output">
+    <div class="card">
+      <h2>Where should sounds play?</h2>
+      <label class="radio"><input type="radio" name="mode" value="device"> <span><b>Audio device</b> — darkbot plays the sound on the selected output (like Streamer.bot / StreamElements). Capture that device in OBS.</span></label>
+      <label class="radio"><input type="radio" name="mode" value="obs"> <span><b>OBS media source</b> — darkbot plays the sound inside OBS on the audio tracks below. Needs the OBS connection.</span></label>
+    </div>
+
+    <div class="card" id="deviceCard">
+      <h2>Audio device</h2>
+      <div class="field">
+        <label for="device">Output device</label>
+        <div class="inline">
+          <select id="device"></select>
+          <button class="btn" id="refreshDevices">Refresh</button>
+        </div>
+        <p class="hint" id="deviceHint"></p>
+      </div>
+    </div>
+
+    <div class="card" id="obsTracksCard">
+      <h2>OBS audio tracks</h2>
+      <p class="hint">Tracks the darkbot media source is routed to (OBS → Advanced Audio Properties).</p>
+      <div class="tracks" id="tracks"></div>
+      <div class="field">
+        <label for="obsInput">Media source name</label>
+        <input id="obsInput" type="text" maxlength="100">
+        <p class="hint">Created automatically in the current scene if missing. OBS only plays sources in the active scene, so add it to your other scenes too (Add → Existing source).</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label for="master">Master volume <span id="masterVal"></span></label>
+        <input id="master" type="range" min="0.05" max="1" step="0.05">
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="saveOutput">Save</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONNECTIONS -->
+  <section class="panel" id="tab-connections">
+    <div class="card">
+      <h2>Twitch</h2>
+      <div class="field">
+        <label for="clientId">Client ID</label>
+        <div class="inline">
+          <input id="clientId" type="text" autocomplete="off" spellcheck="false" placeholder="from dev.twitch.tv/console">
+          <button class="btn" id="saveClientId">Save</button>
+        </div>
+        <p class="hint">Register an app at dev.twitch.tv/console → Applications: Client Type <b>Public</b>, OAuth Redirect URL <code>http://localhost</code> (not used). Needs a Twitch Affiliate/Partner channel for channel points.</p>
+      </div>
+      <div id="loginBox" class="login hidden">
+        <p>Confirm this code on Twitch:</p>
+        <div class="code" id="loginCode"></div>
+        <a href="#" id="loginLink">Open twitch.tv/activate again</a>
+        <button class="btn" id="cancelLogin">Cancel</button>
+      </div>
+      <div class="actions">
+        <span id="twitchStatus" class="status"></span>
+        <button class="btn primary" id="login">Log in with Twitch</button>
+        <button class="btn danger hidden" id="logout">Log out</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>OBS (obs-websocket)</h2>
+      <p class="hint">OBS → Tools → WebSocket Server Settings → Enable. Only needed for “OBS media source” output.</p>
+      <div class="grid2">
+        <div class="field"><label for="obsHost">Host</label><input id="obsHost" type="text"></div>
+        <div class="field"><label for="obsPort">Port</label><input id="obsPort" type="number" min="1" max="65535"></div>
+      </div>
+      <div class="field">
+        <label for="obsPass">Password</label>
+        <input id="obsPass" type="password" autocomplete="off" placeholder="unchanged">
+      </div>
+      <label class="check"><input type="checkbox" id="obsAuto"> Connect automatically on start</label>
+      <div class="actions">
+        <span id="obsStatus" class="status"></span>
+        <button class="btn" id="obsSave">Save</button>
+        <button class="btn primary" id="obsConnect">Save &amp; connect</button>
+        <button class="btn hidden" id="obsDisconnect">Disconnect</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOG -->
+  <section class="panel" id="tab-log">
+    <pre id="log" class="log"></pre>
+  </section>
+</main>
+
+<!-- SOUND EDITOR -->
+<dialog id="editor">
+  <form method="dialog" id="editorForm">
+    <h2 id="editorTitle">Sound</h2>
+    <div class="field">
+      <label for="edReward">Channel point reward</label>
+      <div class="inline">
+        <select id="edReward"></select>
+        <button type="button" class="btn" id="edRefreshRewards">Refresh</button>
+      </div>
+      <p class="hint" id="edRewardHint"></p>
+    </div>
+    <div class="field">
+      <label for="edFile">Sound file</label>
+      <div class="inline">
+        <input id="edFile" type="text" readonly placeholder="choose a file">
+        <button type="button" class="btn" id="edPick">Choose…</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="edVolume">Volume <span id="edVolumeVal"></span></label>
+      <input id="edVolume" type="range" min="0.05" max="1" step="0.05">
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label for="edCooldown">Cooldown (seconds)</label>
+        <input id="edCooldown" type="number" min="0" step="1">
+        <p class="hint">Blocks the sound for everyone.</p>
+      </div>
+      <div class="field">
+        <label for="edUserCooldown">Per-viewer cooldown (seconds)</label>
+        <input id="edUserCooldown" type="number" min="0" step="1">
+        <p class="hint">Blocks the same viewer.</p>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" id="edEnabled"> Enabled</label>
+    <p class="error hidden" id="edError"></p>
+    <div class="actions">
+      <button type="button" class="btn" id="edCancel">Cancel</button>
+      <button type="button" class="btn primary" id="edSave">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
