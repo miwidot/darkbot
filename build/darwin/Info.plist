@@ -7,8 +7,8 @@
   <key>CFBundleDisplayName</key><string>darkbot</string>
   <key>CFBundleExecutable</key><string>darkbot</string>
   <key>CFBundleIdentifier</key><string>dev.miwidot.darkbot</string>
-  <key>CFBundleVersion</key><string>0.2.0</string>
-  <key>CFBundleShortVersionString</key><string>0.2.0</string>
+  <key>CFBundleVersion</key><string>0.2.1</string>
+  <key>CFBundleShortVersionString</key><string>0.2.1</string>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict>

@@ -1,3 +1,6 @@
+2026-11-18 03:16 +08 — Release v0.2.1
+- Reward colors with color picker; macOS bundle version 0.2.1.
+
 2026-11-18 03:15 +08 — Reward color picker up front
 - The color picker is now the first, larger control, with a hex field next to it (#RRGGBB,
   marked red while incomplete); the 8 suggestions follow as quick picks. Tooltip explains all three.
