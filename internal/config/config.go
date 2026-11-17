@@ -137,10 +137,22 @@ type EventAction struct {
 	// MinAmount: only react from this amount on (bits, raid viewers, gifted
 	// subs); 0 = always.
 	MinAmount int `json:"min_amount"`
+	// Visual alert in OBS: a picture/GIF or video file ("" = none) and an
+	// on-screen text template (same placeholders as Chat), shown for
+	// Seconds (0 = video length, or the default for pictures).
+	Visual      string `json:"visual,omitempty"`
+	OverlayText string `json:"overlay_text,omitempty"`
+	Seconds     int    `json:"seconds,omitempty"`
 }
 
 // MaxChatTemplate matches Twitch's chat message limit (500 characters).
 const MaxChatTemplate = 500
+
+// MaxOverlayText: an on-screen alert line, kept short enough to read.
+const MaxOverlayText = 200
+
+// MaxAlertSeconds: longest time an alert may stay on screen.
+const MaxAlertSeconds = 60
 
 // Config is the whole persisted app configuration.
 type Config struct {

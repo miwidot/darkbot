@@ -22,6 +22,25 @@ type Output interface {
 	Play(ctx context.Context, s config.Sound, masterVolume float64) error
 }
 
+// Alert is a visual alert shown with an event (picture or video and/or a
+// text, already filled in).
+type Alert struct {
+	File string
+	Text string
+	// Seconds the alert stays; 0 = the video's length, or DefaultAlertSeconds.
+	Seconds int
+}
+
+// DefaultAlertSeconds: how long a picture or text alert stays when no
+// duration is set and there's no video length to go by.
+const DefaultAlertSeconds = 5
+
+// Overlay shows alerts (in OBS). Show returns how to hide the alert and,
+// for a video, its length (0 = unknown).
+type Overlay interface {
+	ShowAlert(ctx context.Context, a Alert) (hide func(), length time.Duration, err error)
+}
+
 // Logger is what the bot needs for logging.
 type Logger interface {
 	Infof(format string, args ...any)
@@ -72,19 +91,26 @@ type Bot struct {
 	// localize renders a playback error for the activity feed in the UI
 	// language; nil shows the plain (English) error.
 	localize func(error) string
+	// overlay returns where alerts are shown, nil while unavailable (OBS
+	// not connected).
+	overlay func() Overlay
 }
 
 type job struct {
 	sound config.Sound
 	user  string
 	test  bool
-	event bool               // action sound of a channel event
+	event bool               // action of a channel event
+	alert *Alert             // nil: sound only
 	red   *twitch.Redemption // nil for test plays and events
 }
 
 // SetResolver installs the fulfill/reject callback for managed rewards.
 // Call before Run.
 func (b *Bot) SetResolver(fn func(r twitch.Redemption, fulfill bool)) { b.resolve = fn }
+
+// SetOverlay installs where alerts are shown. Call before Run.
+func (b *Bot) SetOverlay(fn func() Overlay) { b.overlay = fn }
 
 // SetLocalizer sets how errors are worded in activity events. Call before Run.
 func (b *Bot) SetLocalizer(fn func(error) string) { b.localize = fn }
@@ -147,6 +173,21 @@ func (b *Bot) Run(ctx context.Context) {
 }
 
 func (b *Bot) play(ctx context.Context, j job) {
+	if j.alert != nil {
+		if hide, until := b.showAlert(ctx, j); hide != nil {
+			// Hide after both the sound and the alert's time are over.
+			defer func() {
+				select {
+				case <-ctx.Done():
+				case <-time.After(time.Until(until)):
+				}
+				hide()
+			}()
+		}
+	}
+	if j.sound.File == "" {
+		return // alert only
+	}
 	out := b.output()
 	if out == nil {
 		b.log.Errorf("No audio output available for %q", j.sound.RewardTitle)
@@ -164,6 +205,32 @@ func (b *Bot) play(ctx context.Context, j job) {
 	}
 	b.emitJob(ActDone, j, "")
 	b.finish(j.sound, j.red, true)
+}
+
+// showAlert starts the job's alert and says until when it stays.
+func (b *Bot) showAlert(ctx context.Context, j job) (hide func(), until time.Time) {
+	var ov Overlay
+	if b.overlay != nil {
+		ov = b.overlay()
+	}
+	if ov == nil {
+		b.log.Warnf("Alert for %q skipped: OBS is not connected", j.sound.RewardTitle)
+		return nil, time.Time{}
+	}
+	hide, length, err := ov.ShowAlert(ctx, *j.alert)
+	if err != nil {
+		b.log.Errorf("Alert for %q failed: %v", j.sound.RewardTitle, err)
+		return nil, time.Time{}
+	}
+	d := time.Duration(j.alert.Seconds) * time.Second
+	switch {
+	case d > 0:
+	case length > 0:
+		d = length
+	default:
+		d = DefaultAlertSeconds * time.Second
+	}
+	return hide, time.Now().Add(d)
 }
 
 // HandleRedemption is called for every channel point redemption.
@@ -197,13 +264,14 @@ func (b *Bot) HandleRedemption(r twitch.Redemption) {
 	}
 }
 
-// PlayEvent queues the action sound of a channel event. It shares the queue
-// with redemptions, so a sub sound never talks over a redemption.
-func (b *Bot) PlayEvent(s config.Sound, user string) {
+// PlayEvent queues the action of a channel event: its sound (s.File, may
+// be empty) and/or alert (may be nil). It shares the queue with
+// redemptions, so a sub alert never talks over a redemption.
+func (b *Bot) PlayEvent(s config.Sound, alert *Alert, user string) {
 	select {
-	case b.queue <- job{sound: s, user: user, event: true}:
+	case b.queue <- job{sound: s, user: user, event: true, alert: alert}:
 	default:
-		b.log.Warnf("Event sound %q skipped, %d sounds are already waiting", s.RewardTitle, MaxQueue)
+		b.log.Warnf("Event action %q skipped, %d sounds are already waiting", s.RewardTitle, MaxQueue)
 	}
 }
 

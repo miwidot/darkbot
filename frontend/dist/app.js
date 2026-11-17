@@ -437,6 +437,7 @@ function actionSummary(act) {
   const bits = [];
   if (act.sound) bits.push(t('events.sound'));
   if (act.chat) bits.push(t('events.chat'));
+  if (act.visual || act.overlay_text) bits.push(t('events.alert'));
   if (!bits.length) return t('events.noAction');
   return bits.join(' + ') + (act.min_amount > 0 ? ', ' + t('events.from', { n: num(act.min_amount) }) : '');
 }
@@ -447,7 +448,7 @@ function renderEvents() {
   $('eventsReconnect').classList.toggle('hidden', !state.needsReconnect);
   $('eventList').replaceChildren(...eventKinds.map((k) => {
     const act = actions[k.kind];
-    const on = !!(act && act.enabled && (act.sound || act.chat));
+    const on = !!(act && act.enabled && (act.sound || act.chat || act.visual || act.overlay_text));
     return el('li', { class: 'event-row' + (on ? ' on' : '') },
       el('span', { class: 'event-led', 'aria-hidden': 'true' }),
       el('div', { class: 'event-text' },
@@ -497,6 +498,11 @@ function openEventEditor(k) {
   $('evVolumeVal').textContent = pct(+$('evVolume').value);
   $('evChat').value = act.chat || '';
   $('evMin').value = act.min_amount || 0;
+  $('evVisual').value = act.visual || '';
+  $('evOverlayText').value = act.overlay_text || '';
+  $('evSeconds').value = act.seconds || 0;
+  $('evOverlayField').classList.toggle('hidden', !k.hasChat); // never name unfollowers on screen
+  $('evAlertState').textContent = alertStateText();
   $('evChatField').classList.toggle('hidden', !k.hasChat);
   $('evSuggest').classList.toggle('hidden', !suggestedChat(k.kind));
   $('evMinField').classList.toggle('hidden', !k.hasAmount);
@@ -511,7 +517,18 @@ function evAction() {
     volume: +$('evVolume').value,
     chat: $('evChat').value.trim(),
     min_amount: Math.max(0, parseInt($('evMin').value, 10) || 0),
+    visual: $('evVisual').value,
+    overlay_text: $('evOverlayText').value.trim(),
+    seconds: Math.min(60, Math.max(0, parseInt($('evSeconds').value, 10) || 0)),
   };
+}
+
+// alertStateText: whether alerts can show right now, and what's missing.
+function alertStateText() {
+  if (!state.obsConnected) return t('evedit.alertNoObs');
+  const sc = state.obsScene;
+  if (sc && (!sc.exists || sc.missing.length)) return t('evedit.alertNoScene');
+  return t('evedit.alertReady');
 }
 
 $('evVolume').addEventListener('input', () => { $('evVolumeVal').textContent = pct(+$('evVolume').value); });
@@ -520,6 +537,11 @@ $('evPick').addEventListener('click', async () => {
   if (f) $('evSound').value = f;
 });
 $('evClear').addEventListener('click', () => { $('evSound').value = ''; });
+$('evPickVisual').addEventListener('click', async () => {
+  const f = await call('PickVisualFile');
+  if (f) $('evVisual').value = f;
+});
+$('evClearVisual').addEventListener('click', () => { $('evVisual').value = ''; });
 // A chat message is one line: Enter doesn't add a line break.
 $('evChat').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
 $('evSuggest').addEventListener('click', () => { $('evChat').value = suggestedChat(evEditing); $('evChat').focus(); });
@@ -813,7 +835,29 @@ function renderOBS() {
   $('obsConnect').textContent = state.obsConnected ? t('obs.reconnect') : t('obs.connect');
   // While waiting, "Disconnect" stops the retries.
   $('obsDisconnect').classList.toggle('hidden', !state.obsConnected && !state.obsWaiting);
+  renderOBSScene();
 }
+// The darkbot scene: one nested scene in every scene of the streamer.
+function renderOBSScene() {
+  const sc = state.obsScene;
+  $('obsSceneBox').classList.toggle('hidden', !state.obsConnected);
+  if (!sc) { $('obsSceneState').textContent = t('obs.sceneChecking'); $('obsSetup').classList.add('hidden'); return; }
+  let text;
+  if (!sc.exists) text = t('obs.sceneMissing');
+  else if (sc.missing.length) text = t('obs.sceneMissingIn', { scenes: sc.missing.join(', ') });
+  else text = t('obs.sceneReady', { n: num(sc.scenes) });
+  $('obsSceneState').textContent = text;
+  $('obsSetup').classList.toggle('hidden', sc.exists && !sc.missing.length);
+}
+$('obsSetup').addEventListener('click', async () => {
+  $('obsSetup').disabled = true;
+  try {
+    const added = await App().SetupOBSScene();
+    toast(added ? t('obs.setupAdded', { n: num(added) }) : t('obs.setupDone'));
+  } catch (e) { toast(errText(e), true); }
+  $('obsSetup').disabled = false;
+  refresh();
+});
 $('obsPass').addEventListener('input', () => { obsPassDirty = true; });
 async function saveOBS() {
   const tracks = [...$('tracks').querySelectorAll('input')].map((cb) => cb.checked);

@@ -71,6 +71,7 @@ type App struct {
 	ch   channelState
 	// OBS keep-alive, guarded by mu (see obs_app.go).
 	obsWant, obsAuthFailed, obsWaitLogged bool
+	obsScene                              *obs.SceneStatus
 	ctx                                   context.Context
 	log                                   *applog.Log
 	cfg                                   *config.Store
@@ -128,6 +129,7 @@ func NewApp(log *applog.Log) (*App, error) {
 		}
 	})
 	a.obs = obs.New(a.onOBSDrop)
+	a.obs.OnScenesChanged(a.refreshOBSScene)
 	a.web = &webOutput{app: a, pending: map[string]chan string{}}
 	a.obsO = &obs.Output{OBS: a.obs, Cfg: cfg}
 	a.bot = bot.New(cfg, log, a.currentOutput, func(act bot.Activity) {
@@ -137,6 +139,7 @@ func NewApp(log *applog.Log) (*App, error) {
 		}
 	})
 	a.bot.SetResolver(a.resolveRedemption)
+	a.bot.SetOverlay(a.overlay)
 	a.bot.SetLocalizer(func(err error) string { return i18n.Localize(err, a.lang()) })
 
 	spStore := &spotify.KeyringStore{FallbackPath: cfg.SpotifyTokenPath(), Log: log}
@@ -324,8 +327,10 @@ type State struct {
 	OBSConnected   bool          `json:"obsConnected"`
 	// OBSWaiting: darkbot should be connected and retries until OBS is
 	// there. OBSAuthFailed: OBS rejected the password, no retries.
-	OBSWaiting       bool             `json:"obsWaiting"`
-	OBSAuthFailed    bool             `json:"obsAuthFailed"`
+	OBSWaiting    bool `json:"obsWaiting"`
+	OBSAuthFailed bool `json:"obsAuthFailed"`
+	// OBSScene: where darkbot's scene is (nil = unknown, e.g. not connected).
+	OBSScene         *obs.SceneStatus `json:"obsScene"`
 	LoginUserCode    string           `json:"loginUserCode"`
 	LoginURI         string           `json:"loginUri"`
 	SupportedFormats []string         `json:"supportedFormats"`
@@ -389,6 +394,10 @@ func (a *App) GetState() State {
 	}
 	s.Update, s.Updating = a.update, a.updating
 	s.OBSWaiting, s.OBSAuthFailed = a.obsStatusLocked(s.OBSConnected)
+	if a.obsScene != nil && s.OBSConnected {
+		st := *a.obsScene
+		s.OBSScene = &st
+	}
 	s.SpotifyLoginPending = a.spLogin != nil
 	a.mu.Unlock()
 	return s

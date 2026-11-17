@@ -70,6 +70,15 @@ func TestOBSKeepAlive(t *testing.T) {
 	if !a.obs.Connected() {
 		t.Fatal("must connect once OBS runs")
 	}
+	// After connecting darkbot reads the scenes. goobs holds a pending
+	// request until its answer, so OBS quitting during one is noticed only
+	// after the response timeout (within obs.DropWithin). Here OBS quits
+	// while idle.
+	waitFor(t, "the scene check", time.Second, func() bool {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		return a.obsScene != nil
+	})
 	// OBS quits normally: it says goodbye, darkbot notices at once.
 	f.GoAway(<-f.Conns, websocket.CloseGoingAway, "OBS is closing")
 	f.Close()

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -12,8 +13,10 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/miwidot/darkbot/internal/audio"
+	"github.com/miwidot/darkbot/internal/bot"
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/i18n"
+	"github.com/miwidot/darkbot/internal/obs"
 	"github.com/miwidot/darkbot/internal/twitch"
 )
 
@@ -114,11 +117,18 @@ func (a *App) runAction(ev twitch.ChannelEvent) {
 		return
 	}
 	lang := a.lang()
-	if act.Sound != "" {
+	var alert *bot.Alert
+	if act.Visual != "" || act.OverlayText != "" {
+		alert = &bot.Alert{File: act.Visual, Seconds: act.Seconds}
+		if act.OverlayText != "" && !slices.Contains(noChatKinds, ev.Kind) {
+			alert.Text = renderTemplate(act.OverlayText, ev, lang)
+		}
+	}
+	if act.Sound != "" || alert != nil {
 		a.bot.PlayEvent(config.Sound{
 			ID: eventSoundPrefix + ev.Kind, RewardTitle: i18n.T(lang, "event."+ev.Kind),
 			File: act.Sound, Volume: act.Volume, Enabled: true,
-		}, ev.User)
+		}, alert, ev.User)
 	}
 	if act.Chat != "" && !slices.Contains(noChatKinds, ev.Kind) {
 		go a.sendChat(a.ctx, renderTemplate(act.Chat, ev, lang), "")
@@ -163,11 +173,31 @@ func (a *App) SaveEventAction(kind string, act config.EventAction) error {
 	}
 	// One chat line: line breaks and runs of spaces become single spaces.
 	act.Chat = strings.Join(strings.Fields(act.Chat), " ")
+	act.OverlayText = strings.Join(strings.Fields(act.OverlayText), " ")
+	act.Visual = strings.TrimSpace(act.Visual)
+	if act.Visual != "" {
+		if !filepath.IsAbs(act.Visual) {
+			return a.uiErr(i18n.E("err.pathAbsolute"))
+		}
+		if !obs.IsVisual(act.Visual) {
+			return a.uiErr(i18n.E("err.visualType", "types", strings.Join(append(append([]string{}, obs.ImageExtensions...), obs.VideoExtensions...), ", ")))
+		}
+		if _, err := os.Stat(act.Visual); err != nil {
+			return a.uiErr(i18n.Wrap(err, "err.readFile"))
+		}
+	}
+	if utf8.RuneCountInString(act.OverlayText) > config.MaxOverlayText {
+		return a.uiErr(i18n.E("err.overlayTooLong", "max", config.MaxOverlayText))
+	}
+	if act.Seconds < 0 || act.Seconds > config.MaxAlertSeconds {
+		return a.uiErr(i18n.E("err.alertSeconds", "max", config.MaxAlertSeconds))
+	}
 	if utf8.RuneCountInString(act.Chat) > config.MaxChatTemplate {
 		return a.uiErr(i18n.E("err.chatTooLong", "max", config.MaxChatTemplate))
 	}
 	if slices.Contains(noChatKinds, kind) {
-		act.Chat = ""
+		// Never name people who unfollowed, neither in chat nor on screen.
+		act.Chat, act.OverlayText = "", ""
 	}
 	err := a.cfg.Update(func(c *config.Config) {
 		if c.Events == nil {

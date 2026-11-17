@@ -31,6 +31,8 @@ type Server struct {
 	// Busy answers every request with NotReady (207), like OBS while it
 	// loads a scene collection.
 	Busy atomic.Bool
+	// State is the fake OBS's scenes and sources.
+	State *State
 	// Conns receives each accepted connection.
 	Conns chan *websocket.Conn
 	wmu   sync.Mutex        // gorilla allows one concurrent writer
@@ -64,7 +66,7 @@ func NewOn(t testing.TB, addr string, rejectAuth bool) *Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := &Server{rejectAuth: rejectAuth, Conns: make(chan *websocket.Conn, connBuffer)}
+	f := &Server{rejectAuth: rejectAuth, Conns: make(chan *websocket.Conn, connBuffer), State: NewState()}
 	up := websocket.Upgrader{}
 	f.srv = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c, err := up.Upgrade(w, r, nil)
@@ -116,8 +118,9 @@ func (f *Server) serve(c *websocket.Conn) {
 				continue
 			}
 			var req struct {
-				Type string `json:"requestType"`
-				ID   string `json:"requestId"`
+				Type string          `json:"requestType"`
+				ID   string          `json:"requestId"`
+				Data json.RawMessage `json:"requestData"`
 			}
 			_ = json.Unmarshal(m.D, &req)
 			if f.Busy.Load() {
@@ -127,10 +130,11 @@ func (f *Server) serve(c *websocket.Conn) {
 				}})
 				continue
 			}
+			data, code := f.State.handle(req.Type, req.Data)
+			status := map[string]any{"result": code == statusOK, "code": code}
 			f.write(c, map[string]any{"op": 7, "d": map[string]any{
 				"requestType": req.Type, "requestId": req.ID,
-				"requestStatus": map[string]any{"result": true, "code": 100},
-				"responseData":  map[string]any{"obsVersion": "33.0.1", "obsWebSocketVersion": "5.7.6"},
+				"requestStatus": status, "responseData": data,
 			}})
 		}
 	}

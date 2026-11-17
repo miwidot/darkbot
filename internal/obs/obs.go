@@ -22,6 +22,7 @@ import (
 
 	"github.com/andreykaipov/goobs"
 	"github.com/andreykaipov/goobs/api/closecodes"
+	"github.com/andreykaipov/goobs/api/events"
 	"github.com/andreykaipov/goobs/api/requests/inputs"
 	"github.com/andreykaipov/goobs/api/requests/mediainputs"
 	"github.com/andreykaipov/goobs/api/requests/scenes"
@@ -57,11 +58,16 @@ var ErrAuth = i18n.E("err.obsAuth")
 
 // Client is a thread-safe wrapper around a goobs connection.
 type Client struct {
-	dial   sync.Mutex // one Connect at a time (user click vs. reconnect loop)
-	mu     sync.Mutex
-	c      *goobs.Client
-	onDrop func(error)
+	dial     sync.Mutex // one Connect at a time (user click vs. reconnect loop)
+	mu       sync.Mutex
+	c        *goobs.Client
+	onDrop   func(error)
+	onScenes func() // a scene was added, removed or renamed in OBS
 }
+
+// OnScenesChanged sets what runs when the streamer adds, removes or
+// renames a scene in OBS. Call before Connect.
+func (o *Client) OnScenesChanged(fn func()) { o.onScenes = fn }
 
 // New creates an unconnected client. onDrop is called when a live
 // connection ends without Disconnect (OBS closed, crashed, stopped its
@@ -106,9 +112,15 @@ func (o *Client) watch(c *goobs.Client) {
 	defer tick.Stop()
 	for {
 		select {
-		case _, open := <-c.IncomingEvents:
+		case ev, open := <-c.IncomingEvents:
 			if open {
-				continue // events are not used, only the channel's end
+				switch ev.(type) {
+				case *events.SceneCreated, *events.SceneRemoved, *events.SceneNameChanged:
+					if o.onScenes != nil {
+						go o.onScenes()
+					}
+				}
+				continue
 			}
 			o.dropIf(c, errors.New("OBS closed the connection"))
 			return

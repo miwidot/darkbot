@@ -5,8 +5,13 @@ import (
 	"errors"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"github.com/miwidot/darkbot/internal/bot"
+	"github.com/miwidot/darkbot/internal/i18n"
 	"github.com/miwidot/darkbot/internal/obs"
 )
 
@@ -76,6 +81,7 @@ func (a *App) connectOBS() (string, error) {
 		a.mu.Unlock()
 		a.log.Infof("Connected to %s", v)
 		a.emitState()
+		go a.refreshOBSScene()
 	case errors.Is(err, obs.ErrAuth):
 		a.mu.Lock()
 		a.obsAuthFailed = true
@@ -131,6 +137,70 @@ func (a *App) onOBSDrop(err error) {
 	a.log.Warnf("OBS connection lost (%v), reconnecting when OBS is back", err)
 	a.mu.Lock()
 	a.obsWaitLogged = true
+	a.obsScene = nil
 	a.mu.Unlock()
 	a.emitState()
+}
+
+// ---------- alerts in OBS (see internal/obs/overlay.go) ----------
+
+// refreshOBSScene reads where darkbot's scene is nested, for the settings.
+func (a *App) refreshOBSScene() {
+	if !a.obs.Connected() {
+		return
+	}
+	st, err := a.obs.Status()
+	if err != nil {
+		a.log.Warnf("Could not read the OBS scenes: %v", err)
+		return
+	}
+	a.mu.Lock()
+	a.obsScene = &st
+	a.mu.Unlock()
+	a.emitState()
+}
+
+// SetupOBSScene creates darkbot's scene in OBS and adds it on top of every
+// scene of the streamer (Settings → OBS, one click).
+func (a *App) SetupOBSScene() (int, error) {
+	added, err := a.obs.Setup(a.cfg.Get().OBS.InputName)
+	if err != nil {
+		a.log.Errorf("OBS setup: %v", err)
+		return len(added), a.uiErr(err)
+	}
+	if len(added) > 0 {
+		a.log.Infof("Added the darkbot scene to the OBS scenes %s", strings.Join(added, ", "))
+	} else {
+		a.log.Infof("The darkbot scene is ready in OBS")
+	}
+	a.refreshOBSScene()
+	return len(added), nil
+}
+
+// overlay is where event alerts appear: OBS, while connected.
+func (a *App) overlay() bot.Overlay {
+	if !a.obs.Connected() {
+		return nil
+	}
+	return obsOverlay{a}
+}
+
+type obsOverlay struct{ a *App }
+
+func (o obsOverlay) ShowAlert(ctx context.Context, al bot.Alert) (func(), time.Duration, error) {
+	return o.a.obs.Show(ctx, obs.Alert{File: al.File, Text: al.Text}, o.a.cfg.Get().OBS.InputName)
+}
+
+// PickVisualFile asks for an alert picture, GIF or video.
+func (a *App) PickVisualFile() (string, error) {
+	lang := a.lang()
+	exts := append(append([]string{}, obs.ImageExtensions...), obs.VideoExtensions...)
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: i18n.T(lang, "dialog.chooseVisual"),
+		Filters: []runtime.FileFilter{{
+			DisplayName: i18n.T(lang, "dialog.visualFiles", "ext", strings.Join(exts, ", ")),
+			Pattern:     "*" + strings.Join(exts, ";*"),
+		}},
+	})
+	return path, a.uiErr(err)
 }

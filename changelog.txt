@@ -1,3 +1,21 @@
+2026-11-18 05:03 +08 — Alerts in OBS (picture, GIF, video, text) via a nested darkbot scene
+- Each event action can show a picture/GIF (image_source) or video (ffmpeg_source, WebM alpha)
+  and an on-screen text ({user} {amount} {tier} {months} {top}) for N seconds (0 = video length
+  or 5 s). It runs in the sound queue with the event sound; the alert stays until both the sound
+  and its time are over. No OBS: the sound still plays, the alert is skipped and logged.
+- "Set up in OBS" (Settings, OBS): creates the scene "darkbot" with darkbot-sound/-image/-video/
+  -text (pictures hidden, centred, text below; newest text source kind of the system) and nests
+  it on top of every streamer scene (SetSceneItemIndex to the top, since the protocol doesn't say
+  where new items go). Idempotent; adopts an existing darkbot-sound. Status shows scenes missing
+  it; OBS SceneCreated/Removed/NameChanged events refresh it. Docs: obs-websocket protocol.md.
+- Unfollow alerts never show names on screen (overlay text cleared like chat).
+- Validation: absolute path, picture/video types, file exists, text <= 200, seconds 0-60.
+- Tests: stateful fake OBS (obstest.State): setup, idempotence, nesting on top, new scene, old
+  sound source, show picture+text and video, hide; bot alert timing (seconds, longer sound, video
+  length, default, no OBS); event alert filled in; save checks. Keep-alive test waits for the scene
+  check (goobs holds a pending request until its timeout, delaying drop detection within
+  DropWithin).
+
 2026-11-18 04:37 +08 — Release v0.2.5
 - Busy OBS stays connected, chat suggestions for every event; macOS bundle version 0.2.5.
 

@@ -537,3 +537,9 @@ details.more summary { cursor: pointer; color: var(--ink-2); }
   .event-row { grid-template-columns: 10px minmax(0, 1fr) auto auto; }
   .event-summary { display: none; }
 }
+
+/* alerts in OBS: a framed group in the event editor */
+.alert-box { border: 1px solid var(--metal-3); border-radius: var(--r-ctl); padding: 10px 14px 4px; margin: 6px 0 14px; }
+.alert-box legend { padding: 0 6px; font-weight: 600; }
+.obs-scene { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--metal-3); }
+.obs-scene h4 { margin: 0 0 6px; font-size: var(--step-0); }

@@ -190,7 +190,7 @@ func TestPlayEventIsMarkedAndNeverResolved(t *testing.T) {
 	defer cancel()
 	go b.Run(ctx)
 
-	b.PlayEvent(config.Sound{ID: "ev-follow", RewardTitle: "Follow", File: "/f.mp3", Managed: true, Enabled: true}, "Kim")
+	b.PlayEvent(config.Sound{ID: "ev-follow", RewardTitle: "Follow", File: "/f.mp3", Managed: true, Enabled: true}, nil, "Kim")
 	if id := <-out.played; id != "ev-follow" {
 		t.Fatalf("played %q", id)
 	}
@@ -203,5 +203,114 @@ func TestPlayEventIsMarkedAndNeverResolved(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			t.Fatal("missing activity")
 		}
+	}
+}
+
+// fakeOverlay records when an alert was shown and hidden.
+type fakeOverlay struct {
+	length time.Duration
+	shown  chan Alert
+	hidden chan time.Time
+}
+
+func (f *fakeOverlay) ShowAlert(_ context.Context, a Alert) (func(), time.Duration, error) {
+	f.shown <- a
+	return func() { f.hidden <- time.Now() }, f.length, nil
+}
+
+// slowOutput plays every sound for d.
+type slowOutput struct{ d time.Duration }
+
+func (s slowOutput) Play(ctx context.Context, _ config.Sound, _ float64) error {
+	select {
+	case <-ctx.Done():
+	case <-time.After(s.d):
+	}
+	return nil
+}
+
+func alertBot(t *testing.T, out Output, ov Overlay) *Bot {
+	t.Helper()
+	store, err := config.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := New(store, nopLogger{}, func() Output { return out }, nil)
+	b.SetOverlay(func() Overlay { return ov })
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go b.Run(ctx)
+	return b
+}
+
+// timeTolerance absorbs scheduling jitter in the timing tests.
+const timeTolerance = 150 * time.Millisecond
+
+func hiddenAfter(t *testing.T, ov *fakeOverlay, start time.Time, want time.Duration) {
+	t.Helper()
+	select {
+	case at := <-ov.hidden:
+		if got := at.Sub(start); got < want-timeTolerance || got > want+timeTolerance*3 {
+			t.Fatalf("hidden after %s, want about %s", got, want)
+		}
+	case <-time.After(want + 2*time.Second):
+		t.Fatal("alert never hidden")
+	}
+}
+
+// The alert stays its seconds even when the sound is shorter.
+func TestAlertStaysItsSeconds(t *testing.T) {
+	ov := &fakeOverlay{shown: make(chan Alert, 1), hidden: make(chan time.Time, 1)}
+	b := alertBot(t, slowOutput{100 * time.Millisecond}, ov)
+	start := time.Now()
+	b.PlayEvent(config.Sound{File: "/f.mp3", Enabled: true}, &Alert{Text: "Anna", Seconds: 1}, "Anna")
+	if a := <-ov.shown; a.Text != "Anna" {
+		t.Fatalf("shown %+v", a)
+	}
+	hiddenAfter(t, ov, start, time.Second)
+}
+
+// A sound longer than the alert keeps the alert until the sound ends.
+func TestLongSoundKeepsAlert(t *testing.T) {
+	ov := &fakeOverlay{shown: make(chan Alert, 1), hidden: make(chan time.Time, 1)}
+	b := alertBot(t, slowOutput{1500 * time.Millisecond}, ov)
+	start := time.Now()
+	b.PlayEvent(config.Sound{File: "/f.mp3", Enabled: true}, &Alert{Text: "x", Seconds: 1}, "x")
+	<-ov.shown
+	hiddenAfter(t, ov, start, 1500*time.Millisecond)
+}
+
+// No seconds and no video length: a picture stays DefaultAlertSeconds.
+func TestDefaultAlertSeconds(t *testing.T) {
+	if testing.Short() {
+		t.Skip("waits DefaultAlertSeconds")
+	}
+	ov := &fakeOverlay{shown: make(chan Alert, 1), hidden: make(chan time.Time, 1)}
+	b := alertBot(t, slowOutput{100 * time.Millisecond}, ov)
+	start := time.Now()
+	b.PlayEvent(config.Sound{File: "/f.mp3", Enabled: true}, &Alert{File: "/follow.gif"}, "x")
+	<-ov.shown
+	hiddenAfter(t, ov, start, DefaultAlertSeconds*time.Second)
+}
+
+// Without seconds a video stays as long as it plays; no sound needed.
+func TestVideoAlertWithoutSound(t *testing.T) {
+	ov := &fakeOverlay{length: 300 * time.Millisecond, shown: make(chan Alert, 1), hidden: make(chan time.Time, 1)}
+	b := alertBot(t, slowOutput{time.Hour}, ov)
+	start := time.Now()
+	b.PlayEvent(config.Sound{}, &Alert{File: "/raid.webm"}, "x")
+	<-ov.shown
+	hiddenAfter(t, ov, start, 300*time.Millisecond)
+}
+
+// No OBS: the sound still plays.
+func TestNoOverlayStillPlaysSound(t *testing.T) {
+	out := &fakeOutput{played: make(chan string, 1)}
+	b := alertBot(t, out, nil)
+	b.PlayEvent(config.Sound{ID: "ev", File: "/f.mp3", Enabled: true}, &Alert{Text: "x"}, "x")
+	select {
+	case <-out.played:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the sound must play without OBS")
 	}
 }

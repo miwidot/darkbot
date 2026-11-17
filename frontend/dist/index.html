@@ -220,6 +220,11 @@
           <button class="btn hidden" id="obsDisconnect" data-i18n="obs.disconnect"></button>
           <button class="btn primary" id="obsConnect"></button>
         </div>
+        <div class="obs-scene hidden" id="obsSceneBox">
+          <h4><span data-i18n="obs.sceneTitle"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.obsScene" data-i18n-aria-label="tip.more"></span></h4>
+          <p class="hint" id="obsSceneState"></p>
+          <button class="btn" id="obsSetup" data-i18n="obs.setup"></button>
+        </div>
       </section>
 
       <!-- SONG REQUESTS -->
@@ -401,6 +406,24 @@
     <div class="chat-row"><textarea id="evChat" rows="2" maxlength="500" data-i18n-placeholder="evedit.chatPlaceholder"></textarea><button type="button" class="btn" id="evSuggest" data-i18n="evedit.suggest" data-i18n-title="tip.evSuggest"></button></div>
     <p class="hint" data-i18n="evedit.chatHint"></p>
   </div>
+  <fieldset class="alert-box">
+    <legend><span data-i18n="evedit.alertTitle"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.evAlert" data-i18n-aria-label="tip.more"></span></legend>
+    <p class="hint" id="evAlertState"></p>
+    <div class="field">
+      <label for="evVisual" data-i18n="evedit.visual"></label>
+      <div class="inline"><input id="evVisual" type="text" readonly data-i18n-placeholder="evedit.noVisual"><button type="button" class="btn" id="evPickVisual" data-i18n="editor.chooseFile"></button><button type="button" class="btn quiet" id="evClearVisual" data-i18n="evedit.clear"></button></div>
+    </div>
+    <div class="grid2 wide-first">
+      <div class="field" id="evOverlayField">
+        <label for="evOverlayText"><span data-i18n="evedit.overlayText"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.evOverlayText" data-i18n-aria-label="tip.more"></span></label>
+        <input id="evOverlayText" type="text" maxlength="200" data-i18n-placeholder="evedit.overlayPlaceholder">
+      </div>
+      <div class="field">
+        <label for="evSeconds"><span data-i18n="evedit.seconds"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.evSeconds" data-i18n-aria-label="tip.more"></span></label>
+        <input id="evSeconds" type="number" min="0" max="60" step="1">
+      </div>
+    </div>
+  </fieldset>
   <div class="field" id="evMinField">
     <label for="evMin"><span data-i18n="evedit.minAmount"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.evMin" data-i18n-aria-label="tip.more"></span></label>
     <input id="evMin" type="number" min="0" step="1">

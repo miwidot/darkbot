@@ -1,0 +1,418 @@
+package obs
+
+// Alerts in OBS without a port: darkbot owns one scene, "darkbot", that
+// holds everything it shows or plays (sound, image/GIF, video, text). The
+// streamer's scenes get that scene as a single nested item, so darkbot
+// never touches anything else in them and new alert types show up
+// everywhere at once.
+//
+// Requests used (obs-websocket v5 protocol, checked 2026-11-18,
+// https://github.com/obsproject/obs-websocket/blob/master/docs/generated/protocol.md):
+// GetSceneList, CreateScene, GetSceneItemList, CreateSceneItem,
+// SetSceneItemIndex ("An index of 0 is at the bottom of the source list"),
+// SetSceneItemEnabled, Get/SetSceneItemTransform, GetInputList,
+// GetInputKindList, CreateInput, SetInputSettings, GetVideoSettings,
+// GetMediaInputStatus, TriggerMediaInputAction.
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"path/filepath"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/andreykaipov/goobs"
+	"github.com/andreykaipov/goobs/api/requests/config"
+	"github.com/andreykaipov/goobs/api/requests/inputs"
+	"github.com/andreykaipov/goobs/api/requests/mediainputs"
+	"github.com/andreykaipov/goobs/api/requests/sceneitems"
+	"github.com/andreykaipov/goobs/api/requests/scenes"
+	"github.com/andreykaipov/goobs/api/typedefs"
+)
+
+// Names in OBS. The streamer may move and style the sources inside the
+// darkbot scene; darkbot finds them by name.
+const (
+	SceneName  = "darkbot"
+	imageInput = "darkbot-image"
+	videoInput = "darkbot-video"
+	textInput  = "darkbot-text"
+)
+
+const (
+	imageKind = "image_source" // plays GIFs animated
+	// textFontSize: readable on a 1080p canvas; restyle it in OBS.
+	textFontSize = 72
+	// textBelow: the text sits this share of the canvas height below the
+	// centre, under the picture.
+	textBelow = 0.30
+	// obsAlignCenter: OBS alignment flags, 0 = centre on both axes.
+	obsAlignCenter = 0
+	// minBounds: OBS refuses bounds below 1 even when bounds are off.
+	minBounds = 1
+	// mediaDurationWait: how long Show waits for OBS to report a video's
+	// length after starting it.
+	mediaDurationWait = 1500 * time.Millisecond
+	mediaPoll         = 100 * time.Millisecond
+)
+
+// File types for alerts: images (GIFs animate) and videos (WebM can be
+// transparent).
+var (
+	ImageExtensions = []string{".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
+	VideoExtensions = []string{".webm", ".mp4", ".mov", ".mkv"}
+)
+
+// IsVideo tells video alert files from images.
+func IsVideo(path string) bool {
+	return slices.Contains(VideoExtensions, strings.ToLower(filepath.Ext(path)))
+}
+
+// IsVisual reports a supported alert file.
+func IsVisual(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	return slices.Contains(ImageExtensions, ext) || slices.Contains(VideoExtensions, ext)
+}
+
+// SceneStatus says where the darkbot scene is.
+type SceneStatus struct {
+	Exists bool `json:"exists"`
+	// Missing lists the streamer's scenes without the darkbot scene in them.
+	Missing []string `json:"missing"`
+	Scenes  int      `json:"scenes"` // the streamer's scenes (without darkbot's)
+}
+
+// Status reads where the darkbot scene is nested.
+func (o *Client) Status() (SceneStatus, error) {
+	c, err := o.client()
+	if err != nil {
+		return SceneStatus{}, err
+	}
+	list, err := c.Scenes.GetSceneList(&scenes.GetSceneListParams{})
+	if err != nil {
+		return SceneStatus{}, fmt.Errorf("list OBS scenes: %w", err)
+	}
+	st := SceneStatus{Missing: []string{}}
+	for _, s := range list.Scenes {
+		if s.SceneName == SceneName {
+			st.Exists = true
+			continue
+		}
+		st.Scenes++
+		has, err := hasItem(c, s.SceneName, SceneName)
+		if err != nil {
+			return SceneStatus{}, err
+		}
+		if !has {
+			st.Missing = append(st.Missing, s.SceneName)
+		}
+	}
+	return st, nil
+}
+
+// Setup creates the darkbot scene with its sources and nests it on top of
+// every other scene. soundInput is the sound source's name. It is safe to
+// run again: existing parts are kept as they are.
+func (o *Client) Setup(soundInput string) (added []string, err error) {
+	c, err := o.client()
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureScene(c, soundInput); err != nil {
+		return nil, o.fail(c, err)
+	}
+	list, err := c.Scenes.GetSceneList(&scenes.GetSceneListParams{})
+	if err != nil {
+		return nil, o.fail(c, fmt.Errorf("list OBS scenes: %w", err))
+	}
+	for _, s := range list.Scenes {
+		if s.SceneName == SceneName {
+			continue
+		}
+		has, err := hasItem(c, s.SceneName, SceneName)
+		if err != nil {
+			return added, err
+		}
+		if has {
+			continue
+		}
+		if err := nestOnTop(c, s.SceneName); err != nil {
+			return added, err
+		}
+		added = append(added, s.SceneName)
+	}
+	return added, nil
+}
+
+func items(c *goobs.Client, scene string) ([]*typedefs.SceneItem, error) {
+	r, err := c.SceneItems.GetSceneItemList(sceneitems.NewGetSceneItemListParams().WithSceneName(scene))
+	if err != nil {
+		return nil, fmt.Errorf("list items of OBS scene %q: %w", scene, err)
+	}
+	return r.SceneItems, nil
+}
+
+func hasItem(c *goobs.Client, scene, source string) (bool, error) {
+	list, err := items(c, scene)
+	if err != nil {
+		return false, err
+	}
+	for _, it := range list {
+		if it.SourceName == source {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// nestOnTop adds the darkbot scene to scene, above everything else.
+func nestOnTop(c *goobs.Client, scene string) error {
+	before, err := items(c, scene)
+	if err != nil {
+		return err
+	}
+	r, err := c.SceneItems.CreateSceneItem(sceneitems.NewCreateSceneItemParams().
+		WithSceneName(scene).WithSourceName(SceneName).WithSceneItemEnabled(true))
+	if err != nil {
+		return fmt.Errorf("add the darkbot scene to %q: %w", scene, err)
+	}
+	// The highest index is the top of the list; with the new item there
+	// are len(before)+1 items, so the top index is len(before).
+	if _, err := c.SceneItems.SetSceneItemIndex(sceneitems.NewSetSceneItemIndexParams().
+		WithSceneName(scene).WithSceneItemId(r.SceneItemId).WithSceneItemIndex(len(before))); err != nil {
+		return fmt.Errorf("move the darkbot scene to the top of %q: %w", scene, err)
+	}
+	return nil
+}
+
+// ensureScene creates the darkbot scene and its sources where missing.
+func ensureScene(c *goobs.Client, soundInput string) error {
+	list, err := c.Scenes.GetSceneList(&scenes.GetSceneListParams{})
+	if err != nil {
+		return fmt.Errorf("list OBS scenes: %w", err)
+	}
+	if !slices.ContainsFunc(list.Scenes, func(s *typedefs.Scene) bool { return s.SceneName == SceneName }) {
+		if _, err := c.Scenes.CreateScene(scenes.NewCreateSceneParams().WithSceneName(SceneName)); err != nil {
+			return fmt.Errorf("create the OBS scene %q: %w", SceneName, err)
+		}
+	}
+	existing, err := c.Inputs.GetInputList(&inputs.GetInputListParams{})
+	if err != nil {
+		return fmt.Errorf("list OBS sources: %w", err)
+	}
+	have := map[string]bool{}
+	for _, in := range existing.Inputs {
+		have[in.InputName] = true
+	}
+	inScene, err := items(c, SceneName)
+	if err != nil {
+		return err
+	}
+	placed := map[string]bool{}
+	for _, it := range inScene {
+		placed[it.SourceName] = true
+	}
+	textKind, err := textInputKind(c)
+	if err != nil {
+		return err
+	}
+	want := []struct {
+		name, kind string
+		settings   map[string]any
+	}{
+		{soundInput, mediaSourceKind, soundSettings()},
+		{imageInput, imageKind, map[string]any{}},
+		{videoInput, mediaSourceKind, map[string]any{"is_local_file": true, "looping": false, "restart_on_activate": false, "close_when_inactive": true}},
+		{textInput, textKind, map[string]any{"text": "", "font": map[string]any{"face": "Arial", "size": textFontSize, "style": "Bold"}}},
+	}
+	for _, w := range want {
+		switch {
+		case !have[w.name]:
+			// Visual sources start hidden; the sound source is always on.
+			r, err := c.Inputs.CreateInput(inputs.NewCreateInputParams().
+				WithSceneName(SceneName).WithInputName(w.name).WithInputKind(w.kind).
+				WithInputSettings(w.settings).WithSceneItemEnabled(w.name == soundInput))
+			if err != nil {
+				return fmt.Errorf("create OBS source %q: %w", w.name, err)
+			}
+			if w.name != soundInput {
+				if err := center(c, r.SceneItemId, w.name == textInput); err != nil {
+					return err
+				}
+			}
+		case !placed[w.name]:
+			// e.g. darkbot-sound from older versions, in one of the
+			// streamer's scenes: also put it in darkbot's scene.
+			if _, err := c.SceneItems.CreateSceneItem(sceneitems.NewCreateSceneItemParams().
+				WithSceneName(SceneName).WithSourceName(w.name).WithSceneItemEnabled(w.name == soundInput)); err != nil {
+				return fmt.Errorf("add %q to the darkbot scene: %w", w.name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func soundSettings() map[string]any {
+	return map[string]any{"is_local_file": true, "restart_on_activate": false, "close_when_inactive": true}
+}
+
+// textInputKind: OBS's text source differs per system (GDI+ on Windows,
+// FreeType elsewhere) and carries a version suffix.
+func textInputKind(c *goobs.Client) (string, error) {
+	r, err := c.Inputs.GetInputKindList(inputs.NewGetInputKindListParams().WithUnversioned(false))
+	if err != nil {
+		return "", fmt.Errorf("list OBS source types: %w", err)
+	}
+	for _, prefix := range []string{"text_gdiplus", "text_ft2_source"} {
+		var best string
+		for _, k := range r.InputKinds {
+			if strings.HasPrefix(k, prefix) && k > best { // highest version
+				best = k
+			}
+		}
+		if best != "" {
+			return best, nil
+		}
+	}
+	return "", errors.New("OBS has no text source type")
+}
+
+// center puts a new source in the middle of the canvas (text below it).
+// The streamer can move it in OBS afterwards; darkbot never resets it.
+func center(c *goobs.Client, itemID int, below bool) error {
+	v, err := c.Config.GetVideoSettings(&config.GetVideoSettingsParams{})
+	if err != nil {
+		return fmt.Errorf("read the OBS canvas size: %w", err)
+	}
+	t, err := c.SceneItems.GetSceneItemTransform(sceneitems.NewGetSceneItemTransformParams().
+		WithSceneName(SceneName).WithSceneItemId(itemID))
+	if err != nil {
+		return fmt.Errorf("read the position of a darkbot source: %w", err)
+	}
+	tr := *t.SceneItemTransform
+	tr.Alignment = obsAlignCenter
+	tr.PositionX = v.BaseWidth / 2
+	tr.PositionY = v.BaseHeight / 2
+	if below {
+		tr.PositionY += v.BaseHeight * textBelow
+	}
+	tr.BoundsWidth = max(tr.BoundsWidth, minBounds)
+	tr.BoundsHeight = max(tr.BoundsHeight, minBounds)
+	if _, err := c.SceneItems.SetSceneItemTransform(sceneitems.NewSetSceneItemTransformParams().
+		WithSceneName(SceneName).WithSceneItemId(itemID).WithSceneItemTransform(&tr)); err != nil {
+		return fmt.Errorf("place a darkbot source: %w", err)
+	}
+	return nil
+}
+
+// Alert is one visual alert: a picture or video file and/or a text.
+type Alert struct {
+	File string
+	Text string
+}
+
+// Show displays an alert in the darkbot scene and returns how to hide it
+// and, for a video, how long it plays (0 = unknown or a picture).
+func (o *Client) Show(ctx context.Context, a Alert, soundInput string) (hide func(), length time.Duration, err error) {
+	c, err := o.client()
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := ensureScene(c, soundInput); err != nil {
+		return nil, 0, o.fail(c, err)
+	}
+	var show []string
+	video := a.File != "" && IsVideo(a.File)
+	switch {
+	case video:
+		if err := setInput(c, videoInput, map[string]any{"is_local_file": true, "local_file": a.File, "looping": false}); err != nil {
+			return nil, 0, o.fail(c, err)
+		}
+		show = append(show, videoInput)
+	case a.File != "":
+		if err := setInput(c, imageInput, map[string]any{"file": a.File}); err != nil {
+			return nil, 0, o.fail(c, err)
+		}
+		show = append(show, imageInput)
+	}
+	if a.Text != "" {
+		if err := setInput(c, textInput, map[string]any{"text": a.Text}); err != nil {
+			return nil, 0, o.fail(c, err)
+		}
+		show = append(show, textInput)
+	}
+	ids, err := itemIDs(c, show)
+	if err != nil {
+		return nil, 0, o.fail(c, err)
+	}
+	for _, id := range ids {
+		if err := enable(c, id, true); err != nil {
+			return nil, 0, o.fail(c, err)
+		}
+	}
+	if video {
+		if _, err := c.MediaInputs.TriggerMediaInputAction(mediainputs.NewTriggerMediaInputActionParams().
+			WithInputName(videoInput).WithMediaAction(restartAction)); err != nil {
+			return nil, 0, o.fail(c, fmt.Errorf("start the alert video: %w", err))
+		}
+		length = videoLength(ctx, c)
+	}
+	hide = func() {
+		for _, id := range ids {
+			_ = enable(c, id, false) // a gone OBS is handled by the watcher
+		}
+	}
+	return hide, length, nil
+}
+
+func setInput(c *goobs.Client, name string, settings map[string]any) error {
+	if _, err := c.Inputs.SetInputSettings(inputs.NewSetInputSettingsParams().
+		WithInputName(name).WithInputSettings(settings).WithOverlay(true)); err != nil {
+		return fmt.Errorf("set OBS source %q: %w", name, err)
+	}
+	return nil
+}
+
+func itemIDs(c *goobs.Client, names []string) ([]int, error) {
+	list, err := items(c, SceneName)
+	if err != nil {
+		return nil, err
+	}
+	var ids []int
+	for _, n := range names {
+		i := slices.IndexFunc(list, func(it *typedefs.SceneItem) bool { return it.SourceName == n })
+		if i < 0 {
+			return nil, fmt.Errorf("OBS source %q is not in the darkbot scene", n)
+		}
+		ids = append(ids, list[i].SceneItemID)
+	}
+	return ids, nil
+}
+
+func enable(c *goobs.Client, id int, on bool) error {
+	_, err := c.SceneItems.SetSceneItemEnabled(sceneitems.NewSetSceneItemEnabledParams().
+		WithSceneName(SceneName).WithSceneItemId(id).WithSceneItemEnabled(on))
+	if err != nil {
+		return fmt.Errorf("show/hide a darkbot source: %w", err)
+	}
+	return nil
+}
+
+// videoLength asks OBS for the alert video's length once it plays.
+func videoLength(ctx context.Context, c *goobs.Client) time.Duration {
+	deadline := time.Now().Add(mediaDurationWait)
+	for time.Now().Before(deadline) {
+		st, err := c.MediaInputs.GetMediaInputStatus(mediainputs.NewGetMediaInputStatusParams().WithInputName(videoInput))
+		if err == nil && st.MediaDuration > 0 {
+			return time.Duration(st.MediaDuration) * time.Millisecond
+		}
+		select {
+		case <-ctx.Done():
+			return 0
+		case <-time.After(mediaPoll):
+		}
+	}
+	return 0
+}

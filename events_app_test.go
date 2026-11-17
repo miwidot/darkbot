@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -73,7 +74,7 @@ func (r *recordOutput) Play(_ context.Context, s config.Sound, _ float64) error 
 	return nil
 }
 
-func newEventApp(t *testing.T, events map[string]config.EventAction) (*App, *recordOutput) {
+func newEventApp(t *testing.T, events map[string]config.EventAction, overlay ...bot.Overlay) (*App, *recordOutput) {
 	t.Helper()
 	cfg, err := config.Open(t.TempDir())
 	if err != nil {
@@ -86,6 +87,9 @@ func newEventApp(t *testing.T, events map[string]config.EventAction) (*App, *rec
 	out := &recordOutput{played: make(chan config.Sound, 4)}
 	a := &App{cfg: cfg, log: log, st: stats.Open(filepath.Join(t.TempDir(), "s.json"), log)}
 	a.bot = bot.New(cfg, log, func() bot.Output { return out }, nil)
+	if len(overlay) > 0 {
+		a.bot.SetOverlay(func() bot.Overlay { return overlay[0] })
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	go a.bot.Run(ctx)
@@ -219,5 +223,62 @@ func TestSaveEventActionMakesOneLine(t *testing.T) {
 	}
 	if got := a.cfg.Get().Events[twitch.EvFollow].Chat; got != "Danke {user}! Willkommen" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+type recordOverlay struct{ shown chan bot.Alert }
+
+func (r *recordOverlay) ShowAlert(_ context.Context, a bot.Alert) (func(), time.Duration, error) {
+	r.shown <- a
+	return func() {}, 0, nil
+}
+
+func TestEventAlertIsFilledIn(t *testing.T) {
+	ov := &recordOverlay{shown: make(chan bot.Alert, 1)}
+	a, _ := newEventApp(t, map[string]config.EventAction{
+		twitch.EvRaid: {Enabled: true, Visual: "/alerts/raid.webm", OverlayText: "{user} raidet mit {amount}!", Seconds: 7},
+	}, ov)
+	a.handleEvent(twitch.ChannelEvent{Kind: twitch.EvRaid, User: "Friend", Amount: 42}, false)
+	select {
+	case al := <-ov.shown:
+		if al.File != "/alerts/raid.webm" || al.Text != "Friend raidet mit 42!" || al.Seconds != 7 {
+			t.Fatalf("alert %+v", al)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("an alert without sound must still show")
+	}
+}
+
+func TestSaveEventActionChecksAlert(t *testing.T) {
+	dir := t.TempDir()
+	gif := filepath.Join(dir, "follow.gif")
+	if err := os.WriteFile(gif, []byte("GIF89a"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := newEventApp(t, nil)
+	bad := []config.EventAction{
+		{Visual: "follow.gif"},                      // relative path
+		{Visual: filepath.Join(dir, "follow.txt")},  // no picture or video
+		{Visual: filepath.Join(dir, "missing.png")}, // file doesn't exist
+		{Visual: gif, Seconds: config.MaxAlertSeconds + 1},
+		{OverlayText: strings.Repeat("x", config.MaxOverlayText+1)},
+	}
+	for i, act := range bad {
+		if err := a.SaveEventAction(twitch.EvFollow, act); err == nil {
+			t.Errorf("case %d must be refused: %+v", i, act)
+		}
+	}
+	if err := a.SaveEventAction(twitch.EvFollow, config.EventAction{Enabled: true, Visual: gif, OverlayText: "{user}\nfolgt", Seconds: 5}); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.cfg.Get().Events[twitch.EvFollow]; got.Visual != gif || got.OverlayText != "{user} folgt" {
+		t.Fatalf("saved %+v", got)
+	}
+	// Never name people who unfollowed on screen either.
+	if err := a.SaveEventAction(twitch.EvUnfollow, config.EventAction{Enabled: true, Visual: gif, OverlayText: "{user} ist weg"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.cfg.Get().Events[twitch.EvUnfollow]; got.OverlayText != "" || got.Visual != gif {
+		t.Fatalf("unfollow saved %+v", got)
 	}
 }
