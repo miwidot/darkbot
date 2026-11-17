@@ -104,6 +104,7 @@ function render() {
   $('dashSince').classList.toggle('hidden', !loggedIn);
   showView(loggedIn ? view : 'dash');
   renderDash();
+  renderEvents();
   renderLogins();
 
   renderPads();
@@ -187,6 +188,7 @@ function showView(name) {
   }
   $('viewDash').classList.toggle('hidden', name !== 'dash');
   $('viewSounds').classList.toggle('hidden', name !== 'sounds');
+  $('viewEvents').classList.toggle('hidden', name !== 'events');
 }
 for (const b of document.querySelectorAll('.views button')) {
   b.addEventListener('click', () => {
@@ -195,13 +197,34 @@ for (const b of document.querySelectorAll('.views button')) {
     showView(view);
   });
 }
-try { view = localStorage.getItem(VIEW_KEY) === 'sounds' ? 'sounds' : 'dash'; } catch (e) { view = 'dash'; }
+const VIEWS = ['dash', 'sounds', 'events'];
+try { const v = localStorage.getItem(VIEW_KEY); view = VIEWS.includes(v) ? v : 'dash'; } catch (e) { view = 'dash'; }
 
 // ---------- dashboard ----------
 
 const num = (n) => Number(n || 0).toLocaleString(I18N.lang || undefined);
 
 // Four meters. The big number is this session; the lines below explain it.
+// Channel meters: what Twitch reports about your channel.
+const METERS_CHANNEL = [
+  { id: 'follows', label: 'dash.follows', tip: 'tip.dashFollows',
+    value: (s) => s.session.follows,
+    detail: (s) => (state && state.config.unfollow_detection ? t('dash.followsDetail', { n: num(s.session.unfollows) }) : t('dash.followsNoDetect')),
+    total: (s) => s.total.follows },
+  { id: 'subs', label: 'dash.subs', tip: 'tip.dashSubs',
+    value: (s) => s.session.subs,
+    detail: (s) => t('dash.subsDetail', { n: num(s.session.giftedSubs) }),
+    total: (s) => s.total.subs },
+  { id: 'bits', label: 'dash.bits', tip: 'tip.dashBits',
+    value: (s) => s.session.bits,
+    detail: () => t('dash.bitsDetail'),
+    total: (s) => s.total.bits },
+  { id: 'raids', label: 'dash.raids', tip: 'tip.dashRaids',
+    value: (s) => s.session.raids,
+    detail: (s) => t('dash.raidsDetail', { n: num(s.session.raidViewers) }),
+    total: (s) => s.total.raids },
+];
+
 const METERS = [
   { id: 'redemptions', label: 'dash.redemptions', tip: 'tip.dashRedemptions',
     value: (s) => s.session.redemptions,
@@ -230,7 +253,14 @@ function renderDash() {
     date: totalSince.toLocaleDateString(I18N.lang || undefined, { day: 'numeric', month: 'short', year: 'numeric' }),
   });
 
-  $('meters').replaceChildren(...METERS.map((m) => {
+  renderMeters('metersChannel', METERS_CHANNEL);
+  renderMeters('meters', METERS);
+  renderRank('topSounds', stats.topSounds || []);
+  renderRank('topViewers', stats.topViewers || []);
+}
+
+function renderMeters(id, defs) {
+  $(id).replaceChildren(...defs.map((m) => {
     const v = m.value(stats) || 0;
     const prev = lastValues.get(m.id);
     lastValues.set(m.id, v);
@@ -245,9 +275,6 @@ function renderDash() {
     if (bump) setTimeout(() => tile.classList.remove('bump'), BUMP_MS);
     return tile;
   }));
-
-  renderRank('topSounds', stats.topSounds || []);
-  renderRank('topViewers', stats.topViewers || []);
 }
 
 // Ranked list with a bar relative to the leader.
@@ -358,6 +385,130 @@ function renderLogins() {
 }
 setInterval(() => { if (!$('viewDash').classList.contains('hidden')) renderLogins(); }, LOGIN_TICK_MS);
 
+// ---------- events (follows, subs, bits, ...) ----------
+
+let eventKinds = [];   // [{kind, hasAmount, hasChat}] from Go
+let evEditing = null;  // kind open in the editor
+
+// "{user} cheered {amount} Bits" -> text nodes with the name in bold.
+function eventLine(ev) {
+  const key = ev.kind === 'sub' && ev.gift ? 'feed.ev.subGift' : 'feed.ev.' + ev.kind;
+  const who = ev.anonymous || !ev.user ? t('event.anonymous') : ev.user;
+  const parts = t(key, { amount: num(ev.amount), tier: ev.tier, months: ev.months }).split('{user}');
+  const nodes = [];
+  parts.forEach((p, i) => {
+    if (i > 0) nodes.push(el('b', {}, who));
+    if (p) nodes.push(p);
+  });
+  return nodes;
+}
+
+function actionSummary(act) {
+  if (!act || !act.enabled) return t('events.off');
+  const bits = [];
+  if (act.sound) bits.push(t('events.sound'));
+  if (act.chat) bits.push(t('events.chat'));
+  if (!bits.length) return t('events.noAction');
+  return bits.join(' + ') + (act.min_amount > 0 ? ', ' + t('events.from', { n: num(act.min_amount) }) : '');
+}
+
+function renderEvents() {
+  if (!state) return;
+  const actions = state.config.events || {};
+  $('eventsReconnect').classList.toggle('hidden', !state.needsReconnect);
+  $('eventList').replaceChildren(...eventKinds.map((k) => {
+    const act = actions[k.kind];
+    const on = !!(act && act.enabled && (act.sound || act.chat));
+    return el('li', { class: 'event-row' + (on ? ' on' : '') },
+      el('span', { class: 'event-led', 'aria-hidden': 'true' }),
+      el('div', { class: 'event-text' },
+        el('b', {}, t('event.' + k.kind)),
+        el('span', {}, t('eventdesc.' + k.kind))),
+      el('span', { class: 'event-summary' }, actionSummary(act)),
+      el('button', { class: 'btn quiet', onclick: () => testEvent(k.kind) }, t('events.test')),
+      el('button', { class: 'btn', onclick: () => openEventEditor(k) }, t('events.edit')));
+  }));
+
+  $('unfollowDetection').checked = !!state.config.unfollow_detection;
+  const fs = state.followerStatus;
+  let status = t('events.unfollowOff');
+  if (state.config.unfollow_detection) {
+    if (fs && fs.tooMany) status = t('events.unfollowTooMany', { n: num(fs.total) });
+    else if (fs && isSet(fs.lastCheck)) status = t('events.unfollowWatching', { n: num(fs.tracking), time: clock(new Date(fs.lastCheck)) });
+    else status = t('events.unfollowStarting');
+  }
+  $('unfollowStatus').textContent = status;
+}
+
+$('unfollowDetection').addEventListener('change', async () => {
+  try { await call('SetUnfollowDetection', $('unfollowDetection').checked); } catch (e) { /* toast shown */ }
+  refresh();
+});
+
+async function testEvent(kind) {
+  try { await call('TestEvent', kind); toast(t('events.tested')); } catch (e) { /* toast shown */ }
+}
+
+function openEventEditor(k) {
+  evEditing = k.kind;
+  const act = (state.config.events || {})[k.kind] || { enabled: true, sound: '', volume: 1, chat: '', min_amount: 0 };
+  $('evTitle').textContent = t('event.' + k.kind);
+  $('evDesc').textContent = t('eventdesc.' + k.kind);
+  $('evEnabled').checked = act.enabled;
+  $('evSound').value = act.sound || '';
+  $('evVolume').value = act.volume || 1;
+  $('evVolumeVal').textContent = pct(+$('evVolume').value);
+  $('evChat').value = act.chat || '';
+  $('evMin').value = act.min_amount || 0;
+  $('evChatField').classList.toggle('hidden', !k.hasChat);
+  $('evMinField').classList.toggle('hidden', !k.hasAmount);
+  $('evError').classList.add('hidden');
+  $('evEditor').showModal();
+}
+
+function evAction() {
+  return {
+    enabled: $('evEnabled').checked,
+    sound: $('evSound').value,
+    volume: +$('evVolume').value,
+    chat: $('evChat').value.trim(),
+    min_amount: Math.max(0, parseInt($('evMin').value, 10) || 0),
+  };
+}
+
+$('evVolume').addEventListener('input', () => { $('evVolumeVal').textContent = pct(+$('evVolume').value); });
+$('evPick').addEventListener('click', async () => {
+  const f = await call('PickSoundFile');
+  if (f) $('evSound').value = f;
+});
+$('evClear').addEventListener('click', () => { $('evSound').value = ''; });
+$('evCancel').addEventListener('click', () => $('evEditor').close());
+$('evSave').addEventListener('click', async () => {
+  $('evSave').disabled = true;
+  try {
+    await App().SaveEventAction(evEditing, evAction());
+    $('evEditor').close();
+    toast(t('evedit.saved'));
+    refresh();
+  } catch (e) {
+    $('evError').textContent = errText(e);
+    $('evError').classList.remove('hidden');
+  } finally {
+    $('evSave').disabled = false;
+  }
+});
+// Test from the editor saves first, so the test uses what is on screen.
+$('evTest').addEventListener('click', async () => {
+  try {
+    await App().SaveEventAction(evEditing, evAction());
+    await refresh();
+    await testEvent(evEditing);
+  } catch (e) {
+    $('evError').textContent = errText(e);
+    $('evError').classList.remove('hidden');
+  }
+});
+
 // ---------- activity feed ----------
 
 const redeemed = () => ' ' + t('feed.redeemed') + ' ';
@@ -366,7 +517,7 @@ const FEED_TEXT = {
   cooldown: (a) => [a.user, redeemed(), a.rewardTitle, t('feed.cooldown', { time: a.message })],
   disabled: (a) => [a.user, redeemed(), a.rewardTitle, t('feed.disabled')],
   queue_full: (a) => [a.user, redeemed(), a.rewardTitle, t('feed.queueFull')],
-  error: (a) => [a.test ? t('feed.preview') : a.user, a.test ? ' ' + t('feed.previewOf') + ' ' : redeemed(), a.rewardTitle, a.message || t('feed.failed')],
+  error: (a) => a.event ? [t('feed.eventSound'), ' ', a.rewardTitle, a.message || t('feed.failed')] : [a.test ? t('feed.preview') : a.user, a.test ? ' ' + t('feed.previewOf') + ' ' : redeemed(), a.rewardTitle, a.message || t('feed.failed')],
   song_added: (a) => [a.user, ' ' + t('feed.requested') + ' ', a.title, null],
   song_rejected: (a) => [a.user, ' ' + t('feed.requested') + ' ', a.title, a.message],
   song_skipped: (a) => [a.user, ' ' + t('feed.skippedSong') + ' ', a.title, null],
@@ -374,6 +525,7 @@ const FEED_TEXT = {
 const FEED_CLASS = { queued: 'played', song_added: 'played', error: 'error' };
 
 function onActivity(a) {
+  if (a.kind === 'event') { addFeed(a); return; }
   if (a.kind === 'playing') playing.add(a.soundId);
   if (a.kind === 'done' || a.kind === 'error') playing.delete(a.soundId);
   const until = Date.parse(a.cooldownUntil);
@@ -384,7 +536,10 @@ function onActivity(a) {
   if (pad) pad.classList.toggle('playing', playing.has(a.soundId));
   tickCooldowns();
 
-  if (!FEED_TEXT[a.kind]) return;
+  if (FEED_TEXT[a.kind]) addFeed(a);
+}
+
+function addFeed(a) {
   activities.unshift(a);
   if (activities.length > FEED_MAX) activities.length = FEED_MAX;
   const item = feedItem(a);
@@ -397,6 +552,11 @@ function onActivity(a) {
 }
 
 function feedItem(a) {
+  if (a.kind === 'event') {
+    return el('li', { class: 'feed-item event ev-' + a.event.kind },
+      el('time', { datetime: a.at }, clock(new Date(a.at))),
+      el('span', { class: 'what' }, ...(a.test ? [el('span', { class: 'test-tag' }, t('feed.test')), ' '] : []), ...eventLine(a.event)));
+  }
   const [who, verb, what, why] = FEED_TEXT[a.kind](a);
   const kindClass = FEED_CLASS[a.kind] || 'skipped';
   return el('li', { class: 'feed-item ' + kindClass },
@@ -921,6 +1081,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.runtime.EventsOn('stats', loadStats);
   window.runtime.EventsOn('log', () => { if ($('settings').open && $('sec-log').classList.contains('active')) renderLog(); });
   languages = (await App().GetLanguages()) || languages;
+  eventKinds = (await App().GetEventKinds()) || [];
   await App().ReportSystemLanguage([...(navigator.languages || [navigator.language])]);
   await loadDevices(false);
   App().ReportAudioSupport(SINK_SUPPORTED, devices.length, devices.filter((d) => d.label).length);

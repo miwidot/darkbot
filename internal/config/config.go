@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -120,6 +121,24 @@ type SongRequests struct {
 	RequesterCanSkip bool `json:"requester_can_skip"`
 }
 
+// EventAction is what darkbot does on a channel event (follow, sub, ...).
+// The event always shows in the activity feed; the action is optional.
+type EventAction struct {
+	Enabled bool `json:"enabled"`
+	// Sound file to play ("" = none) at Volume.
+	Sound  string  `json:"sound"`
+	Volume float64 `json:"volume"`
+	// Chat message template ("" = none); placeholders {user}, {amount},
+	// {tier}, {months}. Viewer text is never inserted.
+	Chat string `json:"chat"`
+	// MinAmount: only react from this amount on (bits, raid viewers, gifted
+	// subs); 0 = always.
+	MinAmount int `json:"min_amount"`
+}
+
+// MaxChatTemplate matches Twitch's chat message limit (500 characters).
+const MaxChatTemplate = 500
+
 // Config is the whole persisted app configuration.
 type Config struct {
 	TwitchClientID string `json:"twitch_client_id"`
@@ -138,6 +157,11 @@ type Config struct {
 	OBS        OBS          `json:"obs"`
 	Sounds     []Sound      `json:"sounds"`
 	Songs      SongRequests `json:"songs"`
+	// Events maps an event kind (twitch.Ev*) to its action.
+	Events map[string]EventAction `json:"events"`
+	// UnfollowDetection compares the follower list every few minutes,
+	// because Twitch has no unfollow event (opt-in).
+	UnfollowDetection bool `json:"unfollow_detection"`
 }
 
 // Default returns a config with sensible defaults.
@@ -165,6 +189,15 @@ func Default() Config {
 func (c *Config) normalize() {
 	if c.OutputMode != OutputDevice && c.OutputMode != OutputOBS {
 		c.OutputMode = OutputDevice
+	}
+	for k, a := range c.Events {
+		a.Sound = strings.TrimSpace(a.Sound)
+		a.Chat = strings.TrimSpace(a.Chat)
+		if a.Volume <= 0 || a.Volume > MaxVolume {
+			a.Volume = DefaultSoundVolume
+		}
+		a.MinAmount = max(a.MinAmount, 0)
+		c.Events[k] = a
 	}
 	c.Songs.SpotifyClientID = strings.TrimSpace(c.Songs.SpotifyClientID)
 	c.Songs.UserCooldownSeconds = max(c.Songs.UserCooldownSeconds, 0)
@@ -208,6 +241,10 @@ func (c *Config) normalize() {
 func (c Config) Clone() Config {
 	out := c
 	out.Sounds = append([]Sound(nil), c.Sounds...)
+	if c.Events != nil {
+		out.Events = make(map[string]EventAction, len(c.Events))
+		maps.Copy(out.Events, c.Events)
+	}
 	return out
 }
 

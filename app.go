@@ -81,7 +81,9 @@ type App struct {
 	loginCode   *twitch.DeviceCode
 	update      *selfupdate.Info
 	updating    bool
-	spLogin     *spotify.PendingLogin // Spotify login waiting for the pasted address
+	spLogin     *spotify.PendingLogin   // Spotify login waiting for the pasted address
+	fw          *twitch.FollowerWatcher // unfollow detection, nil when off
+	fwCancel    context.CancelFunc
 	// sysLangs are the system languages reported by the web view
 	// (navigator.languages); used when the user didn't pick a language.
 	sysLangs []string
@@ -323,6 +325,8 @@ type State struct {
 	// Token health for the dashboard ("Logins" panel).
 	TwitchHealth  twitch.Health  `json:"twitchHealth"`
 	SpotifyHealth spotify.Health `json:"spotifyHealth"`
+	// FollowerStatus: unfollow detection state (nil = off).
+	FollowerStatus *twitch.FollowerStatus `json:"followerStatus"`
 	// Autostart: darkbot starts when the user logs in to the computer.
 	Autostart          bool `json:"autostart"`
 	AutostartSupported bool `json:"autostartSupported"`
@@ -342,6 +346,7 @@ func (a *App) GetState() State {
 	}
 	s.SpotifyRedirectURI = spotify.RedirectURI
 	s.TwitchHealth, s.SpotifyHealth = a.tok.Health(), a.sp.Health()
+	s.FollowerStatus = a.followerStatus()
 	s.AutostartSupported = autostart.Supported()
 	if s.AutostartSupported {
 		on, err := autostart.Enabled()
@@ -521,6 +526,7 @@ func (a *App) startEventSub() {
 		a.mu.Unlock()
 		a.emitState()
 	})
+	es.OnChannelEvent(a.onChannelEvent)
 	es.OnChat(func(m twitch.ChatMessage) {
 		// EventSub delivers on its read loop; Spotify calls must not block it.
 		if songs.IsCommand(m.Text) {
@@ -528,9 +534,11 @@ func (a *App) startEventSub() {
 		}
 	})
 	go es.Run(ctx)
+	a.startFollowerWatcher()
 }
 
 func (a *App) stopEventSub() {
+	a.stopFollowerWatcher()
 	a.mu.Lock()
 	cancel := a.esCancel
 	a.esCancel, a.esConnected = nil, false
@@ -831,6 +839,12 @@ func (a *App) serveSound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := strings.TrimPrefix(r.URL.Path, soundURLPrefix)
+	if file, ok := a.eventSoundFile(id); ok {
+		w.Header().Set("Content-Type", audio.MIMEType(file))
+		w.Header().Set("Cache-Control", "no-store")
+		http.ServeFile(w, r, file)
+		return
+	}
 	for _, s := range a.cfg.Get().Sounds {
 		if s.ID == id {
 			w.Header().Set("Content-Type", audio.MIMEType(s.File))
@@ -1006,7 +1020,7 @@ func (a *App) SpotifyLogout() error {
 // redemption produces exactly one of queued/cooldown/disabled/queue_full;
 // previews (Test) are never counted.
 func (a *App) countActivity(act bot.Activity) {
-	if act.Test {
+	if act.Test || act.Event {
 		return
 	}
 	switch act.Kind {

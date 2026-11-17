@@ -16,6 +16,7 @@ darkbot does the sound part of tools like Streamer.bot, and nothing else: one wi
   - *Audio device:* darkbot plays the sound itself on the output you pick, like Streamer.bot or StreamElements. Capture that output, or darkbot itself, in OBS.
   - *Inside OBS:* darkbot plays the sound in an OBS media source and routes it to the audio tracks 1–6 you choose, for example stream only, or stream and recording but not your VOD track.
 - **Song requests from chat (Spotify).** Viewers type `!sr <Spotify link or song name>` and the song goes into your Spotify queue. `!song`, `!next` and `!queue` show what plays; `!skip` is for you, your moderators and (optional) whoever requested the song. Per-viewer cooldown, maximum length and an explicit filter are adjustable. Uses your own Spotify app, see [Song requests](#song-requests-spotify).
+- **Channel events with actions.** Follows, subs, resubs, gifted subs, Bits, raids, hype trains, shoutouts, ad breaks and stream start/end appear live in the activity feed. For each you can play a sound and/or post a chat message (`{user}`, `{amount}`, `{tier}`, `{months}`), optionally only from a minimum amount. Twitch has no unfollow event; an opt-in check compares your follower list every 10 minutes (up to 5,000 followers).
 - **Dashboard.** The start page counts redemptions, chat commands and song requests per session and in total, ranks the most redeemed sounds and most active viewers, and shows the state of your Twitch and Spotify logins (valid until, next automatic renewal, how long the login lasts) with a renew button.
 - **Starts with your computer** if you want (Windows, macOS, Linux; per user, no admin rights).
 - **Live view.** Every sound is a pad. It lights up while playing and shows its cooldown draining. An activity feed lists who redeemed what and why something didn't play.
@@ -26,7 +27,7 @@ darkbot does the sound part of tools like Streamer.bot, and nothing else: one wi
 ## What it deliberately doesn't do
 
 - No open network ports, no local web server, no browser source. It's a desktop app; the window *is* the app.
-- No general chat bot: the only chat commands are the song requests. No alerts, no overlays. Other tools do that well.
+- No general chat bot: the only chat commands are the song requests, and event messages are short thank-yous you write yourself. No overlays.
 - No cloud, no telemetry, no account. Your settings stay on your computer; the Twitch login lives in the OS keychain.
 
 ## Install

@@ -22,6 +22,7 @@
     <nav class="views" data-i18n-aria-label="view.nav">
       <button data-view="dash" data-i18n="view.dash"></button>
       <button data-view="sounds" data-i18n="view.sounds"></button>
+      <button data-view="events" data-i18n="view.events"></button>
     </nav>
     <div class="signals" aria-live="polite">
       <span class="signal" id="sigTwitch" tabindex="0" data-tip="tip.sigTwitch"><i></i><span></span></span>
@@ -54,6 +55,9 @@
       </div>
 
       <div id="dashBody">
+        <h2 class="meter-group" data-i18n="dash.groupChannel"></h2>
+        <div class="meters" id="metersChannel"></div>
+        <h2 class="meter-group" data-i18n="dash.groupBot"></h2>
         <div class="meters" id="meters"></div>
         <div class="ranks">
           <section class="rank">
@@ -87,6 +91,19 @@
         <button class="btn" id="emptyAdd" data-i18n="board.emptyBtn"></button>
       </div>
       <p class="board-hint" id="boardHint" data-i18n="board.hint"></p>
+    </section>
+
+    <section class="board view hidden" id="viewEvents" aria-labelledby="eventsTitle">
+      <div class="board-head">
+        <h1 id="eventsTitle" data-i18n="events.title"></h1>
+      </div>
+      <p class="lede events-lede" data-i18n="events.lede"></p>
+      <p class="notice hidden" id="eventsReconnect" data-i18n="events.reconnect"></p>
+      <div class="unfollow-box">
+        <label class="check"><input type="checkbox" id="unfollowDetection"> <span data-i18n="events.unfollowDetection"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.unfollow" data-i18n-aria-label="tip.more"></span></label>
+        <p class="hint" id="unfollowStatus"></p>
+      </div>
+      <ul class="event-list" id="eventList"></ul>
     </section>
 
     <aside class="feed" aria-labelledby="feedTitle">
@@ -361,6 +378,38 @@
     <span class="spacer"></span>
     <button type="button" class="btn quiet" id="edCancel" data-i18n="editor.cancel"></button>
     <button type="button" class="btn primary" id="edSave"></button>
+  </div>
+</dialog>
+
+<!-- EVENT ACTION EDITOR -->
+<dialog class="modal" id="evEditor" aria-labelledby="evTitle">
+  <h2 id="evTitle"></h2>
+  <p class="hint ev-desc" id="evDesc"></p>
+  <label class="check"><input type="checkbox" id="evEnabled"> <span data-i18n="evedit.enabled"></span></label>
+  <div class="field">
+    <label for="evSound"><span data-i18n="evedit.sound"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.evSound" data-i18n-aria-label="tip.more"></span></label>
+    <div class="inline"><input id="evSound" type="text" readonly data-i18n-placeholder="evedit.noSound"><button type="button" class="btn" id="evPick" data-i18n="editor.chooseFile"></button><button type="button" class="btn quiet" id="evClear" data-i18n="evedit.clear"></button></div>
+  </div>
+  <div class="field">
+    <label for="evVolume"><span data-i18n="editor.volume"></span> <output id="evVolumeVal"></output></label>
+    <input id="evVolume" type="range" min="0.05" max="1" step="0.05">
+  </div>
+  <div class="field" id="evChatField">
+    <label for="evChat"><span data-i18n="evedit.chat"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.evChat" data-i18n-aria-label="tip.more"></span></label>
+    <input id="evChat" type="text" maxlength="500" data-i18n-placeholder="evedit.chatPlaceholder">
+    <p class="hint" data-i18n="evedit.chatHint"></p>
+  </div>
+  <div class="field" id="evMinField">
+    <label for="evMin"><span data-i18n="evedit.minAmount"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.evMin" data-i18n-aria-label="tip.more"></span></label>
+    <input id="evMin" type="number" min="0" step="1">
+    <p class="hint" data-i18n="evedit.minHint"></p>
+  </div>
+  <p class="error hidden" id="evError" role="alert"></p>
+  <div class="modal-actions">
+    <button type="button" class="btn quiet" id="evTest" data-i18n="events.test"></button>
+    <span class="spacer"></span>
+    <button type="button" class="btn quiet" id="evCancel" data-i18n="editor.cancel"></button>
+    <button type="button" class="btn primary" id="evSave" data-i18n="evedit.save"></button>
   </div>
 </dialog>
 

@@ -474,3 +474,41 @@ details.more summary { cursor: pointer; color: var(--ink-2); }
 @media (prefers-reduced-motion: reduce) {
   .meter::after, .meter-value { transition: none; }
 }
+
+/* ---------- dashboard groups ---------- */
+.meter-group { margin: 18px 0 10px; font-size: var(--step-0); font-weight: 650; color: var(--ink-2); }
+#dashBody > .meter-group:first-child { margin-top: 0; }
+
+/* ---------- events view ---------- */
+.events-lede { max-width: 64ch; }
+.unfollow-box { margin: 4px 0 18px; padding: 10px 14px; border: 1px solid var(--metal-2); border-radius: var(--r-pad); background: var(--metal-0); }
+.unfollow-box .check { margin: 4px 0; }
+.unfollow-box .hint { margin: 0 0 4px 26px; }
+.event-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.event-row {
+  display: grid; grid-template-columns: 10px minmax(0, 1fr) auto auto auto; align-items: center; gap: 12px;
+  padding: 10px 12px; border: 1px solid var(--metal-2); border-radius: var(--r-ctl); background: var(--metal-1);
+}
+.event-row:hover { border-color: var(--metal-3); }
+.event-led { width: 8px; height: 8px; border-radius: 50%; background: var(--metal-3); }
+.event-row.on .event-led { background: var(--led); box-shadow: 0 0 6px rgba(255, 178, 63, .55); }
+.event-text { display: flex; flex-direction: column; min-width: 0; }
+.event-text b { font-weight: 600; }
+.event-text span { color: var(--ink-3); font-size: var(--step--1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-summary { color: var(--ink-2); font-size: var(--step--1); white-space: nowrap; }
+.event-row:not(.on) .event-summary { color: var(--ink-3); }
+.event-row .btn { padding-top: 5px; padding-bottom: 5px; }
+.ev-desc { margin: -6px 0 6px; }
+
+/* feed: channel events get a thin accent so they stand apart from redemptions */
+.feed-item.event { box-shadow: inset 2px 0 0 var(--led-dim); }
+.feed-item.ev-cheer, .feed-item.ev-gift, .feed-item.ev-raid, .feed-item.ev-sub, .feed-item.ev-resub { box-shadow: inset 2px 0 0 var(--led); }
+.feed-item.ev-unfollow, .feed-item.ev-sub_end { box-shadow: inset 2px 0 0 var(--metal-3); }
+.test-tag {
+  display: inline-block; padding: 0 5px; border-radius: 4px; border: 1px solid var(--metal-3);
+  color: var(--ink-3); font-size: 10.5px; font-weight: 650; vertical-align: 1px;
+}
+@media (max-width: 900px) {
+  .event-row { grid-template-columns: 10px minmax(0, 1fr) auto auto; }
+  .event-summary { display: none; }
+}

@@ -31,6 +31,13 @@ type Counts struct {
 	SongsAdded    int `json:"songsAdded"`    // song requests that went into the Spotify queue
 	SongsRejected int `json:"songsRejected"` // song requests that were refused
 	Skips         int `json:"skips"`         // songs skipped with !skip
+	Follows       int `json:"follows"`
+	Unfollows     int `json:"unfollows"`  // only with unfollow detection on
+	Subs          int `json:"subs"`       // new subs and resubs (not gift recipients)
+	GiftedSubs    int `json:"giftedSubs"` // subs given as gifts
+	Bits          int `json:"bits"`
+	Raids         int `json:"raids"`
+	RaidViewers   int `json:"raidViewers"` // viewers brought by raids
 }
 
 // Entry is one ranked name.
@@ -160,6 +167,32 @@ func (s *Stats) SongRejected() { s.update(func(c *Counts) { c.SongsRejected++ },
 
 // Skip counts a skipped song.
 func (s *Stats) Skip() { s.update(func(c *Counts) { c.Skips++ }, nil) }
+
+// Follow, Unfollow, Sub, Gift, Cheer and Raid count channel events; user
+// (may be "") ranks the viewer.
+func (s *Stats) Follow(user string) {
+	s.update(func(c *Counts) { c.Follows++ }, nil)
+}
+func (s *Stats) Unfollow() { s.update(func(c *Counts) { c.Unfollows++ }, nil) }
+func (s *Stats) Sub(user string) {
+	s.update(func(c *Counts) { c.Subs++ }, func() { s.rankViewer(user) })
+}
+func (s *Stats) Gift(user string, n int) {
+	s.update(func(c *Counts) { c.GiftedSubs += n }, func() { s.rankViewer(user) })
+}
+func (s *Stats) Cheer(user string, bits int) {
+	s.update(func(c *Counts) { c.Bits += bits }, func() { s.rankViewer(user) })
+}
+func (s *Stats) Raid(viewers int) {
+	s.update(func(c *Counts) { c.Raids++; c.RaidViewers += viewers }, nil)
+}
+
+// rankViewer must run under mu; anonymous gifts/cheers aren't ranked.
+func (s *Stats) rankViewer(user string) {
+	if user != "" {
+		s.viewers[user]++
+	}
+}
 
 // ResetSession starts a new session (e.g. a new stream). Totals stay.
 func (s *Stats) ResetSession() {

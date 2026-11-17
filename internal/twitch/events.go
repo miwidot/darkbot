@@ -1,0 +1,238 @@
+package twitch
+
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+)
+
+// Channel events (verified 2026-11-17, https://dev.twitch.tv/docs/eventsub/reference/):
+// every type darkbot listens to besides redemptions and chat. Subscriptions
+// authorized by the broadcaster's scopes cost 0; the ones without a scope
+// (raid, stream online/offline) cost 1 each against max_total_cost 10.
+//
+// Twitch has no unfollow event; FollowerWatcher detects unfollows by
+// comparing the follower list (opt-in).
+
+// maxUnscopedCost: EventSub WebSocket allows a total subscription cost of
+// 10; every subscription without an authorizing scope costs 1.
+const maxUnscopedCost = 10
+
+// Event kinds darkbot reports and can attach actions to.
+const (
+	EvFollow    = "follow"
+	EvUnfollow  = "unfollow" // from FollowerWatcher, not EventSub
+	EvSub       = "sub"
+	EvResub     = "resub"
+	EvGift      = "gift"
+	EvCheer     = "cheer"
+	EvRaid      = "raid"
+	EvHypeBegin = "hype_begin"
+	EvHypeEnd   = "hype_end"
+	EvOnline    = "online"
+	EvOffline   = "offline"
+	EvAdBreak   = "ad_break"
+	EvShoutout  = "shoutout"
+	EvSubEnd    = "sub_end"
+)
+
+// EventKinds lists every kind in the order the UI shows them.
+var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvRaid, EvHypeBegin, EvHypeEnd, EvShoutout, EvAdBreak, EvSubEnd, EvOnline, EvOffline}
+
+// Scopes for channel events.
+const (
+	ScopeReadFollowers = "moderator:read:followers"
+	ScopeReadSubs      = "channel:read:subscriptions"
+	ScopeReadBits      = "bits:read"
+	ScopeReadHypeTrain = "channel:read:hype_train"
+	ScopeReadAds       = "channel:read:ads"
+	ScopeReadShoutouts = "moderator:read:shoutouts"
+)
+
+// ChannelEvent is one normalized channel event.
+type ChannelEvent struct {
+	Kind      string `json:"kind"`
+	MessageID string `json:"-"`    // EventSub message id (dedupe)
+	User      string `json:"user"` // display name; "" for anonymous/none
+	UserID    string `json:"-"`
+	Amount    int    `json:"amount"`  // bits, gifted subs, raid viewers, hype level, ad seconds, shoutout viewers
+	Tier      string `json:"tier"`    // "1", "2", "3" for subs ("" otherwise)
+	Months    int    `json:"months"`  // resub: cumulative months
+	Message   string `json:"message"` // resub/cheer message
+	Anonymous bool   `json:"anonymous"`
+	Gift      bool   `json:"gift"` // sub/sub_end was a gifted sub
+}
+
+// eventSpec is one EventSub subscription darkbot creates.
+type eventSpec struct {
+	Type    string
+	Version string
+	Scope   string // "" = no authorization needed
+	// condition builds the subscription condition for the broadcaster.
+	condition func(broadcasterID string) map[string]string
+	parse     func(raw json.RawMessage) (ChannelEvent, error)
+}
+
+func byBroadcaster(id string) map[string]string { return map[string]string{"broadcaster_user_id": id} }
+
+// asModerator: types that need a moderator_user_id; the broadcaster counts.
+func asModerator(id string) map[string]string {
+	return map[string]string{"broadcaster_user_id": id, "moderator_user_id": id}
+}
+
+// user is the user_* triple that most payloads share. Nullable for
+// anonymous gifts/cheers.
+type user struct {
+	ID   *string `json:"user_id"`
+	Name *string `json:"user_name"`
+}
+
+func (u user) name() string {
+	if u.Name == nil {
+		return ""
+	}
+	return *u.Name
+}
+
+func (u user) id() string {
+	if u.ID == nil {
+		return ""
+	}
+	return *u.ID
+}
+
+// tierNumber turns Twitch's "1000"/"2000"/"3000" into "1"/"2"/"3".
+func tierNumber(t string) string {
+	n, err := strconv.Atoi(t)
+	if err != nil || n < 1000 {
+		return t
+	}
+	return strconv.Itoa(n / 1000)
+}
+
+func decode[T any](raw json.RawMessage) (T, error) {
+	var v T
+	err := json.Unmarshal(raw, &v)
+	return v, err
+}
+
+var eventSpecs = []eventSpec{
+	{Type: "channel.follow", Version: "2", Scope: ScopeReadFollowers, condition: asModerator,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[user](raw)
+			return ChannelEvent{Kind: EvFollow, User: v.name(), UserID: v.id()}, err
+		}},
+	{Type: "channel.subscribe", Version: "1", Scope: ScopeReadSubs, condition: byBroadcaster,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				user
+				Tier   string `json:"tier"`
+				IsGift bool   `json:"is_gift"`
+			}](raw)
+			return ChannelEvent{Kind: EvSub, User: v.name(), UserID: v.id(), Tier: tierNumber(v.Tier), Gift: v.IsGift}, err
+		}},
+	{Type: "channel.subscription.message", Version: "1", Scope: ScopeReadSubs, condition: byBroadcaster,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				user
+				Tier    string `json:"tier"`
+				Months  int    `json:"cumulative_months"`
+				Message struct {
+					Text string `json:"text"`
+				} `json:"message"`
+			}](raw)
+			return ChannelEvent{Kind: EvResub, User: v.name(), UserID: v.id(), Tier: tierNumber(v.Tier), Months: v.Months, Message: v.Message.Text}, err
+		}},
+	{Type: "channel.subscription.gift", Version: "1", Scope: ScopeReadSubs, condition: byBroadcaster,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				user
+				Total     int    `json:"total"`
+				Tier      string `json:"tier"`
+				Anonymous bool   `json:"is_anonymous"`
+			}](raw)
+			return ChannelEvent{Kind: EvGift, User: v.name(), UserID: v.id(), Amount: v.Total, Tier: tierNumber(v.Tier), Anonymous: v.Anonymous}, err
+		}},
+	{Type: "channel.subscription.end", Version: "1", Scope: ScopeReadSubs, condition: byBroadcaster,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				user
+				Tier   string `json:"tier"`
+				IsGift bool   `json:"is_gift"`
+			}](raw)
+			return ChannelEvent{Kind: EvSubEnd, User: v.name(), UserID: v.id(), Tier: tierNumber(v.Tier), Gift: v.IsGift}, err
+		}},
+	{Type: "channel.cheer", Version: "1", Scope: ScopeReadBits, condition: byBroadcaster,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				user
+				Anonymous bool   `json:"is_anonymous"`
+				Message   string `json:"message"`
+				Bits      int    `json:"bits"`
+			}](raw)
+			return ChannelEvent{Kind: EvCheer, User: v.name(), UserID: v.id(), Amount: v.Bits, Message: v.Message, Anonymous: v.Anonymous}, err
+		}},
+	{Type: "channel.raid", Version: "1", Scope: "",
+		condition: func(id string) map[string]string { return map[string]string{"to_broadcaster_user_id": id} },
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				FromID   string `json:"from_broadcaster_user_id"`
+				FromName string `json:"from_broadcaster_user_name"`
+				Viewers  int    `json:"viewers"`
+			}](raw)
+			return ChannelEvent{Kind: EvRaid, User: v.FromName, UserID: v.FromID, Amount: v.Viewers}, err
+		}},
+	{Type: "channel.hype_train.begin", Version: "2", Scope: ScopeReadHypeTrain, condition: byBroadcaster,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				Level int `json:"level"`
+			}](raw)
+			return ChannelEvent{Kind: EvHypeBegin, Amount: v.Level}, err
+		}},
+	{Type: "channel.hype_train.end", Version: "2", Scope: ScopeReadHypeTrain, condition: byBroadcaster,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				Level int `json:"level"`
+			}](raw)
+			return ChannelEvent{Kind: EvHypeEnd, Amount: v.Level}, err
+		}},
+	{Type: "channel.shoutout.receive", Version: "1", Scope: ScopeReadShoutouts, condition: asModerator,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				FromID   string `json:"from_broadcaster_user_id"`
+				FromName string `json:"from_broadcaster_user_name"`
+				Viewers  int    `json:"viewer_count"`
+			}](raw)
+			return ChannelEvent{Kind: EvShoutout, User: v.FromName, UserID: v.FromID, Amount: v.Viewers}, err
+		}},
+	{Type: "channel.ad_break.begin", Version: "1", Scope: ScopeReadAds, condition: byBroadcaster,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				Seconds int `json:"duration_seconds"`
+			}](raw)
+			return ChannelEvent{Kind: EvAdBreak, Amount: v.Seconds}, err
+		}},
+	{Type: "stream.online", Version: "1", Scope: "", condition: byBroadcaster,
+		parse: func(json.RawMessage) (ChannelEvent, error) { return ChannelEvent{Kind: EvOnline}, nil }},
+	{Type: "stream.offline", Version: "1", Scope: "", condition: byBroadcaster,
+		parse: func(json.RawMessage) (ChannelEvent, error) { return ChannelEvent{Kind: EvOffline}, nil }},
+}
+
+// specByType finds the spec of an EventSub subscription type.
+func specByType(t string) (eventSpec, bool) {
+	for _, s := range eventSpecs {
+		if s.Type == t {
+			return s, true
+		}
+	}
+	return eventSpec{}, false
+}
+
+// parseChannelEvent turns a notification's event payload into a ChannelEvent.
+func parseChannelEvent(subType string, raw json.RawMessage) (ChannelEvent, error) {
+	s, ok := specByType(subType)
+	if !ok {
+		return ChannelEvent{}, fmt.Errorf("unknown event type %q", subType)
+	}
+	return s.parse(raw)
+}

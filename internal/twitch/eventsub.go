@@ -91,12 +91,13 @@ type notificationPayload struct {
 
 // EventSub listens for channel point redemptions.
 type EventSub struct {
-	helix    *Helix
-	tokens   *TokenManager
-	log      Logger
-	onEvent  func(Redemption)
-	onStatus func(connected bool)
-	onChat   func(ChatMessage) // nil: chat is not subscribed
+	helix          *Helix
+	tokens         *TokenManager
+	log            Logger
+	onEvent        func(Redemption)
+	onStatus       func(connected bool)
+	onChat         func(ChatMessage)  // nil: chat is not subscribed
+	onChannelEvent func(ChannelEvent) // nil: channel events are not subscribed
 
 	seenMu sync.Mutex
 	seen   map[string]time.Time
@@ -110,6 +111,10 @@ func NewEventSub(h *Helix, t *TokenManager, log Logger, onEvent func(Redemption)
 // OnChat also subscribes to chat messages (needs the user:read:chat scope;
 // without it only redemptions are received). Call before Run.
 func (e *EventSub) OnChat(fn func(ChatMessage)) { e.onChat = fn }
+
+// OnChannelEvent also subscribes to channel events (follows, subs, bits,
+// raids, ...); each type only if the login has its scope. Call before Run.
+func (e *EventSub) OnChannelEvent(fn func(ChannelEvent)) { e.onChannelEvent = fn }
 
 // Run connects and reconnects until ctx is cancelled.
 func (e *EventSub) Run(ctx context.Context) {
@@ -156,6 +161,7 @@ func (e *EventSub) session(ctx context.Context) error {
 	}
 	e.log.Infof("Connected to Twitch EventSub, listening for channel point redemptions of %s", tok.Login)
 	e.subscribeChat(ctx, welcome.Session.ID, tok)
+	e.subscribeEvents(ctx, welcome.Session.ID, tok)
 	e.onStatus(true)
 
 	keepalive := time.Duration(welcome.Session.KeepaliveTimeoutSeconds) * time.Second
@@ -205,6 +211,30 @@ func (e *EventSub) subscribeChat(ctx context.Context, sessionID string, tok *Tok
 		return
 	}
 	e.log.Infof("Listening for chat commands")
+}
+
+// subscribeEvents adds the channel event subscriptions. Like chat, a failure
+// only costs that one event type.
+func (e *EventSub) subscribeEvents(ctx context.Context, sessionID string, tok *Token) {
+	if e.onChannelEvent == nil {
+		return
+	}
+	var ok, missing []string
+	for _, s := range eventSpecs {
+		if s.Scope != "" && !tok.HasScope(s.Scope) {
+			missing = append(missing, s.Type)
+			continue
+		}
+		if err := e.helix.subscribe(ctx, sessionID, s.Type, s.Version, s.condition(tok.UserID)); err != nil {
+			e.log.Warnf("Could not subscribe to %s: %v", s.Type, err)
+			continue
+		}
+		ok = append(ok, s.Type)
+	}
+	e.log.Infof("Listening for %d channel event types", len(ok))
+	if len(missing) > 0 {
+		e.log.Warnf("Reconnect Twitch once to also receive: %s", strings.Join(missing, ", "))
+	}
 }
 
 // reconnect dials reconnectURL while still draining the old connection, so no
@@ -315,6 +345,7 @@ func (e *EventSub) handleNotification(msg *wsMessage) {
 		}
 		return
 	default:
+		e.handleChannelEvent(msg)
 		return
 	}
 	if e.isDuplicate(msg.Metadata.MessageID) {
@@ -336,6 +367,29 @@ func (e *EventSub) handleNotification(msg *wsMessage) {
 		UserInput:   ev.UserInput,
 		RedeemedAt:  ev.RedeemedAt,
 	})
+}
+
+func (e *EventSub) handleChannelEvent(msg *wsMessage) {
+	if e.onChannelEvent == nil {
+		return
+	}
+	if _, known := specByType(msg.Metadata.SubscriptionType); !known || e.isDuplicate(msg.Metadata.MessageID) {
+		return
+	}
+	var p struct {
+		Event json.RawMessage `json:"event"`
+	}
+	if err := json.Unmarshal(msg.Payload, &p); err != nil {
+		e.log.Warnf("ignore malformed %s event: %v", msg.Metadata.SubscriptionType, err)
+		return
+	}
+	ev, err := parseChannelEvent(msg.Metadata.SubscriptionType, p.Event)
+	if err != nil {
+		e.log.Warnf("ignore malformed %s event: %v", msg.Metadata.SubscriptionType, err)
+		return
+	}
+	ev.MessageID = msg.Metadata.MessageID
+	e.onChannelEvent(ev)
 }
 
 func (e *EventSub) isDuplicate(id string) bool {

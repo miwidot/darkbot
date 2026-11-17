@@ -135,12 +135,15 @@ func (h *Helix) GetCustomRewards(ctx context.Context, broadcasterID string) ([]R
 // on the given EventSub WebSocket session. reward_id is omitted so we receive
 // redemptions of ALL rewards and filter locally.
 func (h *Helix) SubscribeRedemptions(ctx context.Context, sessionID, broadcasterID string) error {
+	return h.subscribe(ctx, sessionID, redemptionAddType, "1", byBroadcaster(broadcasterID))
+}
+
+// subscribe creates one EventSub subscription on a WebSocket session.
+func (h *Helix) subscribe(ctx context.Context, sessionID, subType, version string, condition map[string]string) error {
 	body := map[string]any{
-		"type":    "channel.channel_points_custom_reward_redemption.add",
-		"version": "1",
-		"condition": map[string]string{
-			"broadcaster_user_id": broadcasterID,
-		},
+		"type":      subType,
+		"version":   version,
+		"condition": condition,
 		"transport": map[string]string{
 			"method":     "websocket",
 			"session_id": sessionID,

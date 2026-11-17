@@ -1,3 +1,23 @@
+2026-11-17 21:40 +08 — Channel events: follows, subs, bits, raids and more, with actions
+- darkbot now receives (EventSub WebSocket, same connection as redemptions/chat; docs checked
+  2026-11-17): follow v2, sub, resub message, gifted subs, sub end, cheer/Bits, incoming raid,
+  hype train begin/end v2 (v1 is deprecated), shoutout received, ad break, stream online/offline.
+  New scopes moderator:read:followers, channel:read:subscriptions, bits:read,
+  channel:read:hype_train, channel:read:ads, moderator:read:shoutouts (reconnect banner); types
+  without a granted scope are skipped with a log line; a failing type never costs others.
+- Unfollows: Twitch has no unfollow event. Opt-in detection compares the follower list
+  (Get Channel Followers) every 10 min, up to 5,000 followers (50 requests per check); a failed
+  read never counts as unfollows; deleted/banned accounts show as unfollows. Never posts in chat.
+- Actions per event (new "Events" view): sound (same queue/output as redemptions), chat message
+  with {user} {amount} {tier} {months} (viewer text never inserted), minimum amount for
+  Bits/raid viewers/gifted subs; "Test" runs the action with sample data, marked as test and
+  not counted.
+- Dashboard: new "Channel" row (follows + unfollows, subs + gifted, Bits, raids + viewers);
+  stream going live starts a new dashboard session automatically. Feed shows every event.
+- Tests: payload parsing for every type, spec/scope consistency and cost limit, unfollow diff
+  incl. failed reads and big channels, thresholds, counting (gift recipients not doubled, tests
+  not counted), event sound serving, template rendering.
+
 2026-11-17 21:15 +08 — Fix: Spotify token could be refreshed twice in parallel
 - CI caught a race: a call that got 401 with the old token re-read the token after another
   call had already renewed it and refreshed a second time. With refresh-token rotation that

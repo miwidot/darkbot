@@ -42,12 +42,15 @@ const (
 
 // Activity is one event for the UI's live feed and pad lights.
 type Activity struct {
-	Kind        string    `json:"kind"`
-	SoundID     string    `json:"soundId"`
-	RewardTitle string    `json:"rewardTitle"`
-	User        string    `json:"user"`
-	Test        bool      `json:"test"`
-	At          time.Time `json:"at"`
+	Kind        string `json:"kind"`
+	SoundID     string `json:"soundId"`
+	RewardTitle string `json:"rewardTitle"`
+	User        string `json:"user"`
+	Test        bool   `json:"test"`
+	// Event: the sound is the action of a channel event (follow, sub, ...),
+	// not a redemption; stats and pads ignore it.
+	Event bool      `json:"event"`
+	At    time.Time `json:"at"`
 	// CooldownUntil is when the sound is free again (zero = no cooldown).
 	CooldownUntil time.Time `json:"cooldownUntil"`
 	// CooldownSeconds is the configured global cooldown, for the pad ring.
@@ -75,7 +78,8 @@ type job struct {
 	sound config.Sound
 	user  string
 	test  bool
-	red   *twitch.Redemption // nil for test plays
+	event bool               // action sound of a channel event
+	red   *twitch.Redemption // nil for test plays and events
 }
 
 // SetResolver installs the fulfill/reject callback for managed rewards.
@@ -117,8 +121,13 @@ func New(cfg *config.Store, log Logger, outputFor func() Output, onActivity func
 }
 
 func (b *Bot) emit(kind string, s config.Sound, user string, test bool, msg string) {
+	b.emitJob(kind, job{sound: s, user: user, test: test}, msg)
+}
+
+func (b *Bot) emitJob(kind string, j job, msg string) {
+	s := j.sound
 	a := Activity{
-		Kind: kind, SoundID: s.ID, RewardTitle: s.RewardTitle, User: user, Test: test,
+		Kind: kind, SoundID: s.ID, RewardTitle: s.RewardTitle, User: j.user, Test: j.test, Event: j.event,
 		At: time.Now(), CooldownSeconds: s.CooldownSeconds, Message: msg,
 	}
 	a.CooldownUntil = b.cd.GlobalReadyAt(s.ID)
@@ -141,19 +150,19 @@ func (b *Bot) play(ctx context.Context, j job) {
 	out := b.output()
 	if out == nil {
 		b.log.Errorf("No audio output available for %q", j.sound.RewardTitle)
-		b.emit(ActError, j.sound, j.user, j.test, b.errText(i18n.E("err.noOutput")))
+		b.emitJob(ActError, j, b.errText(i18n.E("err.noOutput")))
 		b.finish(j.sound, j.red, false)
 		return
 	}
 	master := b.cfg.Get().MasterVolume
-	b.emit(ActPlaying, j.sound, j.user, j.test, "")
+	b.emitJob(ActPlaying, j, "")
 	if err := out.Play(ctx, j.sound, master); err != nil {
 		b.log.Errorf("Play %q failed: %v", j.sound.RewardTitle, err)
-		b.emit(ActError, j.sound, j.user, j.test, b.errText(err))
+		b.emitJob(ActError, j, b.errText(err))
 		b.finish(j.sound, j.red, false)
 		return
 	}
-	b.emit(ActDone, j.sound, j.user, j.test, "")
+	b.emitJob(ActDone, j, "")
 	b.finish(j.sound, j.red, true)
 }
 
@@ -185,6 +194,16 @@ func (b *Bot) HandleRedemption(r twitch.Redemption) {
 		b.log.Warnf("%s redeemed %q, but %d sounds are already waiting, skipped", r.UserName, r.RewardTitle, MaxQueue)
 		b.emit(ActQueueFull, s, r.UserName, false, "")
 		b.finish(s, &r, false)
+	}
+}
+
+// PlayEvent queues the action sound of a channel event. It shares the queue
+// with redemptions, so a sub sound never talks over a redemption.
+func (b *Bot) PlayEvent(s config.Sound, user string) {
+	select {
+	case b.queue <- job{sound: s, user: user, event: true}:
+	default:
+		b.log.Warnf("Event sound %q skipped, %d sounds are already waiting", s.RewardTitle, MaxQueue)
 	}
 }
 

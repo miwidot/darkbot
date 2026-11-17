@@ -176,3 +176,32 @@ func TestManagedRedemptionsAreFulfilledOrRejected(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 	}
 }
+
+func TestPlayEventIsMarkedAndNeverResolved(t *testing.T) {
+	store, err := config.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	acts := make(chan Activity, 8)
+	out := &fakeOutput{played: make(chan string, 1)}
+	b := New(store, nopLogger{}, func() Output { return out }, func(a Activity) { acts <- a })
+	b.SetResolver(func(twitch.Redemption, bool) { t.Error("event sounds must never fulfill or reject a redemption") })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go b.Run(ctx)
+
+	b.PlayEvent(config.Sound{ID: "ev-follow", RewardTitle: "Follow", File: "/f.mp3", Managed: true, Enabled: true}, "Kim")
+	if id := <-out.played; id != "ev-follow" {
+		t.Fatalf("played %q", id)
+	}
+	for range 2 { // playing, done
+		select {
+		case a := <-acts:
+			if !a.Event || a.User != "Kim" {
+				t.Fatalf("activity %+v must be marked as event", a)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("missing activity")
+		}
+	}
+}

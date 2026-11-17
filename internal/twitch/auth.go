@@ -49,6 +49,10 @@ const (
 //   - user:read:chat: receive chat messages (EventSub channel.chat.message)
 //     for the chat commands (song requests)
 //   - user:write:chat: answer chat commands (Helix Send Chat Message)
+//   - moderator:read:followers, channel:read:subscriptions, bits:read,
+//     channel:read:hype_train, channel:read:ads, moderator:read:shoutouts:
+//     channel events (follows, subs, bits, hype train, ads, shoutouts),
+//     see events.go
 const (
 	ScopeReadRedemptions   = "channel:read:redemptions"
 	ScopeManageRedemptions = "channel:manage:redemptions"
@@ -57,7 +61,10 @@ const (
 )
 
 // Scopes is everything darkbot asks for at login.
-var Scopes = []string{ScopeReadRedemptions, ScopeManageRedemptions, ScopeReadChat, ScopeWriteChat}
+var Scopes = []string{
+	ScopeReadRedemptions, ScopeManageRedemptions, ScopeReadChat, ScopeWriteChat,
+	ScopeReadFollowers, ScopeReadSubs, ScopeReadBits, ScopeReadHypeTrain, ScopeReadAds, ScopeReadShoutouts,
+}
 
 // HasScope reports whether the token was granted scope.
 func (t *Token) HasScope(scope string) bool {

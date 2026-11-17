@@ -88,19 +88,10 @@ func parseChatEvent(raw json.RawMessage) (ChatMessage, bool, error) {
 // SubscribeChat creates the channel.chat.message subscription on the given
 // EventSub WebSocket session, reading chat as the broadcaster.
 func (h *Helix) SubscribeChat(ctx context.Context, sessionID, broadcasterID string) error {
-	body := map[string]any{
-		"type":    chatMessageType,
-		"version": "1",
-		"condition": map[string]string{
-			"broadcaster_user_id": broadcasterID,
-			"user_id":             broadcasterID,
-		},
-		"transport": map[string]string{
-			"method":     "websocket",
-			"session_id": sessionID,
-		},
-	}
-	return h.do(ctx, http.MethodPost, "/eventsub/subscriptions", nil, body, nil)
+	return h.subscribe(ctx, sessionID, chatMessageType, "1", map[string]string{
+		"broadcaster_user_id": broadcasterID,
+		"user_id":             broadcasterID,
+	})
 }
 
 // SendChatMessage posts text in the broadcaster's chat as the broadcaster.

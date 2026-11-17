@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -353,8 +355,133 @@ func TestHasScope(t *testing.T) {
 	if !tok.HasScope(ScopeManageRedemptions) || tok.HasScope(ScopeReadChat) || tok.HasScopes() {
 		t.Fatal("old token: has reward scopes, lacks chat scopes")
 	}
-	tok.Scopes = append(tok.Scopes, ScopeReadChat, ScopeWriteChat)
+	tok.Scopes = append([]string(nil), Scopes...)
 	if !tok.HasScopes() {
 		t.Fatal("all scopes granted")
+	}
+}
+
+func TestParseChannelEvents(t *testing.T) {
+	cases := []struct {
+		subType, raw string
+		want         ChannelEvent
+	}{
+		{"channel.follow", `{"user_id":"1","user_login":"anna","user_name":"Anna","followed_at":"2026-11-17T10:00:00Z"}`,
+			ChannelEvent{Kind: EvFollow, User: "Anna", UserID: "1"}},
+		{"channel.subscribe", `{"user_id":"2","user_name":"Ben","tier":"2000","is_gift":true}`,
+			ChannelEvent{Kind: EvSub, User: "Ben", UserID: "2", Tier: "2", Gift: true}},
+		{"channel.subscription.message", `{"user_id":"3","user_name":"Cleo","tier":"1000","message":{"text":"hi","emotes":[]},"cumulative_months":15,"streak_months":null,"duration_months":1}`,
+			ChannelEvent{Kind: EvResub, User: "Cleo", UserID: "3", Tier: "1", Months: 15, Message: "hi"}},
+		{"channel.subscription.gift", `{"user_id":null,"user_login":null,"user_name":null,"total":5,"tier":"1000","cumulative_total":null,"is_anonymous":true}`,
+			ChannelEvent{Kind: EvGift, Amount: 5, Tier: "1", Anonymous: true}},
+		{"channel.cheer", `{"is_anonymous":false,"user_id":"4","user_name":"Dan","message":"Cheer100 gg","bits":100}`,
+			ChannelEvent{Kind: EvCheer, User: "Dan", UserID: "4", Amount: 100, Message: "Cheer100 gg"}},
+		{"channel.raid", `{"from_broadcaster_user_id":"5","from_broadcaster_user_name":"Raider","to_broadcaster_user_id":"9","viewers":42}`,
+			ChannelEvent{Kind: EvRaid, User: "Raider", UserID: "5", Amount: 42}},
+		{"channel.hype_train.begin", `{"id":"x","level":2,"total":700}`, ChannelEvent{Kind: EvHypeBegin, Amount: 2}},
+		{"channel.ad_break.begin", `{"duration_seconds":90,"is_automatic":true}`, ChannelEvent{Kind: EvAdBreak, Amount: 90}},
+		{"channel.shoutout.receive", `{"from_broadcaster_user_id":"6","from_broadcaster_user_name":"Friend","viewer_count":300}`,
+			ChannelEvent{Kind: EvShoutout, User: "Friend", UserID: "6", Amount: 300}},
+		{"stream.online", `{"id":"1","type":"live"}`, ChannelEvent{Kind: EvOnline}},
+	}
+	for _, c := range cases {
+		got, err := parseChannelEvent(c.subType, json.RawMessage(c.raw))
+		if err != nil || got != c.want {
+			t.Errorf("%s: got %+v, %v; want %+v", c.subType, got, err, c.want)
+		}
+	}
+	if _, err := parseChannelEvent("channel.unknown", nil); err == nil {
+		t.Error("unknown types must fail")
+	}
+}
+
+func TestEventSpecsAreComplete(t *testing.T) {
+	seen := map[string]bool{}
+	for _, s := range eventSpecs {
+		if seen[s.Type] {
+			t.Errorf("duplicate spec %s", s.Type)
+		}
+		seen[s.Type] = true
+		if s.Scope != "" && !slices.Contains(Scopes, s.Scope) {
+			t.Errorf("%s needs scope %s, but darkbot doesn't request it at login", s.Type, s.Scope)
+		}
+		cond := s.condition("42")
+		if len(cond) == 0 {
+			t.Errorf("%s has no condition", s.Type)
+		}
+	}
+	// Subscriptions without a scope cost 1 each; Twitch allows a total cost of 10.
+	cost := 0
+	for _, s := range eventSpecs {
+		if s.Scope == "" {
+			cost++
+		}
+	}
+	if cost > maxUnscopedCost {
+		t.Errorf("unscoped subscriptions cost %d, more than %d", cost, maxUnscopedCost)
+	}
+}
+
+func TestFollowerWatcherReportsUnfollows(t *testing.T) {
+	var mu sync.Mutex
+	followers := []map[string]any{}
+	for i := range 150 { // two pages
+		followers = append(followers, map[string]any{"user_id": strconv.Itoa(i), "user_name": "u" + strconv.Itoa(i)})
+	}
+	failNext := false
+	fakeTwitch(t, func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		if failNext {
+			writeJSON(w, 500, map[string]any{"status": 500, "message": "boom"})
+			return
+		}
+		start := 0
+		if c := r.URL.Query().Get("after"); c != "" {
+			start, _ = strconv.Atoi(c)
+		}
+		end := min(start+followerPageSize, len(followers))
+		cursor := ""
+		if end < len(followers) {
+			cursor = strconv.Itoa(end)
+		}
+		writeJSON(w, 200, map[string]any{"data": followers[start:end], "total": len(followers), "pagination": map[string]any{"cursor": cursor}})
+	})
+	tok := &Token{AccessToken: "A", RefreshToken: "R", UserID: "9", Scopes: Scopes, ExpiresAt: time.Now().Add(time.Hour)}
+	m, _ := NewTokenManager("cid", &memStore{tok: tok}, nopLog{})
+	var got []ChannelEvent
+	w := NewFollowerWatcher(NewHelix(m), m, nopLog{}, func(e ChannelEvent) { got = append(got, e) })
+
+	w.check(context.Background()) // baseline
+	if len(got) != 0 || w.Status().Tracking != 150 {
+		t.Fatalf("baseline: events %v status %+v", got, w.Status())
+	}
+	mu.Lock()
+	followers = append(followers[:10], followers[11:]...) // u10 unfollowed
+	failNext = true
+	mu.Unlock()
+	w.check(context.Background())
+	if len(got) != 0 {
+		t.Fatal("a failed read must not be taken as mass unfollows")
+	}
+	mu.Lock()
+	failNext = false
+	mu.Unlock()
+	w.check(context.Background())
+	if len(got) != 1 || got[0].Kind != EvUnfollow || got[0].User != "u10" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestFollowerWatcherSkipsBigChannels(t *testing.T) {
+	fakeTwitch(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"data": []any{}, "total": MaxTrackedFollowers + 1, "pagination": map[string]any{}})
+	})
+	tok := &Token{AccessToken: "A", RefreshToken: "R", UserID: "9", Scopes: Scopes, ExpiresAt: time.Now().Add(time.Hour)}
+	m, _ := NewTokenManager("cid", &memStore{tok: tok}, nopLog{})
+	w := NewFollowerWatcher(NewHelix(m), m, nopLog{}, func(ChannelEvent) { t.Fatal("no events expected") })
+	w.check(context.Background())
+	if !w.Status().TooMany {
+		t.Fatal("channels above the limit must be skipped")
 	}
 }
