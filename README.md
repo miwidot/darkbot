@@ -15,6 +15,7 @@ darkbot does the sound part of tools like Streamer.bot, and nothing else: one wi
 - **Choose where sounds play:**
   - *Audio device:* darkbot plays the sound itself on the output you pick, like Streamer.bot or StreamElements. Capture that output, or darkbot itself, in OBS.
   - *Inside OBS:* darkbot plays the sound in an OBS media source and routes it to the audio tracks 1–6 you choose, for example stream only, or stream and recording but not your VOD track.
+- **Song requests from chat (Spotify).** Viewers type `!sr <Spotify link or song name>` and the song goes into your Spotify queue. `!song`, `!next` and `!queue` show what plays; `!skip` is for you, your moderators and (optional) whoever requested the song. Per-viewer cooldown, maximum length and an explicit filter are adjustable. Uses your own Spotify app, see [Song requests](#song-requests-spotify).
 - **Live view.** Every sound is a pad. It lights up while playing and shows its cooldown draining. An activity feed lists who redeemed what and why something didn't play.
 - **English and German.** darkbot follows your system language, or you pick one under Settings, General. All texts live in one file per language (`internal/i18n/locales/`), so adding a language means translating one JSON file.
 - **Updates itself.** On start, darkbot installs a newer release from GitHub automatically (can be switched off). While it's running, it only announces updates so a stream is never interrupted. Every download is verified against GitHub's SHA-256 digest.
@@ -22,7 +23,7 @@ darkbot does the sound part of tools like Streamer.bot, and nothing else: one wi
 ## What it deliberately doesn't do
 
 - No open network ports, no local web server, no browser source. It's a desktop app; the window *is* the app.
-- No chat bot, no commands, no alerts, no overlays. Other tools do that well.
+- No general chat bot: the only chat commands are the song requests. No alerts, no overlays. Other tools do that well.
 - No cloud, no telemetry, no account. Your settings stay on your computer; the Twitch login lives in the OS keychain.
 
 ## Install
@@ -54,6 +55,24 @@ Builds aren't code-signed yet. On macOS right-click darkbot and choose *Open* th
 | Windows (WebView2) | yes | Device names show after allowing microphone access once (*Refresh*). Nothing is recorded; darkbot closes the microphone immediately. |
 | macOS (WKWebView) | no, system default | WebKit doesn't expose the output list. Capture darkbot in OBS with *macOS Audio Capture*, or use *Inside OBS*. |
 | Linux (WebKitGTK) | usually no, system default | Use PipeWire/PulseAudio routing or *Inside OBS*. |
+
+## Song requests (Spotify)
+
+Spotify only lets an app in Development Mode serve 5 users, and the extended quota is reserved for companies with at least 250,000 monthly users ([Spotify quota modes](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)). So darkbot can't ship one shared Spotify app: **every streamer creates their own, which takes two minutes.**
+
+1. Open the [Spotify developer dashboard](https://developer.spotify.com/dashboard), log in with the account you stream with and create an app.
+2. Add the redirect URI `http://127.0.0.1:43117/callback` exactly like this.
+3. Tick **Web API**, accept the terms, save.
+4. Copy the app's **Client ID** into darkbot (Settings, Song requests) and click **Connect Spotify**.
+5. Allow access in the browser. The browser then shows "This site can't be reached". **That's expected**, because darkbot opens no port. Copy the whole address from the address bar into darkbot and click **Finish connecting**. The code in that address only works together with a secret that never leaves darkbot (PKCE).
+6. Reconnect Twitch once if darkbot asks, so it may read and answer chat (`user:read:chat`, `user:write:chat`).
+
+Requirements and limits:
+
+- Adding to the queue and skipping need **Spotify Premium** (Spotify Web API), and Spotify must be playing on one of your devices.
+- The Spotify login lasts 6 months, then you connect once more.
+- **Rights:** music you hold no rights to can get your VODs muted or your channel a DMCA strike on Twitch, and Spotify's developer terms don't allow broadcasting. darkbot only manages your queue; what you play is your decision.
+- YouTube links are refused with a hint; only Spotify links and song names work.
 
 ## How the Twitch login stays alive
 
@@ -99,6 +118,9 @@ internal/obs/          obs-websocket v5 client and media source output
 internal/selfupdate/   verified GitHub release updates
 internal/audio/        pure-Go decoding for validation and length
 internal/config/       settings file (atomic writes)
+internal/spotify/      Spotify PKCE login (paste flow, no port) and Web API client
+internal/songs/        chat commands !sr !song !next !queue !skip
+internal/secret/       OS keyring storage with 0600 file fallback
 internal/i18n/         UI languages: locales/en.json, de.json (shared by Go and the UI)
 ```
 

@@ -11,6 +11,7 @@ const FEED_MAX = 120;
 const DEFAULT_COST = 100;
 const TOAST_MS = 5000;
 const CONFIRM_MS = 4000;
+const SPOTIFY_DASHBOARD = 'https://developer.spotify.com/dashboard';
 
 let state = null;
 let rewards = [];
@@ -173,7 +174,11 @@ const FEED_TEXT = {
   disabled: (a) => [a.user, redeemed(), a.rewardTitle, t('feed.disabled')],
   queue_full: (a) => [a.user, redeemed(), a.rewardTitle, t('feed.queueFull')],
   error: (a) => [a.test ? t('feed.preview') : a.user, a.test ? ' ' + t('feed.previewOf') + ' ' : redeemed(), a.rewardTitle, a.message || t('feed.failed')],
+  song_added: (a) => [a.user, ' ' + t('feed.requested') + ' ', a.title, null],
+  song_rejected: (a) => [a.user, ' ' + t('feed.requested') + ' ', a.title, a.message],
+  song_skipped: (a) => [a.user, ' ' + t('feed.skippedSong') + ' ', a.title, null],
 };
+const FEED_CLASS = { queued: 'played', song_added: 'played', error: 'error' };
 
 function onActivity(a) {
   if (a.kind === 'playing') playing.add(a.soundId);
@@ -200,7 +205,7 @@ function onActivity(a) {
 
 function feedItem(a) {
   const [who, verb, what, why] = FEED_TEXT[a.kind](a);
-  const kindClass = a.kind === 'queued' ? 'played' : a.kind === 'error' ? 'error' : 'skipped';
+  const kindClass = FEED_CLASS[a.kind] || 'skipped';
   return el('li', { class: 'feed-item ' + kindClass },
     el('time', { datetime: a.at }, clock(new Date(a.at))),
     el('span', { class: 'what' }, el('b', {}, who), verb, el('b', {}, what)),
@@ -258,6 +263,7 @@ function renderSettings() {
   renderAudio();
   renderTwitch();
   renderOBS();
+  renderSongs();
   renderUpdates();
 }
 
@@ -422,6 +428,82 @@ $('obsConnect').addEventListener('click', async () => {
   refresh();
 });
 $('obsDisconnect').addEventListener('click', async () => { await App().DisconnectOBS(); refresh(); });
+
+// song requests
+function renderSongs() {
+  const c = state.config.songs;
+  const connected = !!state.spotifyUser;
+  const sec = $('sec-songs');
+  $('songsChatHint').classList.toggle('hidden', !state.twitchLogin || state.chatReady);
+  $('spotifyStatus').textContent = connected ? t('songs.connectedAs', { user: state.spotifyUser }) : t('songs.notConnected');
+  $('spotifyStatus').classList.toggle('on', connected);
+  $('spotifyLogout').classList.toggle('hidden', !connected);
+  $('spotifyRedirect').value = state.spotifyRedirectUri;
+  $('spotifyPasteBox').classList.toggle('hidden', !state.spotifyLoginPending);
+  $('spotifyLogin').textContent = connected ? t('songs.reconnect') : t('songs.connect');
+  // Open the setup steps until Spotify is connected.
+  if (!connected && !sec.dataset.setupShown) { $('spotifySetup').open = true; sec.dataset.setupShown = '1'; }
+  if (sec.dataset.touched) return;
+  $('spotifyClientId').value = c.spotify_client_id || '';
+  $('songsEnabled').checked = c.enabled;
+  $('songsCooldown').value = c.user_cooldown_seconds;
+  $('songsMax').value = c.max_minutes;
+  $('songsExplicit').checked = c.block_explicit;
+  $('songsRequesterSkip').checked = c.requester_can_skip;
+  $('songsReplies').checked = c.chat_replies;
+}
+for (const id of ['spotifyClientId', 'songsEnabled', 'songsCooldown', 'songsMax', 'songsExplicit', 'songsRequesterSkip', 'songsReplies']) {
+  $(id).addEventListener('input', () => { $('sec-songs').dataset.touched = '1'; });
+  $(id).addEventListener('change', () => { $('sec-songs').dataset.touched = '1'; });
+}
+function songSettings() {
+  return {
+    enabled: $('songsEnabled').checked,
+    spotify_client_id: $('spotifyClientId').value.trim(),
+    user_cooldown_seconds: Math.max(0, parseInt($('songsCooldown').value, 10) || 0),
+    max_minutes: Math.max(0, parseInt($('songsMax').value, 10) || 0),
+    block_explicit: $('songsExplicit').checked,
+    chat_replies: $('songsReplies').checked,
+    requester_can_skip: $('songsRequesterSkip').checked,
+  };
+}
+async function saveSongs() {
+  await call('SaveSongSettings', songSettings());
+  delete $('sec-songs').dataset.touched;
+}
+$('saveSongs').addEventListener('click', async () => {
+  await saveSongs();
+  await refresh();
+  toast(t('songs.saved'));
+});
+$('copyRedirect').addEventListener('click', async () => {
+  const ok = await window.runtime.ClipboardSetText($('spotifyRedirect').value);
+  toast(ok ? t('songs.copied') : t('songs.copyFailed'), !ok);
+});
+$('openSpotifyDashboard').addEventListener('click', () => window.runtime.BrowserOpenURL(SPOTIFY_DASHBOARD));
+$('spotifyLogin').addEventListener('click', async () => {
+  await saveSongs(); // the Client ID typed above is what the login uses
+  await call('SpotifyStartLogin');
+  $('spotifyPaste').value = '';
+  await refresh();
+  $('spotifyPaste').focus();
+});
+$('spotifyReopen').addEventListener('click', () => App().SpotifyOpenLogin());
+$('spotifyCancel').addEventListener('click', async () => { await App().SpotifyCancelLogin(); refresh(); });
+$('spotifyFinish').addEventListener('click', async () => {
+  $('spotifyFinish').disabled = true;
+  try {
+    await call('SpotifyFinishLogin', $('spotifyPaste').value);
+    $('spotifyPaste').value = '';
+    $('spotifySetup').open = false;
+    toast(t('songs.connectedToast'));
+  } catch (e) { /* toast shown by call */ } finally {
+    $('spotifyFinish').disabled = false;
+    refresh();
+  }
+});
+$('spotifyPaste').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('spotifyFinish').click(); });
+$('spotifyLogout').addEventListener('click', async () => { await call('SpotifyLogout'); refresh(); });
 
 // updates
 function renderUpdates() {

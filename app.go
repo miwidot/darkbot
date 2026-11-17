@@ -19,6 +19,8 @@ import (
 	"github.com/miwidot/darkbot/internal/i18n"
 	"github.com/miwidot/darkbot/internal/obs"
 	"github.com/miwidot/darkbot/internal/selfupdate"
+	"github.com/miwidot/darkbot/internal/songs"
+	"github.com/miwidot/darkbot/internal/spotify"
 	"github.com/miwidot/darkbot/internal/twitch"
 	"github.com/miwidot/darkbot/internal/version"
 )
@@ -49,6 +51,10 @@ const (
 	firstUpdateCheck = 5 * time.Second
 	// updateCheckEvery: while running, new releases are only announced.
 	updateCheckEvery = 6 * time.Hour
+	// spotifyLoginTimeout bounds the code exchange + profile request.
+	spotifyLoginTimeout = 30 * time.Second
+	// chatSendTimeout bounds one chat reply.
+	chatSendTimeout = 10 * time.Second
 )
 
 // App is bound to the frontend: every exported method is callable from JS.
@@ -62,6 +68,8 @@ type App struct {
 	bot  *bot.Bot
 	web  *webOutput
 	obsO *obs.Output
+	sp   *spotify.Client
+	sr   *songs.Handler
 
 	mu          sync.Mutex
 	esCancel    context.CancelFunc
@@ -70,6 +78,7 @@ type App struct {
 	loginCode   *twitch.DeviceCode
 	update      *selfupdate.Info
 	updating    bool
+	spLogin     *spotify.PendingLogin // Spotify login waiting for the pasted address
 	// sysLangs are the system languages reported by the web view
 	// (navigator.languages); used when the user didn't pick a language.
 	sysLangs []string
@@ -110,6 +119,25 @@ func NewApp(log *applog.Log) (*App, error) {
 	})
 	a.bot.SetResolver(a.resolveRedemption)
 	a.bot.SetLocalizer(func(err error) string { return i18n.Localize(err, a.lang()) })
+
+	spStore := &spotify.KeyringStore{FallbackPath: cfg.SpotifyTokenPath(), Log: log}
+	if a.sp, err = spotify.NewClient(cfg.Get().Songs.SpotifyClientID, spStore, log); err != nil {
+		return nil, err
+	}
+	a.sp.OnChange(a.emitState)
+	a.sr = songs.New(songs.Deps{
+		Settings:  func() config.SongRequests { return cfg.Get().Songs },
+		Player:    a.sp,
+		Connected: func() bool { return a.sp.Current() != nil },
+		Lang:      a.lang,
+		Reply:     a.sendChat,
+		OnActivity: func(act songs.Activity) {
+			if a.ctx != nil {
+				runtime.EventsEmit(a.ctx, "activity", act)
+			}
+		},
+		Log: log,
+	})
 	return a, nil
 }
 
@@ -263,6 +291,12 @@ type State struct {
 	NeedsReconnect bool `json:"needsReconnect"`
 	// Language is the UI language in effect (config choice or system).
 	Language string `json:"language"`
+	// ChatReady: the Twitch login may read and write chat (song requests).
+	ChatReady bool `json:"chatReady"`
+	// SpotifyUser is the connected Spotify account ("" = not connected).
+	SpotifyUser         string `json:"spotifyUser"`
+	SpotifyLoginPending bool   `json:"spotifyLoginPending"`
+	SpotifyRedirectURI  string `json:"spotifyRedirectUri"`
 }
 
 // GetState returns the current UI state.
@@ -272,13 +306,19 @@ func (a *App) GetState() State {
 	if t := a.tok.Current(); t != nil {
 		s.TwitchLogin = t.Login
 		s.NeedsReconnect = !t.HasScopes()
+		s.ChatReady = t.HasScope(twitch.ScopeReadChat) && t.HasScope(twitch.ScopeWriteChat)
 	}
+	if st := a.sp.Current(); st != nil {
+		s.SpotifyUser = st.DisplayName
+	}
+	s.SpotifyRedirectURI = spotify.RedirectURI
 	a.mu.Lock()
 	s.EventSubOnline = a.esConnected
 	if a.loginCode != nil {
 		s.LoginUserCode, s.LoginURI = a.loginCode.UserCode, a.loginCode.VerificationURI
 	}
 	s.Update, s.Updating = a.update, a.updating
+	s.SpotifyLoginPending = a.spLogin != nil
 	a.mu.Unlock()
 	return s
 }
@@ -442,6 +482,12 @@ func (a *App) startEventSub() {
 		a.esConnected = up
 		a.mu.Unlock()
 		a.emitState()
+	})
+	es.OnChat(func(m twitch.ChatMessage) {
+		// EventSub delivers on its read loop; Spotify calls must not block it.
+		if songs.IsCommand(m.Text) {
+			go a.sr.Handle(ctx, m)
+		}
 	})
 	go es.Run(ctx)
 }
@@ -649,7 +695,7 @@ func (a *App) requireManageScope() (*twitch.Token, error) {
 	if t == nil {
 		return nil, i18n.E("err.connectFirst")
 	}
-	if !t.HasScopes() {
+	if !t.HasScope(twitch.ScopeManageRedemptions) {
 		return nil, i18n.E("err.reconnect")
 	}
 	return t, nil
@@ -820,4 +866,98 @@ func (o *webOutput) done(token, errMsg string) {
 		default:
 		}
 	}
+}
+
+// ---------- song requests (Spotify) ----------
+
+// sendChat answers a chat command as the broadcaster.
+func (a *App) sendChat(ctx context.Context, text, replyTo string) {
+	t := a.tok.Current()
+	if t == nil || !t.HasScope(twitch.ScopeWriteChat) {
+		a.log.Warnf("Can't answer in chat: reconnect Twitch once to allow sending chat messages")
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, chatSendTimeout)
+	defer cancel()
+	if err := a.hx.SendChatMessage(ctx, t.UserID, text, replyTo); err != nil {
+		a.log.Warnf("Chat reply failed: %v", err)
+	}
+}
+
+// SaveSongSettings stores the song request settings.
+func (a *App) SaveSongSettings(s config.SongRequests) error {
+	err := a.cfg.Update(func(c *config.Config) { c.Songs = s })
+	if err == nil {
+		a.sp.SetClientID(a.cfg.Get().Songs.SpotifyClientID)
+		a.emitState()
+	}
+	return a.uiErr(err)
+}
+
+// SpotifyStartLogin opens Spotify's consent page in the browser. The user
+// then pastes the address they land on into SpotifyFinishLogin.
+func (a *App) SpotifyStartLogin() error {
+	p, err := spotify.NewLogin(a.cfg.Get().Songs.SpotifyClientID)
+	if err != nil {
+		return a.uiErr(err)
+	}
+	a.mu.Lock()
+	a.spLogin = p
+	a.mu.Unlock()
+	a.emitState()
+	runtime.BrowserOpenURL(a.ctx, p.URL)
+	a.log.Infof("Spotify login started in the browser")
+	return nil
+}
+
+// SpotifyOpenLogin opens the pending login page again (closed tab etc.).
+func (a *App) SpotifyOpenLogin() {
+	a.mu.Lock()
+	p := a.spLogin
+	a.mu.Unlock()
+	if p != nil {
+		runtime.BrowserOpenURL(a.ctx, p.URL)
+	}
+}
+
+// SpotifyFinishLogin takes the pasted redirect address (or the bare code).
+func (a *App) SpotifyFinishLogin(pasted string) error {
+	a.mu.Lock()
+	p := a.spLogin
+	a.mu.Unlock()
+	if p == nil {
+		return a.uiErr(i18n.E("err.spotifyNoLogin"))
+	}
+	code, err := p.CodeFromPaste(pasted)
+	if err != nil {
+		return a.uiErr(err)
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, spotifyLoginTimeout)
+	defer cancel()
+	tok, err := a.sp.Login(ctx, p, code)
+	if err != nil {
+		a.log.Errorf("Spotify login failed: %v", err)
+		return a.uiErr(err)
+	}
+	a.mu.Lock()
+	a.spLogin = nil
+	a.mu.Unlock()
+	a.log.Infof("Connected to Spotify as %s", tok.DisplayName)
+	a.emitState()
+	return nil
+}
+
+// SpotifyCancelLogin drops a pending login.
+func (a *App) SpotifyCancelLogin() {
+	a.mu.Lock()
+	a.spLogin = nil
+	a.mu.Unlock()
+	a.emitState()
+}
+
+// SpotifyLogout forgets the Spotify login.
+func (a *App) SpotifyLogout() error {
+	err := a.sp.Logout()
+	a.log.Infof("Disconnected from Spotify")
+	return a.uiErr(err)
 }

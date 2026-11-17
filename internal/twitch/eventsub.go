@@ -96,6 +96,7 @@ type EventSub struct {
 	log      Logger
 	onEvent  func(Redemption)
 	onStatus func(connected bool)
+	onChat   func(ChatMessage) // nil: chat is not subscribed
 
 	seenMu sync.Mutex
 	seen   map[string]time.Time
@@ -105,6 +106,10 @@ type EventSub struct {
 func NewEventSub(h *Helix, t *TokenManager, log Logger, onEvent func(Redemption), onStatus func(bool)) *EventSub {
 	return &EventSub{helix: h, tokens: t, log: log, onEvent: onEvent, onStatus: onStatus, seen: map[string]time.Time{}}
 }
+
+// OnChat also subscribes to chat messages (needs the user:read:chat scope;
+// without it only redemptions are received). Call before Run.
+func (e *EventSub) OnChat(fn func(ChatMessage)) { e.onChat = fn }
 
 // Run connects and reconnects until ctx is cancelled.
 func (e *EventSub) Run(ctx context.Context) {
@@ -150,6 +155,7 @@ func (e *EventSub) session(ctx context.Context) error {
 		return fmt.Errorf("subscribe to redemptions: %w", err)
 	}
 	e.log.Infof("Connected to Twitch EventSub, listening for channel point redemptions of %s", tok.Login)
+	e.subscribeChat(ctx, welcome.Session.ID, tok)
 	e.onStatus(true)
 
 	keepalive := time.Duration(welcome.Session.KeepaliveTimeoutSeconds) * time.Second
@@ -182,6 +188,23 @@ func (e *EventSub) session(ctx context.Context) error {
 			e.log.Infof("EventSub moved to a new server (requested by Twitch)")
 		}
 	}
+}
+
+// subscribeChat adds the chat subscription. Failing here must not cost the
+// redemptions (the sound bot's main job), so errors are only logged.
+func (e *EventSub) subscribeChat(ctx context.Context, sessionID string, tok *Token) {
+	if e.onChat == nil {
+		return
+	}
+	if !tok.HasScope(ScopeReadChat) {
+		e.log.Warnf("Chat commands are off: reconnect Twitch once to allow reading chat")
+		return
+	}
+	if err := e.helix.SubscribeChat(ctx, sessionID, tok.UserID); err != nil {
+		e.log.Errorf("Could not subscribe to chat, chat commands are off: %v", err)
+		return
+	}
+	e.log.Infof("Listening for chat commands")
 }
 
 // reconnect dials reconnectURL while still draining the old connection, so no
@@ -269,7 +292,32 @@ func readMsg(ctx context.Context, conn *websocket.Conn, timeout time.Duration) (
 }
 
 func (e *EventSub) handleNotification(msg *wsMessage) {
-	if msg.Metadata.SubscriptionType != redemptionAddType || e.isDuplicate(msg.Metadata.MessageID) {
+	switch msg.Metadata.SubscriptionType {
+	case redemptionAddType:
+	case chatMessageType:
+		if e.onChat == nil || e.isDuplicate(msg.Metadata.MessageID) {
+			return
+		}
+		var p struct {
+			Event json.RawMessage `json:"event"`
+		}
+		if err := json.Unmarshal(msg.Payload, &p); err != nil {
+			e.log.Warnf("ignore malformed chat message: %v", err)
+			return
+		}
+		m, ok, err := parseChatEvent(p.Event)
+		if err != nil {
+			e.log.Warnf("ignore malformed chat message: %v", err)
+			return
+		}
+		if ok {
+			e.onChat(m)
+		}
+		return
+	default:
+		return
+	}
+	if e.isDuplicate(msg.Metadata.MessageID) {
 		return
 	}
 	var np notificationPayload

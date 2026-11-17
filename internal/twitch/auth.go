@@ -42,21 +42,39 @@ const (
 	slowDownStep = 5 * time.Second
 )
 
-// Scopes darkbot requests:
+// Scopes darkbot requests (https://dev.twitch.tv/docs/authentication/scopes/):
 //   - channel:read:redemptions: receive redemptions (EventSub) and list rewards
 //   - channel:manage:redemptions: create/update/delete darkbot's own rewards
 //     and fulfill or reject their redemptions
-var Scopes = []string{"channel:read:redemptions", "channel:manage:redemptions"}
+//   - user:read:chat: receive chat messages (EventSub channel.chat.message)
+//     for the chat commands (song requests)
+//   - user:write:chat: answer chat commands (Helix Send Chat Message)
+const (
+	ScopeReadRedemptions   = "channel:read:redemptions"
+	ScopeManageRedemptions = "channel:manage:redemptions"
+	ScopeReadChat          = "user:read:chat"
+	ScopeWriteChat         = "user:write:chat"
+)
+
+// Scopes is everything darkbot asks for at login.
+var Scopes = []string{ScopeReadRedemptions, ScopeManageRedemptions, ScopeReadChat, ScopeWriteChat}
+
+// HasScope reports whether the token was granted scope.
+func (t *Token) HasScope(scope string) bool {
+	for _, s := range t.Scopes {
+		if s == scope {
+			return true
+		}
+	}
+	return false
+}
 
 // HasScopes reports whether the token was granted every scope darkbot needs.
-// Tokens from older darkbot versions lack channel:manage:redemptions.
+// Tokens from older darkbot versions lack some; the UI then asks the user to
+// reconnect once.
 func (t *Token) HasScopes() bool {
-	have := map[string]bool{}
-	for _, s := range t.Scopes {
-		have[s] = true
-	}
 	for _, s := range Scopes {
-		if !have[s] {
+		if !t.HasScope(s) {
 			return false
 		}
 	}

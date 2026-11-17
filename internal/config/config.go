@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/miwidot/darkbot/internal/i18n"
@@ -26,8 +27,10 @@ const (
 	appDirName     = "darkbot"
 	configFileName = "config.json"
 	tokenFileName  = "token.json"
-	filePerm       = 0o600
-	dirPerm        = 0o700
+	// spotifyTokenFileName is only used when the OS keyring is unavailable.
+	spotifyTokenFileName = "spotify-token.json"
+	filePerm             = 0o600
+	dirPerm              = 0o700
 )
 
 // OutputMode decides where sounds are played.
@@ -54,6 +57,10 @@ const (
 	MaxVolume             = 1.0 // 100 %: HTML audio elements cannot amplify
 	DefaultCooldownSecond = 0
 	DefaultRewardCost     = 100
+	// DefaultSongCooldownSeconds: one song request per viewer per minute.
+	DefaultSongCooldownSeconds = 60
+	// DefaultSongMaxMinutes keeps 20-minute mixes out of the queue.
+	DefaultSongMaxMinutes = 10
 )
 
 // Sound maps one channel point reward to one audio file.
@@ -92,6 +99,26 @@ type OBS struct {
 	Tracks [OBSTrackCount]bool `json:"tracks"`
 }
 
+// SongRequests are the chat song request settings (Spotify).
+type SongRequests struct {
+	// Enabled turns the chat commands on.
+	Enabled bool `json:"enabled"`
+	// SpotifyClientID is the streamer's own Spotify app (see README).
+	SpotifyClientID string `json:"spotify_client_id"`
+	// UserCooldownSeconds: how long a viewer waits between two requests
+	// (broadcaster and moderators are exempt).
+	UserCooldownSeconds int `json:"user_cooldown_seconds"`
+	// MaxMinutes rejects longer songs; 0 = no limit.
+	MaxMinutes int `json:"max_minutes"`
+	// BlockExplicit rejects songs Spotify marks as explicit.
+	BlockExplicit bool `json:"block_explicit"`
+	// ChatReplies answers commands in chat.
+	ChatReplies bool `json:"chat_replies"`
+	// RequesterCanSkip lets the viewer who requested the current song skip
+	// it (moderators and the broadcaster can always skip).
+	RequesterCanSkip bool `json:"requester_can_skip"`
+}
+
 // Config is the whole persisted app configuration.
 type Config struct {
 	TwitchClientID string `json:"twitch_client_id"`
@@ -106,9 +133,10 @@ type Config struct {
 	MasterVolume    float64 `json:"master_volume"`
 	// AutoUpdate installs a newer release automatically when darkbot starts
 	// (never mid-stream: while running, updates are only announced).
-	AutoUpdate bool    `json:"auto_update"`
-	OBS        OBS     `json:"obs"`
-	Sounds     []Sound `json:"sounds"`
+	AutoUpdate bool         `json:"auto_update"`
+	OBS        OBS          `json:"obs"`
+	Sounds     []Sound      `json:"sounds"`
+	Songs      SongRequests `json:"songs"`
 }
 
 // Default returns a config with sensible defaults.
@@ -123,6 +151,12 @@ func Default() Config {
 			InputName: DefaultOBSInputName,
 			Tracks:    [OBSTrackCount]bool{true}, // track 1 only
 		},
+		Songs: SongRequests{
+			UserCooldownSeconds: DefaultSongCooldownSeconds,
+			MaxMinutes:          DefaultSongMaxMinutes,
+			ChatReplies:         true,
+			RequesterCanSkip:    true,
+		},
 	}
 }
 
@@ -131,6 +165,9 @@ func (c *Config) normalize() {
 	if c.OutputMode != OutputDevice && c.OutputMode != OutputOBS {
 		c.OutputMode = OutputDevice
 	}
+	c.Songs.SpotifyClientID = strings.TrimSpace(c.Songs.SpotifyClientID)
+	c.Songs.UserCooldownSeconds = max(c.Songs.UserCooldownSeconds, 0)
+	c.Songs.MaxMinutes = max(c.Songs.MaxMinutes, 0)
 	if c.Language != "" && !i18n.IsSupported(c.Language) {
 		c.Language = ""
 	}
@@ -258,6 +295,9 @@ func (s *Store) Subscribe(fn func(Config)) {
 	defer s.mu.Unlock()
 	s.subs = append(s.subs, fn)
 }
+
+// SpotifyTokenPath is the Spotify token file (used only without a keyring).
+func (s *Store) SpotifyTokenPath() string { return filepath.Join(s.dir, spotifyTokenFileName) }
 
 // TokenPath returns where the Twitch token file lives.
 func (s *Store) TokenPath() string { return filepath.Join(s.dir, tokenFileName) }

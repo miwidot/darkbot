@@ -1,3 +1,25 @@
+2026-11-17 19:50 +08 — Song requests from chat via the streamer's own Spotify app
+- Chat commands: !sr/!songrequest <Spotify track link | spotify:track URI | search text>,
+  !song, !next, !queue (next 5), !skip (broadcaster, moderators, optionally the requester).
+  Per-viewer cooldown (mods/broadcaster exempt, failed requests don't cost it), max length,
+  explicit filter, chat replies on/off. YouTube, album/playlist and spotify.link short links are
+  refused with a hint. Info commands answer at most every 5 s each.
+- Twitch: new scopes user:read:chat + user:write:chat; channel.chat.message v1 on the existing
+  EventSub session (chat failure never costs redemptions); Send Chat Message as threaded reply,
+  dropped messages logged. Shared Chat messages from other channels are ignored. Old tokens get
+  the reconnect banner; reward creation only checks channel:manage:redemptions.
+- Spotify (new internal/spotify): Authorization Code + PKCE with the streamer's own Client ID
+  (dev mode allows only 5 users per app). No port: the user pastes the 127.0.0.1 redirect address
+  from the browser; state is checked. Token in the OS keyring, refreshed 5 min early, single
+  refresh at a time, old refresh token kept when Spotify sends none, invalid_grant logs out.
+  Player errors mapped to clear messages (no device, Premium, rate limit, not found).
+- New internal/secret: keyring + atomic 0600 file fallback shared by Twitch and Spotify
+  (Twitch keyring entry name unchanged, existing logins survive).
+- UI: Settings section "Song requests" with setup steps, copy button for the redirect URI,
+  paste box, rules and command list; activity feed shows requests, skips and refusals.
+- Tests: songs (cooldown, rules, permissions, info commands, error wording), spotify (PKCE,
+  paste parsing, link parsing, refresh dedupe/rotation/rejection, error mapping), chat parsing.
+
 2026-11-17 19:30 +08 — English and German UI (i18n)
 - New package internal/i18n: one JSON file per language (locales/en.json, de.json) is the single
   source for the UI and for Go error messages; the frontend gets it via App.GetTranslations, so

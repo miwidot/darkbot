@@ -88,6 +88,7 @@
       <button data-sec="audio" class="active" data-i18n="nav.audio"></button>
       <button data-sec="twitch" data-i18n="nav.twitch"></button>
       <button data-sec="obs" data-i18n="nav.obs"></button>
+      <button data-sec="songs" data-i18n="nav.songs"></button>
       <button data-sec="updates" data-i18n="nav.updates"></button>
       <button data-sec="log" data-i18n="nav.log"></button>
     </nav>
@@ -174,6 +175,79 @@
           <button class="btn hidden" id="obsDisconnect" data-i18n="obs.disconnect"></button>
           <button class="btn primary" id="obsConnect"></button>
         </div>
+      </section>
+
+      <!-- SONG REQUESTS -->
+      <section class="sec" id="sec-songs">
+        <h3 data-i18n="songs.title"></h3>
+        <p class="lede" data-i18n="songs.lede"></p>
+        <p class="notice hidden" id="songsChatHint" data-i18n="songs.chatMissing"></p>
+
+        <div class="songs-status">
+          <span class="status" id="spotifyStatus"></span>
+          <button class="btn danger hidden" id="spotifyLogout" data-i18n="songs.disconnect"></button>
+        </div>
+
+        <details class="more" id="spotifySetup">
+          <summary data-i18n="songs.setupSummary"></summary>
+          <ol class="steps">
+            <li data-i18n="songs.step1"></li>
+            <li><span data-i18n="songs.step2"></span>
+              <div class="inline copy"><input id="spotifyRedirect" type="text" readonly><button type="button" class="btn" id="copyRedirect" data-i18n="songs.copy"></button></div></li>
+            <li data-i18n="songs.step3"></li>
+            <li data-i18n="songs.step4"></li>
+          </ol>
+          <div class="field">
+            <label for="spotifyClientId" data-i18n="songs.clientId"></label>
+            <input id="spotifyClientId" type="text" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="sec-actions start">
+            <button class="btn primary" id="spotifyLogin" data-i18n="songs.connect"></button>
+            <button class="btn quiet" id="openSpotifyDashboard" data-i18n="songs.openDashboard"></button>
+          </div>
+          <div class="login hidden" id="spotifyPasteBox">
+            <p data-i18n="songs.pasteHelp"></p>
+            <div class="field">
+              <label for="spotifyPaste" data-i18n="songs.pasteLabel"></label>
+              <input id="spotifyPaste" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="songs.pastePlaceholder">
+            </div>
+            <div class="inline">
+              <button class="btn primary" id="spotifyFinish" data-i18n="songs.finish"></button>
+              <button class="btn" id="spotifyReopen" data-i18n="songs.reopen"></button>
+              <button class="btn quiet" id="spotifyCancel" data-i18n="twitch.cancel"></button>
+            </div>
+          </div>
+        </details>
+
+        <label class="check"><input type="checkbox" id="songsEnabled"> <span data-i18n="songs.enabled"></span></label>
+        <div class="grid2">
+          <div class="field">
+            <label for="songsCooldown" data-i18n="songs.cooldown"></label>
+            <input id="songsCooldown" type="number" min="0" step="1">
+            <p class="hint" data-i18n="songs.cooldownHint"></p>
+          </div>
+          <div class="field">
+            <label for="songsMax" data-i18n="songs.maxMinutes"></label>
+            <input id="songsMax" type="number" min="0" step="1">
+            <p class="hint" data-i18n="songs.maxHint"></p>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="songsExplicit"> <span data-i18n="songs.blockExplicit"></span></label>
+        <label class="check"><input type="checkbox" id="songsRequesterSkip"> <span data-i18n="songs.requesterSkip"></span></label>
+        <label class="check"><input type="checkbox" id="songsReplies"> <span data-i18n="songs.replies"></span></label>
+
+        <div class="commands">
+          <h4 data-i18n="songs.commandsTitle"></h4>
+          <dl>
+            <dt>!sr</dt><dd data-i18n="songs.cmdSr"></dd>
+            <dt>!song</dt><dd data-i18n="songs.cmdSong"></dd>
+            <dt>!next</dt><dd data-i18n="songs.cmdNext"></dd>
+            <dt>!queue</dt><dd data-i18n="songs.cmdQueue"></dd>
+            <dt>!skip</dt><dd data-i18n="songs.cmdSkip"></dd>
+          </dl>
+        </div>
+        <p class="hint" data-i18n="songs.legal"></p>
+        <div class="sec-actions"><button class="btn primary" id="saveSongs" data-i18n="songs.save"></button></div>
       </section>
 
       <!-- UPDATES -->

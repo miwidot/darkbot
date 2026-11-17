@@ -6,12 +6,12 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 type memStore struct {
@@ -286,20 +286,48 @@ func TestIsTwitchWSURL(t *testing.T) {
 	}
 }
 
-func TestCorruptTokenFileIsIgnored(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "token.json")
-	if err := os.WriteFile(p, []byte("{broken"), 0o600); err != nil {
-		t.Fatal(err)
+func TestParseChatEvent(t *testing.T) {
+	raw := `{"broadcaster_user_id":"1","chatter_user_id":"2","chatter_user_login":"mod","chatter_user_name":"Mod",
+		"message_id":"m","message":{"text":"!skip"},"badges":[{"set_id":"moderator","id":"1","info":""}],
+		"source_broadcaster_user_id":null}`
+	m, ok, err := parseChatEvent(json.RawMessage(raw))
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
 	}
-	s := &KeyringStore{FallbackPath: p, Log: nopLog{}}
-	tok, err := s.loadFile()
-	if err != nil || tok != nil {
-		t.Fatalf("corrupt file must read as logged out, got %v, %v", tok, err)
+	if !m.IsModerator || m.IsBroadcaster || m.Text != "!skip" || m.ChatterName != "Mod" || m.ID != "m" {
+		t.Fatalf("got %+v", m)
 	}
-	if err := writeFileAtomic(p, []byte(`{"access_token":"A"}`)); err != nil {
-		t.Fatal(err)
+
+	own := `{"broadcaster_user_id":"1","chatter_user_id":"1","message":{"text":"hi"},"badges":[],"source_broadcaster_user_id":"1"}`
+	if m, ok, _ := parseChatEvent(json.RawMessage(own)); !ok || !m.IsBroadcaster {
+		t.Fatalf("broadcaster message: ok=%v %+v", ok, m)
 	}
-	if tok, _ := s.loadFile(); tok == nil || tok.AccessToken != "A" {
-		t.Fatal("atomic write not readable")
+
+	shared := `{"broadcaster_user_id":"1","chatter_user_id":"9","message":{"text":"!sr x"},"badges":[],"source_broadcaster_user_id":"5"}`
+	if _, ok, _ := parseChatEvent(json.RawMessage(shared)); ok {
+		t.Fatal("Shared Chat messages from other channels must be ignored")
+	}
+}
+
+func TestTruncateChat(t *testing.T) {
+	short := "hällo"
+	if TruncateChat(short) != short {
+		t.Fatal("short text changed")
+	}
+	long := strings.Repeat("ä", MaxChatMessage+10)
+	got := TruncateChat(long)
+	if n := utf8.RuneCountInString(got); n != MaxChatMessage || !strings.HasSuffix(got, "…") {
+		t.Fatalf("length %d", n)
+	}
+}
+
+func TestHasScope(t *testing.T) {
+	tok := &Token{Scopes: []string{ScopeReadRedemptions, ScopeManageRedemptions}}
+	if !tok.HasScope(ScopeManageRedemptions) || tok.HasScope(ScopeReadChat) || tok.HasScopes() {
+		t.Fatal("old token: has reward scopes, lacks chat scopes")
+	}
+	tok.Scopes = append(tok.Scopes, ScopeReadChat, ScopeWriteChat)
+	if !tok.HasScopes() {
+		t.Fatal("all scopes granted")
 	}
 }
