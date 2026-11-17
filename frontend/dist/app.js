@@ -12,8 +12,12 @@ const DEFAULT_COST = 100;
 const TOAST_MS = 5000;
 const CONFIRM_MS = 4000;
 const SPOTIFY_DASHBOARD = 'https://developer.spotify.com/dashboard';
+const VIEW_KEY = 'darkbot.view';     // localStorage: last opened view
+const BUMP_MS = 900;                 // how long a meter glows after it changed
 
 let state = null;
+let stats = null;                   // dashboard numbers from Go
+let view = 'dash';
 let rewards = [];
 let devices = [];
 let editing = null;
@@ -93,6 +97,14 @@ function render() {
 
   $('onboard').classList.toggle('hidden', loggedIn);
   $('reconnect').classList.toggle('hidden', !loggedIn || !state.needsReconnect);
+  // Before login there is nothing to count or play: only the welcome card.
+  document.querySelector('.views').classList.toggle('hidden', !loggedIn);
+  $('dashBody').classList.toggle('hidden', !loggedIn);
+  $('dashReset').classList.toggle('hidden', !loggedIn);
+  $('dashSince').classList.toggle('hidden', !loggedIn);
+  showView(loggedIn ? view : 'dash');
+  renderDash();
+  renderLogins();
 
   renderPads();
   renderStrip();
@@ -164,6 +176,187 @@ function tickCooldowns() {
   }
   if (active) rafId = requestAnimationFrame(tickCooldowns);
 }
+
+// ---------- views ----------
+
+function showView(name) {
+  for (const b of document.querySelectorAll('.views button')) {
+    const on = b.dataset.view === name;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-current', on ? 'page' : 'false');
+  }
+  $('viewDash').classList.toggle('hidden', name !== 'dash');
+  $('viewSounds').classList.toggle('hidden', name !== 'sounds');
+}
+for (const b of document.querySelectorAll('.views button')) {
+  b.addEventListener('click', () => {
+    view = b.dataset.view;
+    try { localStorage.setItem(VIEW_KEY, view); } catch (e) { /* storage blocked: the view just isn't remembered */ }
+    showView(view);
+  });
+}
+try { view = localStorage.getItem(VIEW_KEY) === 'sounds' ? 'sounds' : 'dash'; } catch (e) { view = 'dash'; }
+
+// ---------- dashboard ----------
+
+const num = (n) => Number(n || 0).toLocaleString(I18N.lang || undefined);
+
+// Four meters. The big number is this session; the lines below explain it.
+const METERS = [
+  { id: 'redemptions', label: 'dash.redemptions', tip: 'tip.dashRedemptions',
+    value: (s) => s.session.redemptions,
+    detail: (s) => t('dash.redemptionsDetail', { played: num(s.session.played), refused: num(s.session.refused) }),
+    total: (s) => s.total.redemptions },
+  { id: 'commands', label: 'dash.commands', tip: 'tip.dashCommands',
+    value: (s) => s.session.commands,
+    detail: (s) => t('dash.commandsDetail', { skips: num(s.session.skips) }),
+    total: (s) => s.total.commands },
+  { id: 'songs', label: 'dash.songs', tip: 'tip.dashSongs',
+    value: (s) => s.session.songsAdded,
+    detail: (s) => t('dash.songsDetail', { rejected: num(s.session.songsRejected) }),
+    total: (s) => s.total.songsAdded },
+  { id: 'viewers', label: 'dash.viewers', tip: 'tip.dashViewers',
+    value: (s) => s.viewers,
+    detail: () => t('dash.viewersDetail'),
+    total: null },
+];
+const lastValues = new Map();
+
+function renderDash() {
+  if (!stats) return;
+  const totalSince = new Date(stats.totalSince);
+  $('dashSince').textContent = t('dash.since', {
+    time: clock(new Date(stats.since)),
+    date: totalSince.toLocaleDateString(I18N.lang || undefined, { day: 'numeric', month: 'short', year: 'numeric' }),
+  });
+
+  $('meters').replaceChildren(...METERS.map((m) => {
+    const v = m.value(stats) || 0;
+    const prev = lastValues.get(m.id);
+    lastValues.set(m.id, v);
+    const bump = prev !== undefined && v > prev;
+    const tile = el('div', { class: 'meter' + (bump ? ' bump' : '') },
+      el('div', { class: 'meter-head' },
+        el('span', { class: 'meter-label' }, t(m.label)),
+        el('span', { class: 'tip', tabindex: '0', role: 'button', 'data-tip': m.tip, 'aria-label': t('tip.more') })),
+      el('div', { class: 'meter-value' }, num(v)),
+      el('div', { class: 'meter-detail' }, m.detail(stats)),
+      m.total ? el('div', { class: 'meter-total' }, t('dash.total', { n: num(m.total(stats)) })) : null);
+    if (bump) setTimeout(() => tile.classList.remove('bump'), BUMP_MS);
+    return tile;
+  }));
+
+  renderRank('topSounds', stats.topSounds || []);
+  renderRank('topViewers', stats.topViewers || []);
+}
+
+// Ranked list with a bar relative to the leader.
+function renderRank(id, entries) {
+  const max = entries.length ? entries[0].count : 0;
+  $(id).replaceChildren(...entries.map((e) => {
+    const bar = el('span', { class: 'rank-bar', 'aria-hidden': 'true' });
+    bar.style.setProperty('--w', max ? (e.count / max).toFixed(3) : '0');
+    return el('li', {}, el('span', { class: 'rank-name', title: e.name }, e.name), bar, el('span', { class: 'rank-count' }, num(e.count)));
+  }));
+  $(id + 'Empty').classList.toggle('hidden', entries.length > 0);
+}
+
+// Coalesce bursts of "stats" events into one fetch per frame.
+let statsQueued = false;
+function loadStats() {
+  if (statsQueued) return;
+  statsQueued = true;
+  requestAnimationFrame(async () => {
+    statsQueued = false;
+    try { stats = await App().GetStats(); renderDash(); } catch (e) { /* the next event fetches again */ }
+  });
+}
+
+// Two-step reset like delete: native confirm dialogs would block the web view.
+let resetArmed = 0;
+$('dashReset').addEventListener('click', async () => {
+  if (Date.now() - resetArmed > CONFIRM_MS) {
+    resetArmed = Date.now();
+    $('dashReset').textContent = t('dash.resetConfirm');
+    setTimeout(() => { if (Date.now() - resetArmed >= CONFIRM_MS) $('dashReset').textContent = t('dash.reset'); }, CONFIRM_MS);
+    return;
+  }
+  resetArmed = 0;
+  $('dashReset').textContent = t('dash.reset');
+  lastValues.clear();
+  await App().ResetSessionStats();
+  toast(t('dash.resetDone'));
+});
+
+// ---------- logins (token health) ----------
+
+const LOGIN_TICK_MS = 30000; // relative times ("in 12 minutes") refresh this often
+const MINUTE_MS = 60000;
+
+const isSet = (iso) => iso && !iso.startsWith('0001-'); // Go zero time = not set
+const dayDate = (iso) => new Date(iso).toLocaleDateString(I18N.lang || undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+
+// "21:42 (in 12 minutes)" in the UI language.
+function whenWithRelative(iso) {
+  const d = new Date(iso);
+  const mins = Math.round((d - Date.now()) / MINUTE_MS);
+  let rel;
+  try {
+    const rtf = new Intl.RelativeTimeFormat(I18N.lang || undefined, { numeric: 'auto' });
+    rel = Math.abs(mins) >= 120 ? rtf.format(Math.round(mins / 60), 'hour') : rtf.format(mins, 'minute');
+  } catch (e) { rel = ''; }
+  return clock(d) + (rel ? ' (' + rel + ')' : '');
+}
+
+function loginRow(label, value) {
+  return [el('dt', {}, label), el('dd', {}, value)];
+}
+
+function loginCard(service, h, opts) {
+  const ok = h.loggedIn && !h.lastError;
+  const card = el('div', { class: 'login-card' + (h.loggedIn ? '' : ' off') + (h.lastError ? ' warn' : '') });
+  const head = el('div', { class: 'login-head' },
+    el('span', { class: 'login-led' + (ok ? ' on' : '') , 'aria-hidden': 'true' }),
+    el('b', {}, t('logins.' + service)),
+    el('span', { class: 'login-who' }, h.loggedIn ? opts.who : t('logins.off')));
+  card.append(head);
+  if (!h.loggedIn) {
+    card.append(el('button', { class: 'btn', onclick: () => openSettings(opts.section) }, t('logins.connect')));
+    return card;
+  }
+  const expired = new Date(h.expiresAt) <= Date.now();
+  const rows = [
+    ...loginRow(t('logins.validUntil'), expired ? t('logins.expired') : whenWithRelative(h.expiresAt)),
+    ...loginRow(t('logins.autoRenew'), opts.nextRefresh ? t('logins.autoAt', { time: clock(new Date(opts.nextRefresh)) }) : t('logins.autoOnUse')),
+    ...loginRow(t('logins.lastRefresh'), isSet(h.lastRefresh) ? clock(new Date(h.lastRefresh)) : t('logins.notYet')),
+  ];
+  if (opts.withCheck) rows.push(...loginRow(t('logins.lastCheck'), isSet(h.lastValidate) ? clock(new Date(h.lastValidate)) : t('logins.checkNotYet')));
+  rows.push(...loginRow(t('logins.loginUntil'), isSet(h.loginUntil) ? t(opts.untilKey, { date: dayDate(h.loginUntil) }) : t('logins.unknown')));
+  card.append(el('dl', { class: 'login-rows' }, ...rows));
+  if (h.lastError) card.append(el('p', { class: 'login-error' }, t('logins.error', { error: h.lastError })));
+  const btn = el('button', { class: 'btn' }, t('logins.renew'));
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      await call(opts.renew);
+      toast(t('logins.renewed', { service: t('logins.' + service) }));
+    } catch (e) { /* toast shown by call */ } finally { btn.disabled = false; refresh(); }
+  });
+  card.append(btn);
+  return card;
+}
+
+function renderLogins() {
+  if (!state) return;
+  const th = state.twitchHealth || {};
+  const sh = state.spotifyHealth || {};
+  $('logins').replaceChildren(
+    loginCard('twitch', th, { who: state.twitchLogin, section: 'twitch', renew: 'RefreshTwitchToken',
+      nextRefresh: isSet(th.nextRefresh) ? th.nextRefresh : '', withCheck: true, untilKey: 'logins.twitchUntil' }),
+    loginCard('spotify', sh, { who: state.spotifyUser, section: 'songs', renew: 'RefreshSpotifyToken',
+      nextRefresh: '', withCheck: false, untilKey: 'logins.spotifyUntil' }));
+}
+setInterval(() => { if (!$('viewDash').classList.contains('hidden')) renderLogins(); }, LOGIN_TICK_MS);
 
 // ---------- activity feed ----------
 
@@ -278,12 +471,19 @@ function systemLanguage() {
   return 'en';
 }
 function renderGeneral() {
+  $('autostartRow').classList.toggle('hidden', !state.autostartSupported);
+  $('autostart').checked = state.autostart;
   const sel = $('language');
   const chosen = state.config.language || '';
   sel.replaceChildren(
     el('option', { value: '', selected: chosen === '' }, t('general.languageSystem', { lang: t('lang.' + systemLanguage()) })),
     ...languages.map((l) => el('option', { value: l, selected: chosen === l }, t('lang.' + l))));
 }
+$('autostart').addEventListener('change', async () => {
+  const on = $('autostart').checked;
+  try { await call('SetAutostart', on); toast(t(on ? 'general.autostartOn' : 'general.autostartOff')); } catch (e) { /* toast shown */ }
+  refresh();
+});
 $('language').addEventListener('change', async () => {
   await call('SetLanguage', $('language').value);
   await refresh();
@@ -718,11 +918,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.runtime.EventsOn('state', refresh);
   window.runtime.EventsOn('play', playSound);
   window.runtime.EventsOn('activity', onActivity);
+  window.runtime.EventsOn('stats', loadStats);
   window.runtime.EventsOn('log', () => { if ($('settings').open && $('sec-log').classList.contains('active')) renderLog(); });
   languages = (await App().GetLanguages()) || languages;
   await App().ReportSystemLanguage([...(navigator.languages || [navigator.language])]);
   await loadDevices(false);
   App().ReportAudioSupport(SINK_SUPPORTED, devices.length, devices.filter((d) => d.label).length);
+  stats = await App().GetStats();
   await refresh();
   if (state.twitchLogin) {
     try { rewards = (await App().GetRewards()) || []; renderPads(); } catch (e) { /* shown when editing */ }

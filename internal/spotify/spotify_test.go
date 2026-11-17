@@ -241,3 +241,21 @@ func TestNotConnected(t *testing.T) {
 		t.Fatalf("err %v", err)
 	}
 }
+
+func TestHealthKeepsLoginDateAcrossRefresh(t *testing.T) {
+	var n atomic.Int32
+	tokenServer(t, false, &n)
+	authorized := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+	store := &memStore{tok: &Token{AccessToken: "A1", RefreshToken: "R1", ExpiresAt: time.Now(), AuthorizedAt: authorized}}
+	c, _ := NewClient("cid", store, nopLog{})
+	if err := c.RefreshNow(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	h := c.Health()
+	if !h.LoggedIn || h.LastRefresh.IsZero() || h.LastError != "" {
+		t.Fatalf("health %+v", h)
+	}
+	if want := authorized.AddDate(0, RefreshTokenLifetimeMonths, 0); !h.LoginUntil.Equal(want) {
+		t.Fatalf("login until %v, want %v (refreshing must not extend it)", h.LoginUntil, want)
+	}
+}

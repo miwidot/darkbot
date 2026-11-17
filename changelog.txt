@@ -1,3 +1,19 @@
+2026-11-17 21:00 +08 — Dashboard start page, login health, autostart
+- Start page after login is now a dashboard; sounds moved to their own "Sounds" view (header
+  switch, last view remembered). Before login only the welcome card shows.
+- Dashboard: meters for redemptions (played/refused), chat commands (songs skipped), song
+  requests (refused) and viewers taking part, per session plus saved totals; a meter's LED
+  glows when its number goes up. Top 5 sounds and top 5 viewers with bars. "New session"
+  (two-click) resets the session counters, totals stay. New internal/stats (stats.json,
+  atomic writes batched every 2 s, flushed on shutdown; previews never counted).
+- "Logins" panel: for Twitch and Spotify shows access valid until, when it renews itself,
+  last renewal, last Twitch validation, how long the login lasts (Twitch: 30 days from the
+  last renewal; Spotify: 6 months from connecting, not extended) and the last problem.
+  "Renew now" button per service. TokenManager/Spotify client track this (Health()).
+- Autostart option (Settings, General): Windows HKCU Run entry, macOS LaunchAgent, Linux XDG
+  autostart; per user, no admin. Entry is re-pointed on start if darkbot was moved.
+- Tooltips for all new items, en + de.
+
 2026-11-17 20:25 +08 — Tooltips everywhere + "powered by Tarkov Stammtisch"
 - New frontend/dist/tooltip.js: a "?" next to every setting (30 places: audio, OBS, Twitch,
   song requests, updates, language, sound editor, master volume) and the header status lights

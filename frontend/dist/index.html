@@ -19,6 +19,10 @@
 <div class="shell">
   <header class="bar">
     <div class="brand">darkbot</div>
+    <nav class="views" data-i18n-aria-label="view.nav">
+      <button data-view="dash" data-i18n="view.dash"></button>
+      <button data-view="sounds" data-i18n="view.sounds"></button>
+    </nav>
     <div class="signals" aria-live="polite">
       <span class="signal" id="sigTwitch" tabindex="0" data-tip="tip.sigTwitch"><i></i><span></span></span>
       <span class="signal" id="sigEvents" tabindex="0" data-tip="tip.sigEvents"><i></i><span></span></span>
@@ -31,11 +35,11 @@
   </header>
 
   <main class="stage">
-    <section class="board" aria-labelledby="boardTitle">
+    <section class="board view" id="viewDash" aria-labelledby="dashTitle">
       <div class="board-head">
-        <h1 id="boardTitle" data-i18n="board.title"></h1>
-        <span class="count" id="soundCount"></span>
-        <button class="btn primary" id="addSound"><svg><use href="#i-plus"/></svg><span data-i18n="board.add"></span></button>
+        <h1 id="dashTitle" data-i18n="dash.title"></h1>
+        <span class="count" id="dashSince"></span>
+        <button class="btn quiet" id="dashReset" data-i18n="dash.reset" data-i18n-title="dash.resetTitle"></button>
       </div>
 
       <div class="reconnect hidden" id="reconnect">
@@ -47,6 +51,34 @@
         <h2 data-i18n="board.onboardTitle"></h2>
         <p data-i18n="board.onboardText"></p>
         <button class="btn primary" id="onboardConnect" data-i18n="board.onboardBtn"></button>
+      </div>
+
+      <div id="dashBody">
+        <div class="meters" id="meters"></div>
+        <div class="ranks">
+          <section class="rank">
+            <h2 data-i18n="dash.topSounds"></h2>
+            <ol class="rank-list" id="topSounds"></ol>
+            <p class="rank-empty" id="topSoundsEmpty" data-i18n="dash.topSoundsEmpty"></p>
+          </section>
+          <section class="rank">
+            <h2 data-i18n="dash.topViewers"></h2>
+            <ol class="rank-list" id="topViewers"></ol>
+            <p class="rank-empty" id="topViewersEmpty" data-i18n="dash.topViewersEmpty"></p>
+          </section>
+        </div>
+        <section class="logins-wrap" aria-labelledby="loginsTitle">
+          <h2 id="loginsTitle"><span data-i18n="logins.title"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.logins" data-i18n-aria-label="tip.more"></span></h2>
+          <div class="logins" id="logins"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="board view hidden" id="viewSounds" aria-labelledby="boardTitle">
+      <div class="board-head">
+        <h1 id="boardTitle" data-i18n="board.title"></h1>
+        <span class="count" id="soundCount"></span>
+        <button class="btn primary" id="addSound"><svg><use href="#i-plus"/></svg><span data-i18n="board.add"></span></button>
       </div>
 
       <div class="pads" id="pads"></div>
@@ -103,6 +135,7 @@
           <select id="language"></select>
           <p class="hint" data-i18n="general.languageHint"></p>
         </div>
+        <label class="check" id="autostartRow"><input type="checkbox" id="autostart"> <span data-i18n="general.autostart"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.autostart" data-i18n-aria-label="tip.more"></span></label>
       </section>
 
       <!-- AUDIO -->

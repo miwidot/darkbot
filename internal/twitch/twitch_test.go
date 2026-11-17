@@ -141,6 +141,30 @@ func TestRefreshIsSerializedAndDeduped(t *testing.T) {
 	}
 }
 
+func TestHealthAfterRefresh(t *testing.T) {
+	fakeTwitch(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"access_token": "A2", "refresh_token": "R2", "expires_in": 14400})
+	})
+	m, _ := NewTokenManager("cid", &memStore{tok: &Token{AccessToken: "A1", RefreshToken: "R1"}}, nopLog{})
+	if h := m.Health(); !h.LoggedIn || !h.LoginUntil.IsZero() || !h.LastRefresh.IsZero() {
+		t.Fatalf("before refresh %+v (old tokens don't know their refresh date)", h)
+	}
+	before := time.Now()
+	if err := m.RefreshNow(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	h := m.Health()
+	if h.LastRefresh.Before(before) || h.LastError != "" {
+		t.Fatalf("health %+v", h)
+	}
+	if d := h.LoginUntil.Sub(before); d < RefreshTokenLifetime || d > RefreshTokenLifetime+time.Minute {
+		t.Fatalf("login until %v, want about 30 days after the refresh", h.LoginUntil)
+	}
+	if !h.NextRefresh.Equal(h.ExpiresAt.Add(-refreshMargin)) {
+		t.Fatalf("next refresh %v, expires %v", h.NextRefresh, h.ExpiresAt)
+	}
+}
+
 func TestRefreshRejectedLogsOut(t *testing.T) {
 	fakeTwitch(t, func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]any{"status": 400, "message": "Invalid refresh token"})
@@ -172,6 +196,9 @@ func TestRefreshTransientKeepsToken(t *testing.T) {
 	}
 	if m.Current() == nil || m.Current().RefreshToken != "R1" {
 		t.Fatal("transient error must keep the token")
+	}
+	if m.Health().LastError == "" {
+		t.Fatal("a failed refresh must show up in the health")
 	}
 }
 

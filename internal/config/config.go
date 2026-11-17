@@ -29,6 +29,7 @@ const (
 	tokenFileName  = "token.json"
 	// spotifyTokenFileName is only used when the OS keyring is unavailable.
 	spotifyTokenFileName = "spotify-token.json"
+	statsFileName        = "stats.json"
 	filePerm             = 0o600
 	dirPerm              = 0o700
 )
@@ -298,6 +299,9 @@ func (s *Store) Subscribe(fn func(Config)) {
 
 // SpotifyTokenPath is the Spotify token file (used only without a keyring).
 func (s *Store) SpotifyTokenPath() string { return filepath.Join(s.dir, spotifyTokenFileName) }
+
+// StatsPath is the dashboard totals file.
+func (s *Store) StatsPath() string { return filepath.Join(s.dir, statsFileName) }
 
 // TokenPath returns where the Twitch token file lives.
 func (s *Store) TokenPath() string { return filepath.Join(s.dir, tokenFileName) }

@@ -77,7 +77,15 @@ type Token struct {
 	Scope        string    `json:"scope"`
 	UserID       string    `json:"user_id"`
 	DisplayName  string    `json:"display_name"`
+	// AuthorizedAt is when the user connected Spotify. Refresh tokens last
+	// RefreshTokenLifetime from then; refreshing does not extend them.
+	AuthorizedAt time.Time `json:"authorized_at,omitzero"`
 }
+
+// RefreshTokenLifetimeMonths: Spotify refresh tokens are valid for 6 months
+// from the user's authorization, and refreshing doesn't extend that
+// (https://developer.spotify.com/documentation/web-api/tutorials/refreshing-tokens).
+const RefreshTokenLifetimeMonths = 6
 
 // PendingLogin is a started login waiting for the pasted redirect address.
 type PendingLogin struct {

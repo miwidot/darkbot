@@ -14,6 +14,7 @@ import (
 
 	"github.com/miwidot/darkbot/internal/applog"
 	"github.com/miwidot/darkbot/internal/audio"
+	"github.com/miwidot/darkbot/internal/autostart"
 	"github.com/miwidot/darkbot/internal/bot"
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/i18n"
@@ -21,6 +22,7 @@ import (
 	"github.com/miwidot/darkbot/internal/selfupdate"
 	"github.com/miwidot/darkbot/internal/songs"
 	"github.com/miwidot/darkbot/internal/spotify"
+	"github.com/miwidot/darkbot/internal/stats"
 	"github.com/miwidot/darkbot/internal/twitch"
 	"github.com/miwidot/darkbot/internal/version"
 )
@@ -70,6 +72,7 @@ type App struct {
 	obsO *obs.Output
 	sp   *spotify.Client
 	sr   *songs.Handler
+	st   *stats.Stats
 
 	mu          sync.Mutex
 	esCancel    context.CancelFunc
@@ -105,7 +108,12 @@ func NewApp(log *applog.Log) (*App, error) {
 		return nil, err
 	}
 
-	a := &App{log: log, cfg: cfg, tok: tok, hx: twitch.NewHelix(tok)}
+	a := &App{log: log, cfg: cfg, tok: tok, hx: twitch.NewHelix(tok), st: stats.Open(cfg.StatsPath(), log)}
+	a.st.OnChange(func() {
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, "stats")
+		}
+	})
 	a.obs = obs.New(func(err error) {
 		log.Errorf("OBS connection lost: %v", err)
 		a.emitState()
@@ -113,6 +121,7 @@ func NewApp(log *applog.Log) (*App, error) {
 	a.web = &webOutput{app: a, pending: map[string]chan string{}}
 	a.obsO = &obs.Output{OBS: a.obs, Cfg: cfg}
 	a.bot = bot.New(cfg, log, a.currentOutput, func(act bot.Activity) {
+		a.countActivity(act)
 		if a.ctx != nil {
 			runtime.EventsEmit(a.ctx, "activity", act)
 		}
@@ -131,7 +140,16 @@ func NewApp(log *applog.Log) (*App, error) {
 		Connected: func() bool { return a.sp.Current() != nil },
 		Lang:      a.lang,
 		Reply:     a.sendChat,
+		OnCommand: a.st.Command,
 		OnActivity: func(act songs.Activity) {
+			switch act.Kind {
+			case songs.ActAdded:
+				a.st.SongAdded(act.User)
+			case songs.ActRejected:
+				a.st.SongRejected()
+			case songs.ActSkipped:
+				a.st.Skip()
+			}
 			if a.ctx != nil {
 				runtime.EventsEmit(a.ctx, "activity", act)
 			}
@@ -174,6 +192,10 @@ func (a *App) startup(ctx context.Context) {
 		go func() { _ = a.ConnectOBS() }()
 	}
 	go a.updateLoop(ctx)
+	// darkbot may have been moved since autostart was switched on.
+	if err := autostart.Refresh(); err != nil {
+		a.log.Warnf("Autostart: could not update the entry: %v", err)
+	}
 }
 
 // ---------- updates ----------
@@ -269,6 +291,7 @@ func (a *App) SetAutoUpdate(on bool) error {
 }
 
 func (a *App) shutdown(context.Context) {
+	a.st.Flush()
 	a.obs.Disconnect()
 }
 
@@ -297,6 +320,12 @@ type State struct {
 	SpotifyUser         string `json:"spotifyUser"`
 	SpotifyLoginPending bool   `json:"spotifyLoginPending"`
 	SpotifyRedirectURI  string `json:"spotifyRedirectUri"`
+	// Token health for the dashboard ("Logins" panel).
+	TwitchHealth  twitch.Health  `json:"twitchHealth"`
+	SpotifyHealth spotify.Health `json:"spotifyHealth"`
+	// Autostart: darkbot starts when the user logs in to the computer.
+	Autostart          bool `json:"autostart"`
+	AutostartSupported bool `json:"autostartSupported"`
 }
 
 // GetState returns the current UI state.
@@ -312,6 +341,15 @@ func (a *App) GetState() State {
 		s.SpotifyUser = st.DisplayName
 	}
 	s.SpotifyRedirectURI = spotify.RedirectURI
+	s.TwitchHealth, s.SpotifyHealth = a.tok.Health(), a.sp.Health()
+	s.AutostartSupported = autostart.Supported()
+	if s.AutostartSupported {
+		on, err := autostart.Enabled()
+		if err != nil {
+			a.log.Warnf("Autostart: could not read the setting: %v", err)
+		}
+		s.Autostart = on
+	}
 	a.mu.Lock()
 	s.EventSubOnline = a.esConnected
 	if a.loginCode != nil {
@@ -960,4 +998,75 @@ func (a *App) SpotifyLogout() error {
 	err := a.sp.Logout()
 	a.log.Infof("Disconnected from Spotify")
 	return a.uiErr(err)
+}
+
+// ---------- dashboard ----------
+
+// countActivity feeds sound events into the dashboard statistics. Every
+// redemption produces exactly one of queued/cooldown/disabled/queue_full;
+// previews (Test) are never counted.
+func (a *App) countActivity(act bot.Activity) {
+	if act.Test {
+		return
+	}
+	switch act.Kind {
+	case bot.ActQueued:
+		a.st.Redemption(act.User, act.RewardTitle, true)
+	case bot.ActCooldown, bot.ActDisabled, bot.ActQueueFull:
+		a.st.Redemption(act.User, act.RewardTitle, false)
+	case bot.ActDone:
+		a.st.Played()
+	case bot.ActError:
+		a.st.Failed()
+	}
+}
+
+// GetStats returns the dashboard numbers.
+func (a *App) GetStats() stats.Snapshot { return a.st.Snapshot() }
+
+// ResetSessionStats starts counting a new session (e.g. a new stream).
+func (a *App) ResetSessionStats() {
+	a.st.ResetSession()
+	a.log.Infof("Dashboard session counters reset")
+}
+
+// ---------- logins & autostart ----------
+
+// tokenRefreshTimeout bounds the "renew now" buttons.
+const tokenRefreshTimeout = 30 * time.Second
+
+// RefreshTwitchToken renews the Twitch access token now (dashboard).
+func (a *App) RefreshTwitchToken() error {
+	ctx, cancel := context.WithTimeout(a.ctx, tokenRefreshTimeout)
+	defer cancel()
+	err := a.tok.RefreshNow(ctx)
+	a.emitState()
+	return a.uiErr(err)
+}
+
+// RefreshSpotifyToken renews the Spotify access token now (dashboard).
+func (a *App) RefreshSpotifyToken() error {
+	ctx, cancel := context.WithTimeout(a.ctx, tokenRefreshTimeout)
+	defer cancel()
+	err := a.sp.RefreshNow(ctx)
+	if err == nil {
+		a.log.Infof("Spotify token refreshed")
+	}
+	a.emitState()
+	return a.uiErr(err)
+}
+
+// SetAutostart switches starting darkbot at login on or off.
+func (a *App) SetAutostart(on bool) error {
+	if err := autostart.Set(on); err != nil {
+		a.log.Errorf("Autostart: %v", err)
+		return a.uiErr(i18n.Wrap(err, "err.autostart"))
+	}
+	if on {
+		a.log.Infof("Autostart on: darkbot starts when you log in")
+	} else {
+		a.log.Infof("Autostart off")
+	}
+	a.emitState()
+	return nil
 }

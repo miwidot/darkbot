@@ -96,6 +96,9 @@ type Token struct {
 	Scopes       []string  `json:"scopes"`
 	UserID       string    `json:"user_id"`
 	Login        string    `json:"login"`
+	// RefreshIssuedAt is when the current refresh token was issued; public
+	// client refresh tokens expire RefreshTokenLifetime later.
+	RefreshIssuedAt time.Time `json:"refresh_issued_at,omitzero"`
 }
 
 // tokenResponse is the JSON body of a successful /oauth2/token call.
@@ -109,10 +112,11 @@ type tokenResponse struct {
 
 func (r tokenResponse) toToken(now time.Time) *Token {
 	return &Token{
-		AccessToken:  r.AccessToken,
-		RefreshToken: r.RefreshToken,
-		ExpiresAt:    now.Add(time.Duration(r.ExpiresIn) * time.Second),
-		Scopes:       r.Scope,
+		AccessToken:     r.AccessToken,
+		RefreshToken:    r.RefreshToken,
+		ExpiresAt:       now.Add(time.Duration(r.ExpiresIn) * time.Second),
+		Scopes:          r.Scope,
+		RefreshIssuedAt: now,
 	}
 }
 

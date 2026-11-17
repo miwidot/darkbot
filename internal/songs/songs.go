@@ -97,6 +97,7 @@ type Deps struct {
 	Lang       func() string // language for chat replies
 	Reply      func(ctx context.Context, text, replyTo string)
 	OnActivity func(Activity)
+	OnCommand  func() // a command passed the checks and is being handled (stats)
 	Log        Logger
 	Now        func() time.Time // nil = time.Now
 }
@@ -128,6 +129,9 @@ func New(d Deps) *Handler {
 	if d.OnActivity == nil {
 		d.OnActivity = func(Activity) {}
 	}
+	if d.OnCommand == nil {
+		d.OnCommand = func() {}
+	}
 	return &Handler{d: d, lastSR: map[string]time.Time{}, lastCmd: map[string]time.Time{}, lastInfo: map[string]time.Time{}, requested: map[string]request{}}
 }
 
@@ -158,6 +162,7 @@ func (h *Handler) Handle(ctx context.Context, m twitch.ChatMessage) {
 	if !h.commandAllowed(m) {
 		return
 	}
+	h.d.OnCommand()
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 	switch cmd {

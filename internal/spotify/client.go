@@ -67,6 +67,41 @@ type Client struct {
 	clientID  string
 	tok       *Token
 	onChange  func()
+
+	// health bookkeeping, guarded by mu
+	lastRefresh time.Time
+	lastError   string
+}
+
+// Health is what the dashboard shows about the Spotify login.
+type Health struct {
+	LoggedIn    bool      `json:"loggedIn"`
+	ExpiresAt   time.Time `json:"expiresAt"`   // access token; renewed on the next use after this
+	LastRefresh time.Time `json:"lastRefresh"` // zero = not since start
+	LoginUntil  time.Time `json:"loginUntil"`  // connect again after this; zero = unknown
+	LastError   string    `json:"lastError"`
+}
+
+// Health reports the state of the token for the dashboard.
+func (c *Client) Health() Health {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	h := Health{LastRefresh: c.lastRefresh, LastError: c.lastError}
+	if c.tok == nil {
+		return h
+	}
+	h.LoggedIn = true
+	h.ExpiresAt = c.tok.ExpiresAt
+	if !c.tok.AuthorizedAt.IsZero() {
+		h.LoginUntil = c.tok.AuthorizedAt.AddDate(0, RefreshTokenLifetimeMonths, 0)
+	}
+	return h
+}
+
+// RefreshNow renews the access token right away (dashboard button).
+func (c *Client) RefreshNow(ctx context.Context) error {
+	_, err := c.accessToken(ctx, true)
+	return err
 }
 
 // NewClient loads a stored token (if any).
@@ -124,6 +159,7 @@ func (c *Client) Login(ctx context.Context, p *PendingLogin, code string) (*Toke
 		return nil, err
 	}
 	tok.UserID, tok.DisplayName = me.ID, me.DisplayName
+	tok.AuthorizedAt = time.Now()
 	if tok.DisplayName == "" {
 		tok.DisplayName = me.ID
 	}
@@ -151,6 +187,7 @@ func (c *Client) Logout() error {
 func (c *Client) logoutLocked() error {
 	c.mu.Lock()
 	c.tok = nil
+	c.lastRefresh, c.lastError = time.Time{}, ""
 	c.mu.Unlock()
 	return c.store.Delete()
 }
@@ -189,15 +226,20 @@ func (c *Client) accessToken(ctx context.Context, force bool) (string, error) {
 		return "", err
 	}
 	if err != nil {
+		c.mu.Lock()
+		c.lastError = err.Error()
+		c.mu.Unlock()
 		return "", err
 	}
-	nt.UserID, nt.DisplayName = cur.UserID, cur.DisplayName
+	nt.UserID, nt.DisplayName, nt.AuthorizedAt = cur.UserID, cur.DisplayName, cur.AuthorizedAt
 	if err := c.store.Save(nt); err != nil {
 		c.log.Warnf("Could not save the refreshed Spotify token: %v", err)
 	}
 	c.mu.Lock()
 	c.tok = nt
+	c.lastRefresh, c.lastError = time.Now(), ""
 	c.mu.Unlock()
+	go c.changed() // dashboard shows the new times
 	return nt.AccessToken, nil
 }
 

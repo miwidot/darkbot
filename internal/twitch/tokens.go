@@ -31,7 +31,22 @@ const (
 	refreshMargin     = 15 * time.Minute
 	validateEvery     = time.Hour
 	refreshTimeout    = 20 * time.Second
+	// RefreshTokenLifetime: refresh tokens of public clients (device flow)
+	// expire 30 days after they were issued
+	// (https://dev.twitch.tv/docs/authentication/refresh-tokens/).
+	RefreshTokenLifetime = 30 * 24 * time.Hour
 )
+
+// Health is what the dashboard shows about the Twitch login.
+type Health struct {
+	LoggedIn     bool      `json:"loggedIn"`
+	ExpiresAt    time.Time `json:"expiresAt"`    // access token
+	NextRefresh  time.Time `json:"nextRefresh"`  // when darkbot renews it by itself
+	LastRefresh  time.Time `json:"lastRefresh"`  // zero = not since start
+	LastValidate time.Time `json:"lastValidate"` // zero = not yet
+	LoginUntil   time.Time `json:"loginUntil"`   // refresh token expiry; zero = unknown
+	LastError    string    `json:"lastError"`    // last failed refresh/validation, "" after success
+}
 
 // ErrNotLoggedIn is returned when no token is available.
 var ErrNotLoggedIn = errors.New("not logged in to Twitch")
@@ -61,6 +76,43 @@ type TokenManager struct {
 	tok       *Token
 
 	onChange func(*Token) // called with nil on logout
+
+	// health bookkeeping, guarded by mu
+	lastRefresh  time.Time
+	lastValidate time.Time
+	lastError    string
+}
+
+// Health reports the state of the token for the dashboard.
+func (m *TokenManager) Health() Health {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	h := Health{LastRefresh: m.lastRefresh, LastValidate: m.lastValidate, LastError: m.lastError}
+	if m.tok == nil {
+		return h
+	}
+	h.LoggedIn = true
+	h.ExpiresAt = m.tok.ExpiresAt
+	h.NextRefresh = m.tok.ExpiresAt.Add(-refreshMargin)
+	if !m.tok.RefreshIssuedAt.IsZero() {
+		h.LoginUntil = m.tok.RefreshIssuedAt.Add(RefreshTokenLifetime)
+	}
+	return h
+}
+
+func (m *TokenManager) noteError(err error) {
+	m.mu.Lock()
+	m.lastError = err.Error()
+	m.mu.Unlock()
+}
+
+// RefreshNow renews the access token right away (dashboard button).
+func (m *TokenManager) RefreshNow(ctx context.Context) error {
+	cur := m.Current()
+	if cur == nil {
+		return ErrNotLoggedIn
+	}
+	return m.RefreshIfStale(ctx, cur.AccessToken)
 }
 
 // NewTokenManager loads a stored token (if any).
@@ -140,6 +192,7 @@ func (m *TokenManager) Logout() error {
 func (m *TokenManager) logoutLocked() error {
 	m.mu.Lock()
 	m.tok = nil
+	m.lastRefresh, m.lastValidate, m.lastError = time.Time{}, time.Time{}, ""
 	cb := m.onChange
 	m.mu.Unlock()
 	err := m.store.Delete()
@@ -195,9 +248,13 @@ func (m *TokenManager) refreshLocked(ctx context.Context, cur *Token) error {
 		if errors.Is(err, ErrTokenRejected) {
 			return m.reject(err)
 		}
+		m.noteError(err)
 		return err // transient: keep the old token, retry later
 	}
 	next.UserID, next.Login = cur.UserID, cur.Login
+	m.mu.Lock()
+	m.lastRefresh, m.lastError = time.Now(), ""
+	m.mu.Unlock()
 	if err := m.set(next); err != nil {
 		m.log.Errorf("Twitch token refreshed but could not be saved: %v", err)
 		return err
@@ -232,13 +289,24 @@ func (m *TokenManager) validate(ctx context.Context) {
 			m.tok.UserID, m.tok.Login = v.UserID, v.Login
 			m.tok.Scopes = v.Scopes
 		}
+		m.lastValidate, m.lastError = time.Now(), ""
+		cb := m.onChange
+		var snapshot *Token
+		if m.tok != nil {
+			t := *m.tok
+			snapshot = &t
+		}
 		m.mu.Unlock()
+		if cb != nil && snapshot != nil {
+			cb(snapshot) // let the dashboard show the new check time
+		}
 	case errors.Is(err, ErrTokenRejected):
 		m.log.Infof("Twitch access token invalid, refreshing")
 		if err := m.RefreshIfStale(ctx, cur.AccessToken); err != nil && !errors.Is(err, ErrTokenRejected) {
 			m.log.Warnf("Twitch token refresh failed, will retry: %v", err)
 		}
 	default:
+		m.noteError(err)
 		m.log.Warnf("Twitch token validation failed (network?), will retry: %v", err)
 	}
 }
