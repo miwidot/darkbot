@@ -1,3 +1,9 @@
+2026-11-17 16:20 +08 — CI: macOS runner + action updates
+- macos-14 runner is no longer offered by GitHub; switched to macos-15 (arm64, free standard runner).
+- Actions updated to Node 24 releases (checkout v7.0.1, setup-go v7.1.0, upload-artifact v7.0.2,
+  download-artifact v8.0.2), still SHA-pinned; checkout with persist-credentials: false.
+- First CI run verified the Linux (GTK/WebKit 4.1) and Windows builds.
+
 2026-11-17 16:10 +08 — v0.2.0: rewards from audio files, auto-update, new design, public repo
 - Rewards from sounds: "New reward" in the sound editor creates the channel point reward on
   Twitch (name, price, cooldown, on/off kept in sync; deleted together with the sound).
