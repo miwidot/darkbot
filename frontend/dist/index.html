@@ -20,57 +20,57 @@
   <header class="bar">
     <div class="brand">darkbot</div>
     <div class="signals" aria-live="polite">
-      <span class="signal" id="sigTwitch"><i></i><span>Twitch</span></span>
-      <span class="signal" id="sigEvents"><i></i><span>Redemptions</span></span>
-      <span class="signal" id="sigObs"><i></i><span>OBS</span></span>
+      <span class="signal" id="sigTwitch"><i></i><span></span></span>
+      <span class="signal" id="sigEvents"><i></i><span></span></span>
+      <span class="signal" id="sigObs"><i></i><span></span></span>
     </div>
     <div class="bar-end">
       <button class="update-chip hidden" id="updateChip"></button>
-      <button class="icon-btn" id="openSettings" aria-label="Settings" title="Settings"><svg><use href="#i-gear"/></svg></button>
+      <button class="icon-btn" id="openSettings" data-i18n-aria-label="bar.settings" data-i18n-title="bar.settings"><svg><use href="#i-gear"/></svg></button>
     </div>
   </header>
 
   <main class="stage">
     <section class="board" aria-labelledby="boardTitle">
       <div class="board-head">
-        <h1 id="boardTitle">Sounds</h1>
+        <h1 id="boardTitle" data-i18n="board.title"></h1>
         <span class="count" id="soundCount"></span>
-        <button class="btn primary" id="addSound"><svg><use href="#i-plus"/></svg>Add sound</button>
+        <button class="btn primary" id="addSound"><svg><use href="#i-plus"/></svg><span data-i18n="board.add"></span></button>
       </div>
 
       <div class="reconnect hidden" id="reconnect">
-        <span>Reconnect Twitch once so darkbot can create rewards for your sounds.</span>
-        <button class="btn primary" id="reconnectBtn">Reconnect</button>
+        <span data-i18n="board.reconnect"></span>
+        <button class="btn primary" id="reconnectBtn" data-i18n="board.reconnectBtn"></button>
       </div>
 
       <div class="onboard hidden" id="onboard">
-        <h2>Connect your Twitch channel</h2>
-        <p>darkbot listens for channel point redemptions and plays the sound you assign to each reward.</p>
-        <button class="btn primary" id="onboardConnect">Connect Twitch</button>
+        <h2 data-i18n="board.onboardTitle"></h2>
+        <p data-i18n="board.onboardText"></p>
+        <button class="btn primary" id="onboardConnect" data-i18n="board.onboardBtn"></button>
       </div>
 
       <div class="pads" id="pads"></div>
       <div class="pads-empty hidden" id="padsEmpty">
-        <p>Assign a sound to one of your channel point rewards.</p>
-        <button class="btn" id="emptyAdd">Add your first sound</button>
+        <p data-i18n="board.emptyText"></p>
+        <button class="btn" id="emptyAdd" data-i18n="board.emptyBtn"></button>
       </div>
-      <p class="board-hint" id="boardHint">Click a pad to preview it. Viewers trigger it with channel points.</p>
+      <p class="board-hint" id="boardHint" data-i18n="board.hint"></p>
     </section>
 
     <aside class="feed" aria-labelledby="feedTitle">
-      <h2 id="feedTitle">Activity</h2>
+      <h2 id="feedTitle" data-i18n="feed.title"></h2>
       <ol class="feed-list" id="feed"></ol>
-      <p class="feed-empty" id="feedEmpty">Redemptions appear here as they happen.</p>
+      <p class="feed-empty" id="feedEmpty" data-i18n="feed.empty"></p>
     </aside>
   </main>
 
   <footer class="strip">
-    <button class="strip-output" id="stripOutput" title="Change audio output">
+    <button class="strip-output" id="stripOutput" data-i18n-title="strip.change">
       <svg><use href="#i-speaker"/></svg><span id="outputName"></span>
     </button>
     <label class="strip-master">
-      <span>Master</span>
-      <input type="range" id="master" min="0.05" max="1" step="0.05" aria-label="Master volume">
+      <span data-i18n="strip.master"></span>
+      <input type="range" id="master" min="0.05" max="1" step="0.05" data-i18n-aria-label="strip.masterAria">
       <output id="masterVal"></output>
     </label>
   </footer>
@@ -79,108 +79,119 @@
 <!-- SETTINGS -->
 <dialog class="sheet" id="settings" aria-labelledby="settingsTitle">
   <div class="sheet-head">
-    <h2 id="settingsTitle" tabindex="-1" autofocus>Settings</h2>
-    <button class="icon-btn" id="closeSettings" aria-label="Close settings"><svg><use href="#i-close"/></svg></button>
+    <h2 id="settingsTitle" tabindex="-1" autofocus data-i18n="settings.title"></h2>
+    <button class="icon-btn" id="closeSettings" data-i18n-aria-label="settings.close"><svg><use href="#i-close"/></svg></button>
   </div>
   <div class="sheet-body">
-    <nav class="sheet-nav" aria-label="Settings sections">
-      <button data-sec="audio" class="active">Audio output</button>
-      <button data-sec="twitch">Twitch</button>
-      <button data-sec="obs">OBS</button>
-      <button data-sec="updates">Updates</button>
-      <button data-sec="log">Log</button>
+    <nav class="sheet-nav" data-i18n-aria-label="settings.nav">
+      <button data-sec="general" data-i18n="nav.general"></button>
+      <button data-sec="audio" class="active" data-i18n="nav.audio"></button>
+      <button data-sec="twitch" data-i18n="nav.twitch"></button>
+      <button data-sec="obs" data-i18n="nav.obs"></button>
+      <button data-sec="updates" data-i18n="nav.updates"></button>
+      <button data-sec="log" data-i18n="nav.log"></button>
     </nav>
 
     <div class="sheet-content">
+      <!-- GENERAL -->
+      <section class="sec" id="sec-general">
+        <h3 data-i18n="general.title"></h3>
+        <div class="field">
+          <label for="language" data-i18n="general.language"></label>
+          <select id="language"></select>
+          <p class="hint" data-i18n="general.languageHint"></p>
+        </div>
+      </section>
+
       <!-- AUDIO -->
       <section class="sec active" id="sec-audio">
-        <h3>Where sounds play</h3>
+        <h3 data-i18n="audio.title"></h3>
         <div class="choice">
           <label class="choice-item"><input type="radio" name="mode" value="device">
-            <span><b>Audio device</b><small>darkbot plays the sound on the output you pick. Capture it in OBS.</small></span></label>
+            <span><b data-i18n="audio.modeDevice"></b><small data-i18n="audio.modeDeviceText"></small></span></label>
           <label class="choice-item"><input type="radio" name="mode" value="obs">
-            <span><b>Inside OBS</b><small>darkbot plays the sound in an OBS media source on the tracks you pick.</small></span></label>
+            <span><b data-i18n="audio.modeObs"></b><small data-i18n="audio.modeObsText"></small></span></label>
         </div>
 
         <div id="deviceBlock">
           <div class="field">
-            <label for="device">Output device</label>
-            <div class="inline"><select id="device"></select><button class="btn" id="refreshDevices">Refresh</button></div>
+            <label for="device" data-i18n="audio.device"></label>
+            <div class="inline"><select id="device"></select><button class="btn" id="refreshDevices" data-i18n="audio.refresh"></button></div>
             <p class="hint" id="deviceHint"></p>
           </div>
         </div>
 
         <div id="obsBlock">
           <div class="field">
-            <span class="label">Audio tracks</span>
-            <div class="tracks" id="tracks" role="group" aria-label="OBS audio tracks"></div>
-            <p class="hint">Same tracks as in OBS Advanced Audio Properties. Track 1 is usually the stream.</p>
+            <span class="label" data-i18n="audio.tracks"></span>
+            <div class="tracks" id="tracks" role="group" data-i18n-aria-label="audio.tracksAria"></div>
+            <p class="hint" data-i18n="audio.tracksHint"></p>
           </div>
           <div class="field">
-            <label for="obsInput">Media source name</label>
+            <label for="obsInput" data-i18n="audio.inputName"></label>
             <input id="obsInput" type="text" maxlength="100">
-            <p class="hint">Created in the current scene when missing. OBS only plays sources in the active scene, so add it to your other scenes as an existing source.</p>
+            <p class="hint" data-i18n="audio.inputHint"></p>
           </div>
         </div>
-        <div class="sec-actions"><button class="btn primary" id="saveAudio">Save audio output</button></div>
+        <div class="sec-actions"><button class="btn primary" id="saveAudio" data-i18n="audio.save"></button></div>
       </section>
 
       <!-- TWITCH -->
       <section class="sec" id="sec-twitch">
-        <h3>Twitch</h3>
+        <h3 data-i18n="twitch.title"></h3>
         <p class="lede" id="twitchStatus"></p>
         <div class="login hidden" id="loginBox">
-          <p>Enter this code on twitch.tv/activate</p>
+          <p data-i18n="twitch.enterCode"></p>
           <div class="code" id="loginCode"></div>
-          <div class="inline center"><button class="btn" id="loginLink">Open twitch.tv/activate</button><button class="btn quiet" id="cancelLogin">Cancel</button></div>
+          <div class="inline center"><button class="btn" id="loginLink" data-i18n="twitch.openActivate"></button><button class="btn quiet" id="cancelLogin" data-i18n="twitch.cancel"></button></div>
         </div>
         <div class="sec-actions start">
-          <button class="btn primary" id="login">Connect Twitch</button>
-          <button class="btn danger hidden" id="logout">Disconnect</button>
+          <button class="btn primary" id="login" data-i18n="twitch.connect"></button>
+          <button class="btn danger hidden" id="logout" data-i18n="twitch.disconnect"></button>
         </div>
         <details class="more">
-          <summary>Twitch application (Client ID)</summary>
+          <summary data-i18n="twitch.appSummary"></summary>
           <div class="field">
-            <label for="clientId">Client ID</label>
-            <div class="inline"><input id="clientId" type="text" autocomplete="off" spellcheck="false"><button class="btn" id="saveClientId">Save</button></div>
-            <p class="hint">Create one at dev.twitch.tv/console: client type Public, redirect URL http://localhost. Channel points need an Affiliate or Partner channel.</p>
+            <label for="clientId" data-i18n="twitch.clientId"></label>
+            <div class="inline"><input id="clientId" type="text" autocomplete="off" spellcheck="false"><button class="btn" id="saveClientId" data-i18n="twitch.save"></button></div>
+            <p class="hint" data-i18n="twitch.clientIdHint"></p>
           </div>
         </details>
       </section>
 
       <!-- OBS -->
       <section class="sec" id="sec-obs">
-        <h3>OBS connection</h3>
-        <p class="lede">Needed for “Inside OBS”. In OBS open Tools, then WebSocket Server Settings, and enable the server.</p>
+        <h3 data-i18n="obs.title"></h3>
+        <p class="lede" data-i18n="obs.lede"></p>
         <div class="grid2">
-          <div class="field"><label for="obsHost">Host</label><input id="obsHost" type="text"></div>
-          <div class="field"><label for="obsPort">Port</label><input id="obsPort" type="number" min="1" max="65535"></div>
+          <div class="field"><label for="obsHost" data-i18n="obs.host"></label><input id="obsHost" type="text"></div>
+          <div class="field"><label for="obsPort" data-i18n="obs.port"></label><input id="obsPort" type="number" min="1" max="65535"></div>
         </div>
-        <div class="field"><label for="obsPass">Password</label><input id="obsPass" type="password" autocomplete="off" placeholder="Leave empty to keep the saved one"></div>
-        <label class="check"><input type="checkbox" id="obsAuto"> Connect when darkbot starts</label>
+        <div class="field"><label for="obsPass" data-i18n="obs.password"></label><input id="obsPass" type="password" autocomplete="off" data-i18n-placeholder="obs.passwordKeep"></div>
+        <label class="check"><input type="checkbox" id="obsAuto"> <span data-i18n="obs.auto"></span></label>
         <div class="sec-actions">
           <span class="status" id="obsStatus"></span>
-          <button class="btn hidden" id="obsDisconnect">Disconnect</button>
-          <button class="btn primary" id="obsConnect">Save and connect</button>
+          <button class="btn hidden" id="obsDisconnect" data-i18n="obs.disconnect"></button>
+          <button class="btn primary" id="obsConnect"></button>
         </div>
       </section>
 
       <!-- UPDATES -->
       <section class="sec" id="sec-updates">
-        <h3>Updates</h3>
+        <h3 data-i18n="updates.title"></h3>
         <p class="lede" id="updateStatus"></p>
-        <label class="check"><input type="checkbox" id="autoUpdate"> Install updates automatically when darkbot starts</label>
-        <p class="hint">While darkbot is running, new versions are only announced, so a stream is never interrupted.</p>
+        <label class="check"><input type="checkbox" id="autoUpdate"> <span data-i18n="updates.auto"></span></label>
+        <p class="hint" data-i18n="updates.autoHint"></p>
         <div class="notes hidden" id="updateNotes"></div>
         <div class="sec-actions start">
-          <button class="btn" id="checkUpdate">Check for updates</button>
-          <button class="btn primary hidden" id="installUpdate">Install and restart</button>
+          <button class="btn" id="checkUpdate" data-i18n="updates.check"></button>
+          <button class="btn primary hidden" id="installUpdate"></button>
         </div>
       </section>
 
       <!-- LOG -->
       <section class="sec" id="sec-log">
-        <h3>Log</h3>
+        <h3 data-i18n="log.title"></h3>
         <pre class="log" id="log"></pre>
       </section>
     </div>
@@ -189,64 +200,65 @@
 
 <!-- SOUND EDITOR -->
 <dialog class="modal" id="editor" aria-labelledby="editorTitle">
-  <h2 id="editorTitle">Add sound</h2>
-  <div class="segmented" role="radiogroup" aria-label="Reward">
-    <label><input type="radio" name="edSource" value="new" checked><span>New reward</span></label>
-    <label><input type="radio" name="edSource" value="existing"><span>Existing reward</span></label>
+  <h2 id="editorTitle"></h2>
+  <div class="segmented" role="radiogroup" data-i18n-aria-label="editor.rewardAria">
+    <label><input type="radio" name="edSource" value="new" checked><span data-i18n="editor.newReward"></span></label>
+    <label><input type="radio" name="edSource" value="existing"><span data-i18n="editor.existingReward"></span></label>
   </div>
   <div id="edNewBlock">
     <div class="grid2 wide-first">
       <div class="field">
-        <label for="edTitle">Reward name</label>
-        <input id="edTitle" type="text" maxlength="45" placeholder="Airhorn">
+        <label for="edTitle" data-i18n="editor.rewardName"></label>
+        <input id="edTitle" type="text" maxlength="45" data-i18n-placeholder="editor.rewardNamePlaceholder">
       </div>
       <div class="field">
-        <label for="edCost">Price, points</label>
+        <label for="edCost" data-i18n="editor.price"></label>
         <input id="edCost" type="number" min="1" max="1000000000" step="1">
       </div>
     </div>
-    <p class="hint">darkbot creates this reward on your channel and keeps it in sync. If a sound can’t play, the redemption is rejected so the viewer gets the points back.</p>
+    <p class="hint" data-i18n="editor.newHint"></p>
   </div>
   <div id="edExistingBlock" class="hidden">
     <div class="field">
-      <label for="edReward">Channel point reward</label>
-      <div class="inline"><select id="edReward"></select><button type="button" class="btn" id="edRefreshRewards">Reload</button></div>
+      <label for="edReward" data-i18n="editor.reward"></label>
+      <div class="inline"><select id="edReward"></select><button type="button" class="btn" id="edRefreshRewards" data-i18n="editor.reload"></button></div>
       <p class="hint" id="edRewardHint"></p>
-      <p class="hint">darkbot only listens to rewards it didn’t create. It can’t change them or give points back.</p>
+      <p class="hint" data-i18n="editor.existingHint"></p>
     </div>
   </div>
   <div class="field">
-    <label for="edFile">Sound file</label>
-    <div class="inline"><input id="edFile" type="text" readonly placeholder="mp3, wav, ogg or flac"><button type="button" class="btn" id="edPick">Choose file</button></div>
+    <label for="edFile" data-i18n="editor.file"></label>
+    <div class="inline"><input id="edFile" type="text" readonly data-i18n-placeholder="editor.filePlaceholder"><button type="button" class="btn" id="edPick" data-i18n="editor.chooseFile"></button></div>
   </div>
   <div class="field">
-    <label for="edVolume">Volume <output id="edVolumeVal"></output></label>
+    <label for="edVolume"><span data-i18n="editor.volume"></span> <output id="edVolumeVal"></output></label>
     <input id="edVolume" type="range" min="0.05" max="1" step="0.05">
   </div>
   <div class="grid2">
     <div class="field">
-      <label for="edCooldown">Cooldown, seconds</label>
+      <label for="edCooldown" data-i18n="editor.cooldown"></label>
       <input id="edCooldown" type="number" min="0" step="1">
-      <p class="hint">Nobody can trigger it again during this time.</p>
+      <p class="hint" data-i18n="editor.cooldownHint"></p>
     </div>
     <div class="field">
-      <label for="edUserCooldown">Per viewer, seconds</label>
+      <label for="edUserCooldown" data-i18n="editor.userCooldown"></label>
       <input id="edUserCooldown" type="number" min="0" step="1">
-      <p class="hint">The same viewer has to wait this long.</p>
+      <p class="hint" data-i18n="editor.userCooldownHint"></p>
     </div>
   </div>
-  <label class="check"><input type="checkbox" id="edEnabled"> Sound is on</label>
+  <label class="check"><input type="checkbox" id="edEnabled"> <span data-i18n="editor.enabled"></span></label>
   <p class="error hidden" id="edError" role="alert"></p>
   <div class="modal-actions">
-    <button type="button" class="btn danger quiet hidden" id="edDelete">Delete sound</button>
+    <button type="button" class="btn danger quiet hidden" id="edDelete"></button>
     <span class="spacer"></span>
-    <button type="button" class="btn quiet" id="edCancel">Cancel</button>
-    <button type="button" class="btn primary" id="edSave">Save sound</button>
+    <button type="button" class="btn quiet" id="edCancel" data-i18n="editor.cancel"></button>
+    <button type="button" class="btn primary" id="edSave"></button>
   </div>
 </dialog>
 
 <div class="toast hidden" id="toast" role="status"></div>
 
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

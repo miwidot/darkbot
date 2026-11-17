@@ -13,7 +13,6 @@ package obs
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/miwidot/darkbot/internal/audio"
 	"github.com/miwidot/darkbot/internal/config"
+	"github.com/miwidot/darkbot/internal/i18n"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 )
 
 // ErrNotConnected is returned when OBS is not connected.
-var ErrNotConnected = errors.New("not connected to OBS")
+var ErrNotConnected = i18n.E("err.obsOffline")
 
 // Client is a thread-safe wrapper around a goobs connection.
 type Client struct {
@@ -62,7 +62,7 @@ func (o *Client) Connect(host string, port int, password string) (version string
 	}
 	c, err := goobs.New(addr, opts...)
 	if err != nil {
-		return "", fmt.Errorf("connect to OBS at %s: %w (is OBS running and Tools → WebSocket Server Settings enabled?)", addr, err)
+		return "", i18n.Wrap(err, "err.obsConnect", "addr", addr)
 	}
 	v, err := c.General.GetVersion()
 	if err != nil {

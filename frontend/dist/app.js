@@ -17,6 +17,8 @@ let rewards = [];
 let devices = [];
 let editing = null;
 let obsPassDirty = false;
+let languages = ['en'];             // shipped UI languages (from Go)
+const activities = [];              // feed entries, newest first, re-rendered on language change
 const playing = new Set();          // sound IDs currently playing
 const cooldowns = new Map();        // sound ID -> { until: ms, total: ms }
 
@@ -40,10 +42,10 @@ function icon(name) {
   return s;
 }
 const pct = (v) => Math.round(v * 100) + ' %';
-const points = (n) => Number(n).toLocaleString() + ' points';
+const points = (n) => t('points', { n: Number(n).toLocaleString(I18N.lang || undefined) });
 const basename = (p) => (p || '').split(/[\\/]/).pop();
 const errText = (e) => (e && e.message) || String(e);
-const clock = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const clock = (d) => d.toLocaleTimeString(I18N.lang || undefined, { hour: '2-digit', minute: '2-digit' });
 
 let toastTimer = null;
 function toast(msg, bad = false) {
@@ -68,6 +70,10 @@ async function call(fn, ...args) {
 
 async function refresh() {
   state = await App().GetState();
+  if (state.language !== I18N.lang) {
+    await loadLanguage(state.language);
+    renderFeed();
+  }
   render();
 }
 
@@ -75,14 +81,14 @@ function render() {
   const c = state.config;
   const loggedIn = !!state.twitchLogin;
 
-  setSignal('sigTwitch', loggedIn, loggedIn ? state.twitchLogin : 'Twitch');
-  setSignal('sigEvents', state.eventSubOnline, 'Redemptions');
-  setSignal('sigObs', state.obsConnected, 'OBS');
+  setSignal('sigTwitch', loggedIn, loggedIn ? state.twitchLogin : t('signal.twitch'));
+  setSignal('sigEvents', state.eventSubOnline, t('signal.redemptions'));
+  setSignal('sigObs', state.obsConnected, t('signal.obs'));
   $('sigObs').classList.toggle('hidden', c.output_mode !== 'obs' && !state.obsConnected);
 
   const up = state.update;
   $('updateChip').classList.toggle('hidden', !(up && up.available));
-  if (up && up.available) $('updateChip').textContent = state.updating ? 'Updating…' : 'Update to v' + up.latest;
+  if (up && up.available) $('updateChip').textContent = state.updating ? t('update.chipBusy') : t('update.chip', { version: up.latest });
 
   $('onboard').classList.toggle('hidden', loggedIn);
   $('reconnect').classList.toggle('hidden', !loggedIn || !state.needsReconnect);
@@ -102,7 +108,7 @@ function setSignal(id, on, text) {
 
 function soundName(s) {
   const r = rewards.find((x) => x.id === s.reward_id);
-  return (r && r.title) || s.reward_title || 'Unnamed reward';
+  return (r && r.title) || s.reward_title || t('pad.unnamed');
 }
 
 function renderPads() {
@@ -116,18 +122,18 @@ function renderPads() {
   const pads = $('pads');
   pads.replaceChildren();
   for (const s of sounds) {
-    const cdText = s.enabled && s.cooldown_seconds ? s.cooldown_seconds + ' s' : '';
+    const cdText = s.enabled && s.cooldown_seconds ? t('pad.seconds', { n: s.cooldown_seconds }) : '';
     const pad = el('div', {
       class: 'pad' + (s.enabled ? '' : ' off') + (playing.has(s.id) ? ' playing' : ''),
       role: 'button', tabindex: '0', 'data-id': s.id,
-      'aria-label': 'Preview ' + soundName(s),
+      'aria-label': t('pad.preview', { name: soundName(s) }),
       onclick: () => App().TestSound(s.id),
       onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); App().TestSound(s.id); } },
     },
     el('span', { class: 'led', 'aria-hidden': 'true' }),
     el('span', { class: 'cd' }, cdText),
     el('button', {
-      class: 'edit', title: 'Edit sound', 'aria-label': 'Edit ' + soundName(s),
+      class: 'edit', title: t('pad.edit'), 'aria-label': t('pad.editNamed', { name: soundName(s) }),
       onclick: (e) => { e.stopPropagation(); openEditor(s); },
       onkeydown: (e) => e.stopPropagation(),
     }, icon('edit')),
@@ -160,12 +166,13 @@ function tickCooldowns() {
 
 // ---------- activity feed ----------
 
+const redeemed = () => ' ' + t('feed.redeemed') + ' ';
 const FEED_TEXT = {
-  queued: (a) => [a.user, ' redeemed ', a.rewardTitle, null],
-  cooldown: (a) => [a.user, ' redeemed ', a.rewardTitle, 'On cooldown for ' + a.message + ', not played'],
-  disabled: (a) => [a.user, ' redeemed ', a.rewardTitle, 'Sound is off, not played'],
-  queue_full: (a) => [a.user, ' redeemed ', a.rewardTitle, 'Too many sounds waiting, not played'],
-  error: (a) => [a.test ? 'Preview' : a.user, a.test ? ' of ' : ' redeemed ', a.rewardTitle, a.message || 'Playback failed'],
+  queued: (a) => [a.user, redeemed(), a.rewardTitle, null],
+  cooldown: (a) => [a.user, redeemed(), a.rewardTitle, t('feed.cooldown', { time: a.message })],
+  disabled: (a) => [a.user, redeemed(), a.rewardTitle, t('feed.disabled')],
+  queue_full: (a) => [a.user, redeemed(), a.rewardTitle, t('feed.queueFull')],
+  error: (a) => [a.test ? t('feed.preview') : a.user, a.test ? ' ' + t('feed.previewOf') + ' ' : redeemed(), a.rewardTitle, a.message || t('feed.failed')],
 };
 
 function onActivity(a) {
@@ -179,19 +186,31 @@ function onActivity(a) {
   if (pad) pad.classList.toggle('playing', playing.has(a.soundId));
   tickCooldowns();
 
-  const fmt = FEED_TEXT[a.kind];
-  if (!fmt) return;
-  const [who, verb, what, why] = fmt(a);
-  const kindClass = a.kind === 'queued' ? 'played' : a.kind === 'error' ? 'error' : 'skipped';
-  const item = el('li', { class: 'feed-item fresh ' + kindClass },
-    el('time', { datetime: a.at }, clock(new Date(a.at))),
-    el('span', { class: 'what' }, el('b', {}, who), verb, el('b', {}, what)),
-    why ? el('span', { class: 'why' }, why) : null);
+  if (!FEED_TEXT[a.kind]) return;
+  activities.unshift(a);
+  if (activities.length > FEED_MAX) activities.length = FEED_MAX;
+  const item = feedItem(a);
+  item.classList.add('fresh');
   const feed = $('feed');
   feed.prepend(item);
   while (feed.children.length > FEED_MAX) feed.lastChild.remove();
   $('feedEmpty').classList.add('hidden');
   requestAnimationFrame(() => requestAnimationFrame(() => item.classList.remove('fresh')));
+}
+
+function feedItem(a) {
+  const [who, verb, what, why] = FEED_TEXT[a.kind](a);
+  const kindClass = a.kind === 'queued' ? 'played' : a.kind === 'error' ? 'error' : 'skipped';
+  return el('li', { class: 'feed-item ' + kindClass },
+    el('time', { datetime: a.at }, clock(new Date(a.at))),
+    el('span', { class: 'what' }, el('b', {}, who), verb, el('b', {}, what)),
+    why ? el('span', { class: 'why' }, why) : null);
+}
+
+// Rebuilds the feed, e.g. after the language changed.
+function renderFeed() {
+  $('feed').replaceChildren(...activities.map(feedItem));
+  $('feedEmpty').classList.toggle('hidden', activities.length > 0);
 }
 
 // ---------- strip ----------
@@ -200,9 +219,9 @@ function outputLabel() {
   const c = state.config;
   if (c.output_mode === 'obs') {
     const tracks = c.obs.tracks.map((on, i) => (on ? i + 1 : null)).filter(Boolean);
-    return 'OBS, track ' + (tracks.join(', ') || 'none');
+    return t('strip.obsTracks', { tracks: tracks.join(', ') || t('strip.none') });
   }
-  return c.audio_device_name || 'System default output';
+  return c.audio_device_name || t('strip.default');
 }
 
 function renderStrip() {
@@ -235,11 +254,33 @@ $('reconnectBtn').addEventListener('click', () => openSettings('twitch'));
 $('updateChip').addEventListener('click', () => openSettings('updates'));
 
 function renderSettings() {
+  renderGeneral();
   renderAudio();
   renderTwitch();
   renderOBS();
   renderUpdates();
 }
+
+// general
+function systemLanguage() {
+  for (const l of navigator.languages || [navigator.language]) {
+    const base = String(l).toLowerCase().split(/[-_]/)[0];
+    if (languages.includes(base)) return base;
+  }
+  return 'en';
+}
+function renderGeneral() {
+  const sel = $('language');
+  const chosen = state.config.language || '';
+  sel.replaceChildren(
+    el('option', { value: '', selected: chosen === '' }, t('general.languageSystem', { lang: t('lang.' + systemLanguage()) })),
+    ...languages.map((l) => el('option', { value: l, selected: chosen === l }, t('lang.' + l))));
+}
+$('language').addEventListener('change', async () => {
+  await call('SetLanguage', $('language').value);
+  await refresh();
+  toast(t('general.saved'));
+});
 
 // audio
 function renderAudio() {
@@ -252,28 +293,30 @@ function renderAudio() {
 
   const sel = $('device');
   const keep = touched ? sel.value : c.audio_device_id;
-  sel.replaceChildren(el('option', { value: '' }, 'System default output'));
+  sel.replaceChildren(el('option', { value: '' }, t('strip.default')));
   let found = !keep;
   devices.forEach((d, i) => {
-    sel.append(el('option', { value: d.deviceId, selected: d.deviceId === keep }, d.label || 'Audio output ' + (i + 1)));
+    sel.append(el('option', { value: d.deviceId, selected: d.deviceId === keep }, d.label || t('audio.deviceN', { n: i + 1 })));
     if (d.deviceId === keep) found = true;
   });
-  if (!found) sel.append(el('option', { value: keep, selected: true }, (c.audio_device_name || 'Saved device') + ' (not connected)'));
+  if (!found) sel.append(el('option', { value: keep, selected: true, 'data-name': c.audio_device_name || '' }, t('audio.notConnected', { name: c.audio_device_name || t('audio.savedDevice') })));
 
   const canChoose = SINK_SUPPORTED && devices.length > 0;
   sel.disabled = !canChoose && !c.audio_device_id;
   $('refreshDevices').disabled = !SINK_SUPPORTED;
-  $('deviceHint').textContent = canChoose
-    ? 'To get it into OBS, pick a virtual cable or spare output and add it as Audio Output Capture. Or keep the default and add darkbot itself with Application Audio Capture.'
-    : 'This system doesn’t let darkbot list outputs, so sounds play on the system default. In OBS add darkbot with Application Audio Capture (Windows) or macOS Audio Capture, or choose “Inside OBS”.';
+  $('deviceHint').textContent = canChoose ? t('audio.hintChoose') : t('audio.hintNoChoose');
 
   const tracks = $('tracks');
   if (!tracks.children.length) {
     for (let i = 0; i < TRACK_COUNT; i++) {
-      tracks.append(el('label', { class: 'track', title: 'Track ' + (i + 1) },
-        el('input', { type: 'checkbox', 'data-track': i, 'aria-label': 'Track ' + (i + 1) }), String(i + 1)));
+      tracks.append(el('label', { class: 'track' },
+        el('input', { type: 'checkbox', 'data-track': i }), String(i + 1)));
     }
   }
+  tracks.querySelectorAll('label').forEach((lb, i) => {
+    lb.title = t('audio.track', { n: i + 1 });
+    lb.querySelector('input').setAttribute('aria-label', lb.title);
+  });
   if (!touched) {
     tracks.querySelectorAll('input').forEach((cb) => { cb.checked = !!c.obs.tracks[+cb.dataset.track]; });
     $('obsInput').value = c.obs.input_name;
@@ -292,14 +335,13 @@ $('refreshDevices').addEventListener('click', async () => { await loadDevices(tr
 $('saveAudio').addEventListener('click', async () => {
   const mode = document.querySelector('input[name=mode]:checked').value;
   const sel = $('device');
-  const name = sel.value ? sel.options[sel.selectedIndex].textContent.replace(/ \(not connected\)$/, '') : '';
+  const opt = sel.options[sel.selectedIndex];
+  const name = !sel.value ? '' : opt.hasAttribute('data-name') ? opt.dataset.name : opt.textContent;
   await call('SaveOutput', mode, sel.value, name, state.config.master_volume);
   await saveOBS();
   delete $('sec-audio').dataset.touched;
   await refresh();
-  toast(mode === 'obs' && !state.obsConnected
-    ? 'Audio output saved. Connect OBS in the OBS section to play sounds there.'
-    : 'Audio output saved.');
+  toast(mode === 'obs' && !state.obsConnected ? t('audio.savedObsOffline') : t('audio.saved'));
 });
 
 async function loadDevices(askPermission) {
@@ -322,11 +364,11 @@ async function loadDevices(askPermission) {
 // twitch
 function renderTwitch() {
   const loggedIn = !!state.twitchLogin;
-  let status = 'Not connected. Connect to let viewers play sounds with channel points.';
+  const login = state.twitchLogin;
+  let status = t('twitch.statusOff');
   if (loggedIn) {
-    status = state.needsReconnect
-      ? 'Connected as ' + state.twitchLogin + '. Disconnect and connect again so darkbot can create rewards.'
-      : 'Connected as ' + state.twitchLogin + (state.eventSubOnline ? ', listening for redemptions.' : ', connecting to redemptions…');
+    status = state.needsReconnect ? t('twitch.statusReconnect', { login })
+      : state.eventSubOnline ? t('twitch.statusListening', { login }) : t('twitch.statusConnecting', { login });
   }
   $('twitchStatus').textContent = status;
   $('login').classList.toggle('hidden', loggedIn);
@@ -344,7 +386,7 @@ $('login').addEventListener('click', async () => {
 $('cancelLogin').addEventListener('click', () => App().CancelLogin());
 $('loginLink').addEventListener('click', () => { if (state.loginUri) window.runtime.BrowserOpenURL(state.loginUri); });
 $('logout').addEventListener('click', async () => { await call('Logout'); refresh(); });
-$('saveClientId').addEventListener('click', async () => { await call('SetClientID', $('clientId').value); refresh(); toast('Client ID saved.'); });
+$('saveClientId').addEventListener('click', async () => { await call('SetClientID', $('clientId').value); refresh(); toast(t('twitch.clientIdSaved')); });
 
 // obs
 function renderOBS() {
@@ -354,8 +396,8 @@ function renderOBS() {
     $('obsPort').value = o.port;
     $('obsAuto').checked = o.auto_connect;
   }
-  $('obsStatus').textContent = state.obsConnected ? 'Connected' : 'Not connected';
-  $('obsConnect').textContent = state.obsConnected ? 'Save and reconnect' : 'Save and connect';
+  $('obsStatus').textContent = state.obsConnected ? t('obs.connected') : t('obs.notConnected');
+  $('obsConnect').textContent = state.obsConnected ? t('obs.reconnect') : t('obs.connect');
   $('obsDisconnect').classList.toggle('hidden', !state.obsConnected);
 }
 $('obsPass').addEventListener('input', () => { obsPassDirty = true; });
@@ -375,8 +417,8 @@ async function saveOBS() {
 }
 $('obsConnect').addEventListener('click', async () => {
   await saveOBS();
-  $('obsStatus').textContent = 'Connecting…';
-  try { await App().ConnectOBS(); toast('Connected to OBS.'); } catch (e) { toast(errText(e), true); }
+  $('obsStatus').textContent = t('obs.connecting');
+  try { await App().ConnectOBS(); toast(t('obs.connectedToast')); } catch (e) { toast(errText(e), true); }
   refresh();
 });
 $('obsDisconnect').addEventListener('click', async () => { await App().DisconnectOBS(); refresh(); });
@@ -385,14 +427,14 @@ $('obsDisconnect').addEventListener('click', async () => { await App().Disconnec
 function renderUpdates() {
   const up = state.update;
   const dev = state.version === 'dev';
-  let text = dev ? 'Development build. Builds made on this computer don’t update themselves.' : 'You have version ' + state.version + '.';
-  if (up && up.available) text = 'Version ' + up.latest + ' is available. You have ' + state.version + '.';
-  else if (up && !dev) text += ' This is the latest version.';
+  let text = dev ? t('updates.dev') : t('updates.current', { version: state.version });
+  if (up && up.available) text = t('updates.available', { latest: up.latest, version: state.version });
+  else if (up && !dev) text += ' ' + t('updates.latest');
   $('updateStatus').textContent = text;
   $('autoUpdate').checked = state.config.auto_update;
   $('installUpdate').classList.toggle('hidden', !(up && up.available));
   $('installUpdate').disabled = state.updating;
-  $('installUpdate').textContent = state.updating ? 'Installing…' : 'Install and restart';
+  $('installUpdate').textContent = state.updating ? t('updates.installing') : t('updates.install');
   $('updateNotes').classList.toggle('hidden', !(up && up.available && up.notes));
   $('updateNotes').textContent = (up && up.notes) || '';
 }
@@ -401,7 +443,7 @@ $('checkUpdate').addEventListener('click', async () => {
   $('checkUpdate').disabled = true;
   try {
     const info = await App().CheckUpdate();
-    toast(info.available ? 'Version ' + info.latest + ' is available.' : 'darkbot is up to date.');
+    toast(info.available ? t('updates.availableToast', { latest: info.latest }) : t('updates.upToDate'));
   } catch (e) {
     toast(errText(e), true);
   } finally {
@@ -424,10 +466,10 @@ function renderLog() {
 // ---------- sound editor ----------
 
 async function loadRewards() {
-  $('edRewardHint').textContent = 'Loading rewards…';
+  $('edRewardHint').textContent = t('editor.loadingRewards');
   try {
     rewards = (await App().GetRewards()) || [];
-    $('edRewardHint').textContent = rewards.length ? '' : 'Your channel has no custom rewards yet.';
+    $('edRewardHint').textContent = rewards.length ? '' : t('editor.noRewards');
   } catch (e) {
     rewards = [];
     $('edRewardHint').textContent = errText(e);
@@ -437,15 +479,16 @@ async function loadRewards() {
 function fillRewardSelect(selectedId, selectedTitle) {
   const sel = $('edReward');
   const usedByOthers = new Set((state.config.sounds || []).filter((s) => !editing || s.id !== editing.id).map((s) => s.reward_id));
-  sel.replaceChildren(el('option', { value: '' }, 'Choose a reward'));
+  sel.replaceChildren(el('option', { value: '' }, t('editor.chooseReward')));
   let found = false;
   for (const r of rewards) {
     const taken = usedByOthers.has(r.id);
-    const label = r.title + ' (' + points(r.cost) + ')' + (r.is_enabled ? '' : ', hidden on Twitch') + (taken ? ', already has a sound' : '');
+    const label = t('editor.rewardOption', { title: r.title, points: points(r.cost) })
+      + (r.is_enabled ? '' : t('editor.rewardHidden')) + (taken ? t('editor.rewardTaken') : '');
     sel.append(el('option', { value: r.id, selected: r.id === selectedId, disabled: taken }, label));
     if (r.id === selectedId) found = true;
   }
-  if (selectedId && !found) sel.append(el('option', { value: selectedId, selected: true }, (selectedTitle || 'Saved reward') + ' (not found)'));
+  if (selectedId && !found) sel.append(el('option', { value: selectedId, selected: true }, t('editor.notFound', { title: selectedTitle || t('editor.savedReward') })));
 }
 
 function editorSource() { return document.querySelector('input[name=edSource]:checked').value; }
@@ -468,8 +511,8 @@ async function openEditor(s) {
     id: '', reward_id: '', reward_title: '', managed: true, reward_cost: DEFAULT_COST,
     file: '', volume: 1, cooldown_seconds: 0, user_cooldown_seconds: 0, enabled: true,
   };
-  $('editorTitle').textContent = isNew ? 'Add sound' : 'Edit sound';
-  $('edSave').textContent = isNew ? 'Add sound' : 'Save sound';
+  $('editorTitle').textContent = isNew ? t('editor.add') : t('editor.edit');
+  $('edSave').textContent = isNew ? t('editor.add') : t('editor.save');
   $('edError').classList.add('hidden');
   document.querySelector('input[name=edSource][value=' + (editing.managed ? 'new' : 'existing') + ']').checked = true;
   // A saved sound keeps its reward type; delete and re-add to switch.
@@ -484,7 +527,7 @@ async function openEditor(s) {
   $('edUserCooldown').value = editing.user_cooldown_seconds;
   $('edEnabled').checked = editing.enabled;
   $('edDelete').classList.toggle('hidden', isNew);
-  $('edDelete').textContent = 'Delete sound';
+  $('edDelete').textContent = t('editor.delete');
   deleteArmed = 0;
   fillRewardSelect(editing.reward_id, editing.reward_title);
   $('editor').showModal();
@@ -530,7 +573,7 @@ $('edSave').addEventListener('click', async () => {
   try {
     await App().SaveSound(s);
     $('editor').close();
-    toast(managed && !editing.reward_id ? 'Reward “' + s.reward_title + '” created on Twitch.' : 'Sound saved.');
+    toast(managed && !editing.reward_id ? t('editor.created', { title: s.reward_title }) : t('editor.saved'));
     refresh();
   } catch (e) {
     $('edError').textContent = errText(e);
@@ -545,14 +588,14 @@ let deleteArmed = 0;
 $('edDelete').addEventListener('click', async () => {
   if (Date.now() - deleteArmed > CONFIRM_MS) {
     deleteArmed = Date.now();
-    $('edDelete').textContent = editing.managed ? 'Click again, this also deletes the reward on Twitch' : 'Click again to delete';
+    $('edDelete').textContent = editing.managed ? t('editor.deleteConfirmReward') : t('editor.deleteConfirm');
     return;
   }
   deleteArmed = 0;
   try {
     await App().DeleteSound(editing.id);
     $('editor').close();
-    toast('Sound deleted.');
+    toast(t('editor.deleted'));
     refresh();
   } catch (e) {
     $('edError').textContent = errText(e);
@@ -571,10 +614,10 @@ async function playSound(req) {
     App().SoundDone(req.token, err || '');
   };
   audio.addEventListener('ended', () => done(''));
-  audio.addEventListener('error', () => done('the app window could not play this file'));
+  audio.addEventListener('error', () => done(t('play.cannotPlay')));
   try {
     if (req.deviceId) {
-      if (!SINK_SUPPORTED) throw new Error('choosing an output device is not supported on this system');
+      if (!SINK_SUPPORTED) throw new Error(t('play.noSink'));
       await audio.setSinkId(req.deviceId);
     }
     audio.volume = Math.min(1, Math.max(0, req.volume));
@@ -592,6 +635,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.runtime.EventsOn('play', playSound);
   window.runtime.EventsOn('activity', onActivity);
   window.runtime.EventsOn('log', () => { if ($('settings').open && $('sec-log').classList.contains('active')) renderLog(); });
+  languages = (await App().GetLanguages()) || languages;
+  await App().ReportSystemLanguage([...(navigator.languages || [navigator.language])]);
   await loadDevices(false);
   App().ReportAudioSupport(SINK_SUPPORTED, devices.length, devices.filter((d) => d.label).length);
   await refresh();

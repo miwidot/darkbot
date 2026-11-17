@@ -66,3 +66,18 @@ func TestGetReturnsCopy(t *testing.T) {
 		t.Fatal("Get must return a deep copy")
 	}
 }
+
+func TestLanguageNormalized(t *testing.T) {
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for in, want := range map[string]string{"de": "de", "en": "en", "": "", "klingon": ""} {
+		if err := s.Update(func(c *Config) { c.Language = in }); err != nil {
+			t.Fatal(err)
+		}
+		if got := s.Get().Language; got != want {
+			t.Errorf("language %q stored as %q, want %q", in, got, want)
+		}
+	}
+}

@@ -1,3 +1,14 @@
+2026-11-17 19:30 +08 — English and German UI (i18n)
+- New package internal/i18n: one JSON file per language (locales/en.json, de.json) is the single
+  source for the UI and for Go error messages; the frontend gets it via App.GetTranslations, so
+  it stays offline. Missing keys fall back to English, then show the key itself.
+- Language follows the system (navigator.languages, "de-AT" counts as German) or is chosen under
+  the new Settings section "General"; switching re-renders everything incl. the activity feed.
+- Every user-visible backend error is translatable (i18n.E/Wrap + registered Twitch/OBS sentinel
+  errors); logs stay English on purpose for bug reports.
+- Tests: all locales must have the same keys and placeholders as English; Resolve, T, Localize;
+  config drops unknown languages.
+
 2026-11-17 16:20 +08 — CI: macOS runner + action updates
 - macos-14 runner is no longer offered by GitHub; switched to macos-15 (arm64, free standard runner).
 - Actions updated to Node 24 releases (checkout v7.0.1, setup-go v7.1.0, upload-artifact v7.0.2,

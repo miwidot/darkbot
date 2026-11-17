@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/miwidot/darkbot/internal/config"
+	"github.com/miwidot/darkbot/internal/i18n"
 	"github.com/miwidot/darkbot/internal/twitch"
 )
 
@@ -65,6 +66,9 @@ type Bot struct {
 	// resolve fulfills (true) or rejects (false) a redemption of a reward
 	// darkbot manages. Twitch only allows this for rewards darkbot created.
 	resolve func(r twitch.Redemption, fulfill bool)
+	// localize renders a playback error for the activity feed in the UI
+	// language; nil shows the plain (English) error.
+	localize func(error) string
 }
 
 type job struct {
@@ -77,6 +81,16 @@ type job struct {
 // SetResolver installs the fulfill/reject callback for managed rewards.
 // Call before Run.
 func (b *Bot) SetResolver(fn func(r twitch.Redemption, fulfill bool)) { b.resolve = fn }
+
+// SetLocalizer sets how errors are worded in activity events. Call before Run.
+func (b *Bot) SetLocalizer(fn func(error) string) { b.localize = fn }
+
+func (b *Bot) errText(err error) string {
+	if b.localize == nil {
+		return err.Error()
+	}
+	return b.localize(err)
+}
 
 // finish fulfills or rejects the redemption when the reward is managed.
 func (b *Bot) finish(s config.Sound, r *twitch.Redemption, fulfill bool) {
@@ -127,7 +141,7 @@ func (b *Bot) play(ctx context.Context, j job) {
 	out := b.output()
 	if out == nil {
 		b.log.Errorf("No audio output available for %q", j.sound.RewardTitle)
-		b.emit(ActError, j.sound, j.user, j.test, "no audio output available")
+		b.emit(ActError, j.sound, j.user, j.test, b.errText(i18n.E("err.noOutput")))
 		b.finish(j.sound, j.red, false)
 		return
 	}
@@ -135,7 +149,7 @@ func (b *Bot) play(ctx context.Context, j job) {
 	b.emit(ActPlaying, j.sound, j.user, j.test, "")
 	if err := out.Play(ctx, j.sound, master); err != nil {
 		b.log.Errorf("Play %q failed: %v", j.sound.RewardTitle, err)
-		b.emit(ActError, j.sound, j.user, j.test, err.Error())
+		b.emit(ActError, j.sound, j.user, j.test, b.errText(err))
 		b.finish(j.sound, j.red, false)
 		return
 	}

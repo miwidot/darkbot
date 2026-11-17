@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/miwidot/darkbot/internal/audio"
 	"github.com/miwidot/darkbot/internal/bot"
 	"github.com/miwidot/darkbot/internal/config"
+	"github.com/miwidot/darkbot/internal/i18n"
 	"github.com/miwidot/darkbot/internal/obs"
 	"github.com/miwidot/darkbot/internal/selfupdate"
 	"github.com/miwidot/darkbot/internal/twitch"
@@ -29,6 +29,15 @@ import (
 //
 // Otherwise the user enters their own Client ID in the app.
 var defaultClientID = ""
+
+// Errors from other packages that the UI shows translated.
+func init() {
+	i18n.RegisterSentinel(twitch.ErrNotLoggedIn, "err.notLoggedIn")
+	i18n.RegisterSentinel(twitch.ErrTokenRejected, "err.tokenRejected")
+	i18n.RegisterSentinel(twitch.ErrNotAffiliate, "err.notAffiliate")
+	i18n.RegisterSentinel(twitch.ErrNotFound, "err.notFound")
+	i18n.RegisterSentinel(twitch.ErrNotOwner, "err.notOwner")
+}
 
 const (
 	// playbackGrace is added to a sound's length before we give up waiting
@@ -61,6 +70,9 @@ type App struct {
 	loginCode   *twitch.DeviceCode
 	update      *selfupdate.Info
 	updating    bool
+	// sysLangs are the system languages reported by the web view
+	// (navigator.languages); used when the user didn't pick a language.
+	sysLangs []string
 }
 
 // NewApp wires all components. Errors here are fatal config/keyring problems.
@@ -97,6 +109,7 @@ func NewApp(log *applog.Log) (*App, error) {
 		}
 	})
 	a.bot.SetResolver(a.resolveRedemption)
+	a.bot.SetLocalizer(func(err error) string { return i18n.Localize(err, a.lang()) })
 	return a, nil
 }
 
@@ -148,7 +161,7 @@ func (a *App) updateLoop(ctx context.Context) {
 	}
 	if info := a.checkUpdate(); info != nil && info.Available && a.cfg.Get().AutoUpdate {
 		a.log.Infof("Installing update v%s automatically", info.Latest)
-		if err := a.InstallUpdate(); err != nil {
+		if err := a.installUpdate(); err != nil {
 			a.log.Errorf("Automatic update failed: %v", err)
 		}
 	}
@@ -184,7 +197,7 @@ func (a *App) checkUpdate() *selfupdate.Info {
 func (a *App) CheckUpdate() (*selfupdate.Info, error) {
 	info, err := selfupdate.Check(version.RepoOwner, version.RepoName, version.Version)
 	if err != nil {
-		return nil, err
+		return nil, a.uiErr(err)
 	}
 	a.mu.Lock()
 	a.update = info
@@ -195,11 +208,13 @@ func (a *App) CheckUpdate() (*selfupdate.Info, error) {
 
 // InstallUpdate downloads and verifies the latest release, replaces the
 // program and restarts it.
-func (a *App) InstallUpdate() error {
+func (a *App) InstallUpdate() error { return a.uiErr(a.installUpdate()) }
+
+func (a *App) installUpdate() error {
 	a.mu.Lock()
 	if a.updating {
 		a.mu.Unlock()
-		return errors.New("an update is already being installed")
+		return i18n.E("err.updateRunning")
 	}
 	a.updating = true
 	a.mu.Unlock()
@@ -222,7 +237,7 @@ func (a *App) InstallUpdate() error {
 
 // SetAutoUpdate toggles automatic installation on start.
 func (a *App) SetAutoUpdate(on bool) error {
-	return a.cfg.Update(func(c *config.Config) { c.AutoUpdate = on })
+	return a.uiErr(a.cfg.Update(func(c *config.Config) { c.AutoUpdate = on }))
 }
 
 func (a *App) shutdown(context.Context) {
@@ -246,11 +261,13 @@ type State struct {
 	// NeedsReconnect: the stored token lacks a scope (e.g. from an older
 	// darkbot), so creating rewards needs a fresh Twitch login.
 	NeedsReconnect bool `json:"needsReconnect"`
+	// Language is the UI language in effect (config choice or system).
+	Language string `json:"language"`
 }
 
 // GetState returns the current UI state.
 func (a *App) GetState() State {
-	s := State{Config: a.cfg.Get(), OBSConnected: a.obs.Connected(), SupportedFormats: audio.Extensions, Version: version.Version}
+	s := State{Config: a.cfg.Get(), OBSConnected: a.obs.Connected(), SupportedFormats: audio.Extensions, Version: version.Version, Language: a.lang()}
 	s.Config.OBS.Password = "" // never send secrets back to the UI
 	if t := a.tok.Current(); t != nil {
 		s.TwitchLogin = t.Login
@@ -285,13 +302,64 @@ func (a *App) ReportAudioSupport(sinkSupported bool, outputs, named int) {
 // GetLogs returns all log lines.
 func (a *App) GetLogs() []string { return a.log.Lines() }
 
+// ---------- language ----------
+
+// lang is the UI language in effect.
+func (a *App) lang() string {
+	a.mu.Lock()
+	sys := a.sysLangs
+	a.mu.Unlock()
+	return i18n.Resolve(a.cfg.Get().Language, sys)
+}
+
+// uiErr translates an error for the UI (Wails passes err.Error() to JS).
+func (a *App) uiErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	return errors.New(i18n.Localize(err, a.lang()))
+}
+
+// ReportSystemLanguage is called by the frontend at start with
+// navigator.languages, the only portable way to learn the system language.
+func (a *App) ReportSystemLanguage(langs []string) {
+	a.mu.Lock()
+	a.sysLangs = append([]string(nil), langs...)
+	a.mu.Unlock()
+	a.log.Infof("System languages %v, UI language %s", langs, a.lang())
+}
+
+// SetLanguage stores the UI language; "" follows the system.
+func (a *App) SetLanguage(code string) error {
+	if code != "" && !i18n.IsSupported(code) {
+		return a.uiErr(i18n.E("err.language", "lang", code))
+	}
+	if err := a.cfg.Update(func(c *config.Config) { c.Language = code }); err != nil {
+		return a.uiErr(err)
+	}
+	a.emitState()
+	return nil
+}
+
+// GetTranslations returns all UI strings for lang ("" = the language in
+// effect), English filling any gaps.
+func (a *App) GetTranslations(lang string) map[string]string {
+	if !i18n.IsSupported(lang) {
+		lang = a.lang()
+	}
+	return i18n.Dict(lang)
+}
+
+// GetLanguages lists the shipped UI languages.
+func (a *App) GetLanguages() []string { return i18n.Supported }
+
 // ---------- Twitch ----------
 
 // SetClientID saves the Twitch Client ID.
 func (a *App) SetClientID(id string) error {
 	id = strings.TrimSpace(id)
 	if err := a.cfg.Update(func(c *config.Config) { c.TwitchClientID = id }); err != nil {
-		return err
+		return a.uiErr(err)
 	}
 	a.tok.SetClientID(id)
 	return nil
@@ -301,14 +369,14 @@ func (a *App) SetClientID(id string) error {
 func (a *App) StartLogin() error {
 	clientID := a.cfg.Get().TwitchClientID
 	if clientID == "" {
-		return errors.New("enter your Twitch Client ID first")
+		return a.uiErr(i18n.E("err.clientIdFirst"))
 	}
 	a.tok.SetClientID(clientID)
 	a.CancelLogin()
 
 	dc, err := twitch.StartDeviceFlow(a.ctx, clientID)
 	if err != nil {
-		return err
+		return a.uiErr(err)
 	}
 	ctx, cancel := context.WithCancel(a.ctx)
 	a.mu.Lock()
@@ -359,7 +427,7 @@ func (a *App) Logout() error {
 	a.stopEventSub()
 	err := a.tok.Logout()
 	a.log.Infof("Logged out of Twitch")
-	return err
+	return a.uiErr(err)
 }
 
 func (a *App) startEventSub() {
@@ -393,11 +461,12 @@ func (a *App) stopEventSub() {
 func (a *App) GetRewards() ([]twitch.Reward, error) {
 	t := a.tok.Current()
 	if t == nil {
-		return nil, twitch.ErrNotLoggedIn
+		return nil, a.uiErr(twitch.ErrNotLoggedIn)
 	}
 	ctx, cancel := context.WithTimeout(a.ctx, rewardsTimeout)
 	defer cancel()
-	return a.hx.GetCustomRewards(ctx, t.UserID)
+	rewards, err := a.hx.GetCustomRewards(ctx, t.UserID)
+	return rewards, a.uiErr(err)
 }
 
 // ---------- OBS ----------
@@ -416,7 +485,7 @@ type OBSSettings struct {
 
 // SaveOBS stores OBS settings.
 func (a *App) SaveOBS(s OBSSettings) error {
-	return a.cfg.Update(func(c *config.Config) {
+	return a.uiErr(a.cfg.Update(func(c *config.Config) {
 		c.OBS.Host = strings.TrimSpace(s.Host)
 		c.OBS.Port = s.Port
 		if s.PasswordChanged {
@@ -427,7 +496,7 @@ func (a *App) SaveOBS(s OBSSettings) error {
 		for i := range c.OBS.Tracks {
 			c.OBS.Tracks[i] = i < len(s.Tracks) && s.Tracks[i]
 		}
-	})
+	}))
 }
 
 // ConnectOBS connects with the stored settings.
@@ -437,7 +506,7 @@ func (a *App) ConnectOBS() error {
 	a.emitState()
 	if err != nil {
 		a.log.Errorf("%v", err)
-		return err
+		return a.uiErr(err)
 	}
 	a.log.Infof("Connected to %s", v)
 	return nil
@@ -456,41 +525,48 @@ func (a *App) DisconnectOBS() {
 func (a *App) SaveOutput(mode string, deviceID, deviceName string, master float64) error {
 	m := config.OutputMode(mode)
 	if m != config.OutputDevice && m != config.OutputOBS {
-		return fmt.Errorf("unknown output mode %q", mode)
+		return a.uiErr(i18n.E("err.unknownMode", "mode", mode))
 	}
-	return a.cfg.Update(func(c *config.Config) {
+	return a.uiErr(a.cfg.Update(func(c *config.Config) {
 		c.OutputMode, c.AudioDeviceID, c.AudioDeviceName, c.MasterVolume = m, deviceID, deviceName, master
-	})
+	}))
 }
 
 // SetMasterVolume changes only the master volume (status bar slider).
 func (a *App) SetMasterVolume(v float64) error {
-	return a.cfg.Update(func(c *config.Config) { c.MasterVolume = v })
+	return a.uiErr(a.cfg.Update(func(c *config.Config) { c.MasterVolume = v }))
 }
 
 // PickSoundFile opens a native file dialog.
 func (a *App) PickSoundFile() (string, error) {
-	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Choose a sound",
+	lang := a.lang()
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: i18n.T(lang, "dialog.chooseSound"),
 		Filters: []runtime.FileFilter{{
-			DisplayName: "Audio (" + strings.Join(audio.Extensions, ", ") + ")",
+			DisplayName: i18n.T(lang, "dialog.audioFiles", "ext", strings.Join(audio.Extensions, ", ")),
 			Pattern:     "*" + strings.Join(audio.Extensions, ";*"),
 		}},
 	})
+	return path, a.uiErr(err)
 }
 
 // SaveSound adds or updates a sound (matched by ID).
 func (a *App) SaveSound(s config.Sound) (config.Sound, error) {
+	s, err := a.saveSound(s)
+	return s, a.uiErr(err)
+}
+
+func (a *App) saveSound(s config.Sound) (config.Sound, error) {
 	s.File = strings.TrimSpace(s.File)
 	s.RewardTitle = strings.TrimSpace(s.RewardTitle)
 	if s.File == "" {
-		return s, errors.New("choose a sound file")
+		return s, i18n.E("err.chooseFile")
 	}
 	if !filepath.IsAbs(s.File) {
-		return s, errors.New("the sound file path must be absolute")
+		return s, i18n.E("err.pathAbsolute")
 	}
 	if _, err := audio.Duration(s.File); err != nil {
-		return s, fmt.Errorf("cannot read sound file: %w", err)
+		return s, i18n.Wrap(err, "err.readFile")
 	}
 	if s.ID == "" {
 		s.ID = config.NewID()
@@ -512,7 +588,7 @@ func (a *App) SaveSound(s config.Sound) (config.Sound, error) {
 	}
 
 	if s.RewardID == "" && s.RewardTitle == "" {
-		return s, errors.New("choose a channel point reward")
+		return s, i18n.E("err.chooseReward")
 	}
 	return s, a.storeSound(s)
 }
@@ -539,10 +615,10 @@ func (a *App) syncReward(s *config.Sound) (bool, error) {
 		return false, err
 	}
 	if n := utf8.RuneCountInString(s.RewardTitle); n < 1 || n > twitch.MaxRewardTitle {
-		return false, fmt.Errorf("the reward name must be 1 to %d characters", twitch.MaxRewardTitle)
+		return false, i18n.E("err.rewardName", "max", twitch.MaxRewardTitle)
 	}
 	if s.RewardCost < twitch.MinRewardCost || s.RewardCost > twitch.MaxRewardCost {
-		return false, fmt.Errorf("the price must be between %d and %d points", twitch.MinRewardCost, twitch.MaxRewardCost)
+		return false, i18n.E("err.price", "min", twitch.MinRewardCost, "max", twitch.MaxRewardCost)
 	}
 	settings := twitch.RewardSettings{Title: s.RewardTitle, Cost: s.RewardCost, Enabled: s.Enabled, CooldownSeconds: s.CooldownSeconds}
 	ctx, cancel := context.WithTimeout(a.ctx, rewardsTimeout)
@@ -555,13 +631,13 @@ func (a *App) syncReward(s *config.Sound) (bool, error) {
 			return false, nil
 		}
 		if !errors.Is(err, twitch.ErrNotFound) {
-			return false, fmt.Errorf("update reward on Twitch: %w", err)
+			return false, i18n.Wrap(err, "err.updateReward")
 		}
 		a.log.Warnf("Reward %q was deleted on Twitch, creating it again", s.RewardTitle)
 	}
 	r, err := a.hx.CreateReward(ctx, t.UserID, settings)
 	if err != nil {
-		return false, fmt.Errorf("create reward on Twitch: %w", err)
+		return false, i18n.Wrap(err, "err.createReward")
 	}
 	s.RewardID = r.ID
 	a.log.Infof("Created reward %q (%d points) on Twitch", s.RewardTitle, s.RewardCost)
@@ -571,10 +647,10 @@ func (a *App) syncReward(s *config.Sound) (bool, error) {
 func (a *App) requireManageScope() (*twitch.Token, error) {
 	t := a.tok.Current()
 	if t == nil {
-		return nil, errors.New("connect Twitch first (Settings, Twitch)")
+		return nil, i18n.E("err.connectFirst")
 	}
 	if !t.HasScopes() {
-		return nil, errors.New("reconnect Twitch so darkbot may create rewards (Settings, Twitch, Disconnect, Connect)")
+		return nil, i18n.E("err.reconnect")
 	}
 	return t, nil
 }
@@ -593,7 +669,9 @@ func (a *App) deleteReward(rewardID string) {
 
 // DeleteSound removes a sound. For a reward darkbot created, the reward is
 // deleted on Twitch first, so no orphan reward stays on the channel.
-func (a *App) DeleteSound(id string) error {
+func (a *App) DeleteSound(id string) error { return a.uiErr(a.deleteSound(id)) }
+
+func (a *App) deleteSound(id string) error {
 	var target *config.Sound
 	for _, s := range a.cfg.Get().Sounds {
 		if s.ID == id {
@@ -612,7 +690,7 @@ func (a *App) DeleteSound(id string) error {
 		ctx, cancel := context.WithTimeout(a.ctx, rewardsTimeout)
 		defer cancel()
 		if err := a.hx.DeleteReward(ctx, t.UserID, target.RewardID); err != nil {
-			return fmt.Errorf("delete reward on Twitch: %w", err)
+			return i18n.Wrap(err, "err.deleteReward")
 		}
 		a.log.Infof("Deleted reward %q on Twitch", target.RewardTitle)
 	}
@@ -728,7 +806,7 @@ func (o *webOutput) Play(ctx context.Context, s config.Sound, master float64) er
 		}
 		return nil
 	case <-time.After(length + playbackGrace):
-		return fmt.Errorf("no playback confirmation from the app window after %s", (length + playbackGrace).Round(time.Second))
+		return i18n.E("err.noPlaybackConfirm", "seconds", int((length + playbackGrace).Round(time.Second).Seconds()))
 	}
 }
 

@@ -18,6 +18,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/miwidot/darkbot/internal/i18n"
 )
 
 const (
@@ -92,8 +94,11 @@ type OBS struct {
 
 // Config is the whole persisted app configuration.
 type Config struct {
-	TwitchClientID string     `json:"twitch_client_id"`
-	OutputMode     OutputMode `json:"output_mode"`
+	TwitchClientID string `json:"twitch_client_id"`
+	// Language is the UI language chosen by the user ("en", "de"); empty
+	// follows the system language.
+	Language   string     `json:"language"`
+	OutputMode OutputMode `json:"output_mode"`
 	// AudioDeviceID is the web audio output "sinkId" chosen in the UI;
 	// empty = system default output.
 	AudioDeviceID   string  `json:"audio_device_id"`
@@ -125,6 +130,9 @@ func Default() Config {
 func (c *Config) normalize() {
 	if c.OutputMode != OutputDevice && c.OutputMode != OutputOBS {
 		c.OutputMode = OutputDevice
+	}
+	if c.Language != "" && !i18n.IsSupported(c.Language) {
+		c.Language = ""
 	}
 	if c.MasterVolume <= 0 || c.MasterVolume > MaxVolume {
 		c.MasterVolume = DefaultMasterVolume

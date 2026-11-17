@@ -16,6 +16,7 @@ darkbot does the sound part of tools like Streamer.bot, and nothing else: one wi
   - *Audio device:* darkbot plays the sound itself on the output you pick, like Streamer.bot or StreamElements. Capture that output, or darkbot itself, in OBS.
   - *Inside OBS:* darkbot plays the sound in an OBS media source and routes it to the audio tracks 1–6 you choose, for example stream only, or stream and recording but not your VOD track.
 - **Live view.** Every sound is a pad. It lights up while playing and shows its cooldown draining. An activity feed lists who redeemed what and why something didn't play.
+- **English and German.** darkbot follows your system language, or you pick one under Settings, General. All texts live in one file per language (`internal/i18n/locales/`), so adding a language means translating one JSON file.
 - **Updates itself.** On start, darkbot installs a newer release from GitHub automatically (can be switched off). While it's running, it only announces updates so a stream is never interrupted. Every download is verified against GitHub's SHA-256 digest.
 
 ## What it deliberately doesn't do
@@ -98,6 +99,7 @@ internal/obs/          obs-websocket v5 client and media source output
 internal/selfupdate/   verified GitHub release updates
 internal/audio/        pure-Go decoding for validation and length
 internal/config/       settings file (atomic writes)
+internal/i18n/         UI languages: locales/en.json, de.json (shared by Go and the UI)
 ```
 
 Settings live in `%AppData%\darkbot`, `~/Library/Application Support/darkbot` or `~/.config/darkbot`.
