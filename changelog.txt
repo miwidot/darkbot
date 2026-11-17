@@ -1,3 +1,6 @@
+2026-11-18 03:32 +08 — Release v0.2.2
+- Sub bombs as one action, hype train level ups and {top}; macOS bundle version 0.2.2.
+
 2026-11-18 03:27 +08 — Sub bombs and hype train level ups
 - Sub bombs: Twitch sends one gift event plus one sub per recipient. Recipients no longer run
   the "New sub" action, show in the feed or count twice: a bomb of 50 is one action ("Gifted
