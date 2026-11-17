@@ -23,6 +23,7 @@ import (
 	"github.com/miwidot/darkbot/internal/songs"
 	"github.com/miwidot/darkbot/internal/spotify"
 	"github.com/miwidot/darkbot/internal/stats"
+	"github.com/miwidot/darkbot/internal/tray"
 	"github.com/miwidot/darkbot/internal/twitch"
 	"github.com/miwidot/darkbot/internal/version"
 )
@@ -55,7 +56,9 @@ const (
 	// firstUpdateCheck waits a moment after start so the window is up first.
 	firstUpdateCheck = 5 * time.Second
 	// updateCheckEvery: while running, new releases are only announced.
-	updateCheckEvery = 6 * time.Hour
+	// GitHub allows 60 unauthenticated API requests per hour and IP; two
+	// per hour leave plenty for other programs on the same network.
+	updateCheckEvery = 30 * time.Minute
 	// spotifyLoginTimeout bounds the code exchange + profile request.
 	spotifyLoginTimeout = 30 * time.Second
 	// chatSendTimeout bounds one chat reply.
@@ -64,6 +67,7 @@ const (
 
 // App is bound to the frontend: every exported method is callable from JS.
 type App struct {
+	tray trayState
 	ctx  context.Context
 	log  *applog.Log
 	cfg  *config.Store
@@ -197,6 +201,7 @@ func (a *App) startup(ctx context.Context) {
 		go func() { _ = a.ConnectOBS() }()
 	}
 	go a.updateLoop(ctx)
+	a.startTray()
 	// darkbot may have been moved since autostart was switched on.
 	if err := autostart.Refresh(); err != nil {
 		a.log.Warnf("Autostart: could not update the entry: %v", err)
@@ -286,8 +291,15 @@ func (a *App) installUpdate() error {
 		return err
 	}
 	a.log.Infof("Update %s installed, restarting", tag)
+	// Restart exits without the normal shutdown: save what shutdown saves.
+	a.st.Flush()
 	a.obs.Disconnect()
-	return selfupdate.Restart()
+	tray.Stop()
+	var args []string
+	if startedInTray {
+		args = append(args, autostart.TrayArg)
+	}
+	return selfupdate.Restart(args...)
 }
 
 // SetAutoUpdate toggles automatic installation on start.
@@ -298,6 +310,7 @@ func (a *App) SetAutoUpdate(on bool) error {
 func (a *App) shutdown(context.Context) {
 	a.st.Flush()
 	a.obs.Disconnect()
+	tray.Stop()
 }
 
 // ---------- state ----------
@@ -333,6 +346,8 @@ type State struct {
 	// Autostart: darkbot starts when the user logs in to the computer.
 	Autostart          bool `json:"autostart"`
 	AutostartSupported bool `json:"autostartSupported"`
+	// TraySupported: closing can hide darkbot to the tray (Windows).
+	TraySupported bool `json:"traySupported"`
 }
 
 // GetState returns the current UI state.
@@ -350,6 +365,7 @@ func (a *App) GetState() State {
 	s.SpotifyRedirectURI = spotify.RedirectURI
 	s.TwitchHealth, s.SpotifyHealth = a.tok.Health(), a.sp.Health()
 	s.FollowerStatus = a.followerStatus()
+	s.TraySupported = tray.Supported()
 	s.AutostartSupported = autostart.Supported()
 	if s.AutostartSupported {
 		on, err := autostart.Enabled()
@@ -373,6 +389,7 @@ func (a *App) emitState() {
 	if a.ctx != nil {
 		runtime.EventsEmit(a.ctx, "state")
 	}
+	a.refreshTray()
 }
 
 // ReportAudioSupport is called once by the frontend at start so the log shows

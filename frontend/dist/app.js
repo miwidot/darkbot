@@ -653,6 +653,8 @@ function systemLanguage() {
 function renderGeneral() {
   $('autostartRow').classList.toggle('hidden', !state.autostartSupported);
   $('autostart').checked = state.autostart;
+  $('closeToTrayRow').classList.toggle('hidden', !state.traySupported);
+  $('closeToTray').checked = !state.config.quit_on_close;
   const sel = $('language');
   const chosen = state.config.language || '';
   sel.replaceChildren(
@@ -662,6 +664,10 @@ function renderGeneral() {
 $('autostart').addEventListener('change', async () => {
   const on = $('autostart').checked;
   try { await call('SetAutostart', on); toast(t(on ? 'general.autostartOn' : 'general.autostartOff')); } catch (e) { /* toast shown */ }
+  refresh();
+});
+$('closeToTray').addEventListener('change', async () => {
+  try { await call('SetQuitOnClose', !$('closeToTray').checked); } catch (e) { /* toast shown */ }
   refresh();
 });
 $('language').addEventListener('change', async () => {

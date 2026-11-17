@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestIsNewer(t *testing.T) {
@@ -109,5 +111,20 @@ func TestApplyRejectsForeignURLAndMissingDigest(t *testing.T) {
 	otherRepo := *a
 	if err := applyTo(exe, "o", "other", &otherRepo); err == nil {
 		t.Fatal("asset of another repo must be refused")
+	}
+}
+
+func TestWaitForExit(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=^$")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	pid := cmd.Process.Pid
+	go cmd.Wait() // reap, so the process really disappears
+	if !WaitForExit(pid, 10*time.Second) {
+		t.Fatal("finished process must count as exited")
+	}
+	if WaitForExit(os.Getpid(), 200*time.Millisecond) {
+		t.Fatal("the running test process must time out")
 	}
 }

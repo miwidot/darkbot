@@ -3,6 +3,7 @@ module github.com/miwidot/darkbot
 go 1.27.1
 
 require (
+	fyne.io/systray v1.12.2
 	github.com/andreykaipov/goobs v1.11.1
 	github.com/coder/websocket v1.8.15
 	github.com/gopxl/beep/v2 v2.1.1

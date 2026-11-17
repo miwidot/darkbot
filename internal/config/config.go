@@ -165,6 +165,9 @@ type Config struct {
 	// UnfollowDetection compares the follower list every few minutes,
 	// because Twitch has no unfollow event (opt-in).
 	UnfollowDetection bool `json:"unfollow_detection"`
+	// QuitOnClose: closing the window quits darkbot. Default false: where
+	// darkbot has a tray icon (Windows), it keeps running there.
+	QuitOnClose bool `json:"quit_on_close"`
 }
 
 // Default returns a config with sensible defaults.

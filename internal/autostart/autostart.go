@@ -18,6 +18,10 @@ import (
 // entryName is the name of the autostart entry on every platform.
 const entryName = "darkbot"
 
+// TrayArg is passed by the Windows autostart entry: darkbot then starts
+// hidden in the tray instead of opening its window on every login.
+const TrayArg = "--tray"
+
 // executable returns the absolute path of the running program.
 func executable() (string, error) {
 	p, err := os.Executable()

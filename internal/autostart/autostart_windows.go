@@ -9,7 +9,9 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-const runKey = `Software\Microsoft\Windows\CurrentVersion\Run`
+// runKey is the per-user Run key. A variable only so tests use their own
+// key instead of the real autostart list.
+var runKey = `Software\Microsoft\Windows\CurrentVersion\Run`
 
 // Supported reports whether autostart works on this system.
 func Supported() bool { return true }
@@ -49,5 +51,5 @@ func Set(on bool) error {
 		return err
 	}
 	// Quoted: the path may contain spaces ("C:\Users\Jane Doe\...").
-	return k.SetStringValue(entryName, `"`+exe+`"`)
+	return k.SetStringValue(entryName, `"`+exe+`" `+TrayArg)
 }

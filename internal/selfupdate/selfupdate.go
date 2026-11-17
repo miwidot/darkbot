@@ -327,13 +327,24 @@ func download(url, dst string, wantSize int64, wantHash string) error {
 	return f.Close()
 }
 
-// Restart starts the (updated) binary detached and exits this process.
-func Restart() error {
+// WaitArg tells the new process which process it replaces:
+// "--wait-pid=<pid>". The new process waits for it to exit (WaitForExit)
+// before it starts its window, so the single-instance lock the old process
+// still holds doesn't make the new one quit right away.
+const WaitArg = "--wait-pid="
+
+// RestartWait is how long a restarted darkbot waits for the old process.
+const RestartWait = 15 * time.Second
+
+// Restart starts the (updated) binary detached with args and exits this
+// process.
+func Restart(args ...string) error {
 	exe, err := executable()
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(exe)
+	args = append(args, WaitArg+strconv.Itoa(os.Getpid()))
+	cmd := exec.Command(exe, args...)
 	if err := cmd.Start(); err != nil {
 		return err
 	}

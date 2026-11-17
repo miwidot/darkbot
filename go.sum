@@ -1,3 +1,5 @@
+fyne.io/systray v1.12.2 h1:Y8DZxgLHsVQt6rY9Zrkkg+j67S7vv/1F2viOWKPpVeA=
+fyne.io/systray v1.12.2/go.mod h1:RVwqP9nYMo7h5zViCBHri2FgjXF7H2cub7MAq4NSoLs=
 github.com/andreykaipov/goobs v1.11.1 h1:73qAE5wK7Dx2G7oT6z2s0rXcAZUy7cDS3VFeaRaSI/I=
 github.com/andreykaipov/goobs v1.11.1/go.mod h1:nbeqrqE/6ZoOgWe2vn/+lF7nacPpuwIo+stkQunPxHc=
 github.com/bep/debounce v1.2.1 h1:v67fRdBA9UQu2NhLFXrSg0Brw7CexQekrBwDMM8bzeY=

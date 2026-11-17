@@ -1,3 +1,18 @@
+2026-11-18 03:48 +08 — Windows tray, single instance, faster update notice
+- Update notice: a running darkbot checked GitHub only every 6 h, so a release published while
+  it ran showed up hours later. Now every 30 min (GitHub allows 60 unauthenticated requests/h).
+  Self-update restart now also saves the dashboard stats first (it skips the normal shutdown).
+- Windows tray icon (fyne.io/systray, pure Go): left click opens, menu = open / install update
+  vX / quit, tooltip shows an available update. Closing the window hides darkbot to the tray
+  (setting, default on); autostart starts it hidden in the tray (Run entry gets --tray,
+  existing entries are updated on the next start). New icon (internal/tray/icon.py).
+- Single instance (Wails SingleInstanceLock; named mutex / lock file, no ports): a second start
+  shows the running window instead of a second bot playing everything twice. After a
+  self-update the new process waits for the old one (--wait-pid) before taking the lock.
+- CI: new real Windows test job (registry autostart on a test key, process wait); app package
+  tests now run on macOS too. Verified on macOS: second start exits and shows the first window;
+  a --wait-pid start waits until the old process is gone.
+
 2026-11-18 03:32 +08 — Release v0.2.2
 - Sub bombs as one action, hype train level ups and {top}; macOS bundle version 0.2.2.
 
