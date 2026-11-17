@@ -1,3 +1,10 @@
+2026-11-17 21:15 +08 — Fix: Spotify token could be refreshed twice in parallel
+- CI caught a race: a call that got 401 with the old token re-read the token after another
+  call had already renewed it and refreshed a second time. With refresh-token rotation that
+  could burn the token and log the user out. The retry now passes the rejected token and only
+  refreshes if it is still the current one (same scheme as Twitch's RefreshIfStale).
+  Verified: old code fails 2 of 200 stress runs, new code 0 of 200.
+
 2026-11-17 21:00 +08 — Dashboard start page, login health, autostart
 - Start page after login is now a dashboard; sounds moved to their own "Sounds" view (header
   switch, last view remembered). Before login only the welcome card shows.

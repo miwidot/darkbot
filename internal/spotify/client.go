@@ -100,7 +100,11 @@ func (c *Client) Health() Health {
 
 // RefreshNow renews the access token right away (dashboard button).
 func (c *Client) RefreshNow(ctx context.Context) error {
-	_, err := c.accessToken(ctx, true)
+	cur := c.Current()
+	if cur == nil {
+		return ErrNotConnected
+	}
+	_, err := c.accessToken(ctx, cur.AccessToken)
 	return err
 }
 
@@ -194,17 +198,27 @@ func (c *Client) logoutLocked() error {
 
 // accessToken returns a valid access token, refreshing it when it is about
 // to expire (force: the API just said 401).
-func (c *Client) accessToken(ctx context.Context, force bool) (string, error) {
+//
+// rejected is the access token Spotify just refused (401), or "" for a
+// normal call. A refresh only happens if the rejected token is still the
+// current one: otherwise another call already renewed it while this one
+// waited, and refreshing again would waste (or, with rotation, burn) the
+// refresh token.
+func (c *Client) accessToken(ctx context.Context, rejected string) (string, error) {
 	cur := c.Current()
 	if cur == nil {
 		return "", ErrNotConnected
+	}
+	force := rejected != ""
+	if force && cur.AccessToken != rejected {
+		return cur.AccessToken, nil
 	}
 	if !force && time.Until(cur.ExpiresAt) > refreshMargin {
 		return cur.AccessToken, nil
 	}
 	c.refreshMu.Lock()
 	defer c.refreshMu.Unlock()
-	// Another caller may have refreshed while we waited.
+	// Another caller may have refreshed while we waited for the lock.
 	if now := c.Current(); now == nil {
 		return "", ErrNotConnected
 	} else if now.AccessToken != cur.AccessToken || (!force && time.Until(now.ExpiresAt) > refreshMargin) {
@@ -253,14 +267,16 @@ type apiError struct {
 
 // do calls the Web API; on 401 it refreshes once and retries.
 func (c *Client) do(ctx context.Context, method, path string, query url.Values, out any) error {
+	rejected := ""
 	for attempt := 0; attempt < 2; attempt++ {
-		access, err := c.accessToken(ctx, attempt > 0)
+		access, err := c.accessToken(ctx, rejected)
 		if err != nil {
 			return err
 		}
 		err = c.doWith(ctx, access, method, path, query, out)
 		var se *statusError
 		if errors.As(err, &se) && se.status == http.StatusUnauthorized && attempt == 0 {
+			rejected = access // retry with a token newer than this one
 			continue
 		}
 		return err
