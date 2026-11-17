@@ -46,7 +46,7 @@ Builds aren't code-signed yet. On macOS right-click darkbot and choose *Open* th
 ## First start
 
 1. **Connect Twitch.** Open Settings (gear icon), then Twitch, then *Connect Twitch*, and confirm the code on twitch.tv/activate. Channel points need an Affiliate or Partner channel.
-   darkbot comes with a built-in Client ID. Only if you build your own fork and want your own app: create one at [dev.twitch.tv/console](https://dev.twitch.tv/console): *Register your application*, client type **Public**, OAuth redirect URL `http://localhost` (required by the form, not used). Paste the Client ID under *Twitch application*.
+   Nothing to register: darkbot comes with its own Twitch Client ID. You only need your own if you build a fork (see [Build from source](#build-from-source)).
 2. **Add a sound.** *Add sound*, then choose a file (mp3, wav, ogg, flac), a reward name and a price. Click a pad to preview it.
 3. **Choose the output.** Settings, then Audio output:
    - *Audio device:* to get the sound into OBS, pick a virtual cable or spare output and add it as *Audio Output Capture*. Or keep the default and add darkbot with *Application Audio Capture* (Windows) or *macOS Audio Capture* (macOS).
@@ -89,7 +89,20 @@ Docs: [device code flow](https://dev.twitch.tv/docs/authentication/getting-token
 - Network problems never log you out; darkbot retries. Only an explicit "invalid refresh token" from Twitch does.
 - Refresh tokens of public apps expire 30 days after they were issued. Every refresh issues a new one, so you only log in again if darkbot didn't run for 30 days.
 
-Scopes: `channel:read:redemptions` (receive redemptions, list rewards) and `channel:manage:redemptions` (create and manage darkbot's own rewards, fulfill or reject their redemptions).
+Permissions darkbot asks Twitch for, all read-only except where noted:
+
+| Scope | What for |
+|---|---|
+| `channel:read:redemptions`, `channel:manage:redemptions` | receive redemptions; create and manage darkbot's own rewards, refund or complete their redemptions |
+| `user:read:chat`, `user:write:chat` | read chat commands (`!sr`, `!skip`, ...), post replies and event messages |
+| `moderator:read:followers` | follow events and the opt-in unfollow check |
+| `channel:read:subscriptions` | subs, resubs, gifted subs, ended subs |
+| `bits:read` | Bits |
+| `channel:read:hype_train` | hype train start and end |
+| `channel:read:ads` | ad breaks |
+| `moderator:read:shoutouts` | shoutouts your channel receives |
+
+Raids and stream start/end need no permission. After an update that adds permissions, darkbot asks you to reconnect Twitch once.
 
 ## Build from source
 
@@ -103,6 +116,9 @@ make linux     # build/bin/darkbot-linux (on Linux: libgtk-3-dev libwebkit2gtk-4
 
 make windows CLIENT_ID=xxxx VERSION=0.3.0   # your own Twitch Client ID (optional) and version
 ```
+
+Using your own Twitch app (forks): create one at [dev.twitch.tv/console](https://dev.twitch.tv/console) (needs 2FA on your Twitch account): *Register your application*, category *Application Integration*, client type **Public**, OAuth redirect URL `http://localhost` (required by the form, never used). Never generate a secret, darkbot doesn't use one. Build with `CLIENT_ID=<id>`, or users paste it in Settings, Twitch, *Twitch application*.
+
 
 Local builds report version `dev` and never update themselves.
 `wails build` isn't used because the Wails v2.11 binding generator crashes on Go 1.27; the frontend calls `window.go.main.App` directly.

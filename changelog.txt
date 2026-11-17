@@ -1,3 +1,7 @@
+2026-11-18 02:58 +08 — README: Twitch setup and permissions
+- First start no longer asks to register a Twitch app (built-in Client ID); own-app steps
+  moved to Build from source for forks. Permissions table lists every scope and what it is for.
+
 2026-11-18 02:55 +08 — Built-in Twitch Client ID, release v0.2.0
 - darkbot now ships its own public Twitch app (client type Public, device code flow, no
   secret): users just click "Connect Twitch". Client IDs are public by design (Twitch docs).
