@@ -100,6 +100,7 @@ type EventSub struct {
 	onChannelEvent func(ChannelEvent) // nil: channel events are not subscribed
 
 	seenMu sync.Mutex
+	hype   hypeTracker
 	seen   map[string]time.Time
 }
 
@@ -389,6 +390,10 @@ func (e *EventSub) handleChannelEvent(msg *wsMessage) {
 		return
 	}
 	ev.MessageID = msg.Metadata.MessageID
+	ev, report := e.hype.filter(ev)
+	if !report {
+		return
+	}
 	e.onChannelEvent(ev)
 }
 

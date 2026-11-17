@@ -378,7 +378,7 @@ func TestParseChannelEvents(t *testing.T) {
 			ChannelEvent{Kind: EvCheer, User: "Dan", UserID: "4", Amount: 100, Message: "Cheer100 gg"}},
 		{"channel.raid", `{"from_broadcaster_user_id":"5","from_broadcaster_user_name":"Raider","to_broadcaster_user_id":"9","viewers":42}`,
 			ChannelEvent{Kind: EvRaid, User: "Raider", UserID: "5", Amount: 42}},
-		{"channel.hype_train.begin", `{"id":"x","level":2,"total":700}`, ChannelEvent{Kind: EvHypeBegin, Amount: 2}},
+		{"channel.hype_train.begin", `{"id":"x","level":2,"total":700}`, ChannelEvent{Kind: EvHypeBegin, Amount: 2, TrainID: "x"}},
 		{"channel.ad_break.begin", `{"duration_seconds":90,"is_automatic":true}`, ChannelEvent{Kind: EvAdBreak, Amount: 90}},
 		{"channel.shoutout.receive", `{"from_broadcaster_user_id":"6","from_broadcaster_user_name":"Friend","viewer_count":300}`,
 			ChannelEvent{Kind: EvShoutout, User: "Friend", UserID: "6", Amount: 300}},
@@ -507,5 +507,56 @@ func TestRewardBodyColor(t *testing.T) {
 	}
 	if got := (RewardSettings{Title: "a", Cost: 1, BackgroundColor: "#9147FF"}).body()["background_color"]; got != "#9147FF" {
 		t.Fatalf("got %v", got)
+	}
+}
+
+func TestHypeTrainPayloads(t *testing.T) {
+	end := `{"id":"t1","level":4,"total":5400,"top_contributions":[
+		{"user_id":"1","user_login":"a","user_name":"Anna","type":"bits","total":800},
+		{"user_id":"2","user_login":"b","user_name":"Ben","type":"subscription","total":2500},
+		{"user_id":"3","user_login":"c","user_name":"Cleo","type":"other","total":100}],
+		"shared_train_participants":null,"type":"regular","is_shared_train":false,
+		"started_at":"2026-11-18T10:00:00Z","ended_at":"2026-11-18T10:09:00Z","cooldown_ends_at":"2026-11-18T11:09:00Z"}`
+	got, err := parseChannelEvent("channel.hype_train.end", json.RawMessage(end))
+	if err != nil || got != (ChannelEvent{Kind: EvHypeEnd, Amount: 4, TrainID: "t1", Top: "Ben"}) {
+		t.Fatalf("end: %+v %v (top = most points: Ben's tier 3 gifts beat Anna's 800 Bits)", got, err)
+	}
+	prog, err := parseChannelEvent("channel.hype_train.progress", json.RawMessage(`{"id":"t1","level":2,"total":1900,"progress":200,"goal":1800}`))
+	if err != nil || prog != (ChannelEvent{Kind: evHypeProgress, Amount: 2, TrainID: "t1"}) {
+		t.Fatalf("progress: %+v %v", prog, err)
+	}
+}
+
+func TestHypeTrackerLevelUps(t *testing.T) {
+	var h hypeTracker
+	step := func(kind, train string, level int) (string, bool) {
+		ev, ok := h.filter(ChannelEvent{Kind: kind, TrainID: train, Amount: level})
+		return ev.Kind, ok
+	}
+	type want struct {
+		kind string
+		ok   bool
+	}
+	steps := []struct {
+		kind, train string
+		level       int
+		want        want
+	}{
+		{EvHypeBegin, "t1", 1, want{EvHypeBegin, true}},
+		{evHypeProgress, "t1", 1, want{evHypeProgress, false}}, // progress within level 1
+		{evHypeProgress, "t1", 2, want{EvHypeLevel, true}},     // level up
+		{evHypeProgress, "t1", 2, want{evHypeProgress, false}}, // same level again
+		{evHypeProgress, "t1", 4, want{EvHypeLevel, true}},     // skipped level 3: one event
+		{EvHypeEnd, "t1", 4, want{EvHypeEnd, true}},
+		// connected mid-train: the first progress is only the baseline
+		{evHypeProgress, "t2", 3, want{evHypeProgress, false}},
+		{evHypeProgress, "t2", 3, want{evHypeProgress, false}},
+		{evHypeProgress, "t2", 4, want{EvHypeLevel, true}},
+		{EvFollow, "", 0, want{EvFollow, true}}, // other events pass through
+	}
+	for i, s := range steps {
+		if k, ok := step(s.kind, s.train, s.level); k != s.want.kind || ok != s.want.ok {
+			t.Errorf("step %d (%s %s L%d): got %s %v, want %+v", i, s.kind, s.train, s.level, k, ok, s.want)
+		}
 	}
 }

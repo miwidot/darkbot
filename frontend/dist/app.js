@@ -412,7 +412,7 @@ let evEditing = null;  // kind open in the editor
 
 // "{user} cheered {amount} Bits" -> text nodes with the name in bold.
 function eventLine(ev) {
-  const key = ev.kind === 'sub' && ev.gift ? 'feed.ev.subGift' : 'feed.ev.' + ev.kind;
+  const key = 'feed.ev.' + ev.kind;
   const who = ev.anonymous || !ev.user ? t('event.anonymous') : ev.user;
   const parts = t(key, { amount: num(ev.amount), tier: ev.tier, months: ev.months }).split('{user}');
   const nodes = [];

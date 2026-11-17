@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync"
 )
 
 // Channel events (verified 2026-11-17, https://dev.twitch.tv/docs/eventsub/reference/):
@@ -28,6 +29,7 @@ const (
 	EvCheer     = "cheer"
 	EvRaid      = "raid"
 	EvHypeBegin = "hype_begin"
+	EvHypeLevel = "hype_level" // derived from channel.hype_train.progress, see hypeTracker
 	EvHypeEnd   = "hype_end"
 	EvOnline    = "online"
 	EvOffline   = "offline"
@@ -37,7 +39,7 @@ const (
 )
 
 // EventKinds lists every kind in the order the UI shows them.
-var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvRaid, EvHypeBegin, EvHypeEnd, EvShoutout, EvAdBreak, EvSubEnd, EvOnline, EvOffline}
+var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvRaid, EvHypeBegin, EvHypeLevel, EvHypeEnd, EvShoutout, EvAdBreak, EvSubEnd, EvOnline, EvOffline}
 
 // Scopes for channel events.
 const (
@@ -61,7 +63,14 @@ type ChannelEvent struct {
 	Message   string `json:"message"` // resub/cheer message
 	Anonymous bool   `json:"anonymous"`
 	Gift      bool   `json:"gift"` // sub/sub_end was a gifted sub
+	Top       string `json:"top"`  // hype_end: biggest contributor ("" if unknown)
+	// TrainID identifies the hype train (begin/progress/end), for hypeTracker.
+	TrainID string `json:"-"`
 }
+
+// evHypeProgress is a raw hype train progress notification. It never leaves
+// this package: hypeTracker turns level changes into EvHypeLevel.
+const evHypeProgress = "hype_progress"
 
 // eventSpec is one EventSub subscription darkbot creates.
 type eventSpec struct {
@@ -114,6 +123,63 @@ func decode[T any](raw json.RawMessage) (T, error) {
 	var v T
 	err := json.Unmarshal(raw, &v)
 	return v, err
+}
+
+// hypeTrain is the part of the hype train v2 payloads darkbot uses.
+type hypeTrain struct {
+	ID    string `json:"id"`
+	Level int    `json:"level"`
+	// Top contributions per type (bits, subscription, other). total is in
+	// hype train points: Bits 1:1, subs 500/1000/2500 for tier 1/2/3.
+	Top []struct {
+		UserName string `json:"user_name"`
+		Total    int    `json:"total"`
+	} `json:"top_contributions"`
+}
+
+// topContributor is whoever put the most points into the train.
+func (h hypeTrain) topContributor() string {
+	best, name := 0, ""
+	for _, c := range h.Top {
+		if c.Total > best {
+			best, name = c.Total, c.UserName
+		}
+	}
+	return name
+}
+
+// hypeTracker turns hype train progress into level-up events. It remembers
+// the level of the current train; a progress with a higher level is a
+// level-up (one event even if a big contribution skipped levels). A train
+// first seen through progress (darkbot connected mid-train) only sets the
+// baseline, so a reconnect never fakes a level-up.
+type hypeTracker struct {
+	mu    sync.Mutex
+	train string
+	level int
+}
+
+// filter returns the event to report, or false to drop it.
+func (h *hypeTracker) filter(ev ChannelEvent) (ChannelEvent, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	switch ev.Kind {
+	case EvHypeBegin:
+		h.train, h.level = ev.TrainID, ev.Amount
+	case EvHypeEnd:
+		h.train, h.level = "", 0
+	case evHypeProgress:
+		if ev.TrainID != h.train {
+			h.train, h.level = ev.TrainID, ev.Amount
+			return ev, false
+		}
+		if ev.Amount <= h.level {
+			return ev, false
+		}
+		h.level = ev.Amount
+		ev.Kind = EvHypeLevel
+	}
+	return ev, true
 }
 
 var eventSpecs = []eventSpec{
@@ -184,17 +250,20 @@ var eventSpecs = []eventSpec{
 		}},
 	{Type: "channel.hype_train.begin", Version: "2", Scope: ScopeReadHypeTrain, condition: byBroadcaster,
 		parse: func(raw json.RawMessage) (ChannelEvent, error) {
-			v, err := decode[struct {
-				Level int `json:"level"`
-			}](raw)
-			return ChannelEvent{Kind: EvHypeBegin, Amount: v.Level}, err
+			v, err := decode[hypeTrain](raw)
+			return ChannelEvent{Kind: EvHypeBegin, Amount: v.Level, TrainID: v.ID}, err
+		}},
+	// Twitch has no level-up event; progress is sent periodically while the
+	// train gains points and carries the current level.
+	{Type: "channel.hype_train.progress", Version: "2", Scope: ScopeReadHypeTrain, condition: byBroadcaster,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[hypeTrain](raw)
+			return ChannelEvent{Kind: evHypeProgress, Amount: v.Level, TrainID: v.ID}, err
 		}},
 	{Type: "channel.hype_train.end", Version: "2", Scope: ScopeReadHypeTrain, condition: byBroadcaster,
 		parse: func(raw json.RawMessage) (ChannelEvent, error) {
-			v, err := decode[struct {
-				Level int `json:"level"`
-			}](raw)
-			return ChannelEvent{Kind: EvHypeEnd, Amount: v.Level}, err
+			v, err := decode[hypeTrain](raw)
+			return ChannelEvent{Kind: EvHypeEnd, Amount: v.Level, TrainID: v.ID, Top: v.topContributor()}, err
 		}},
 	{Type: "channel.shoutout.receive", Version: "1", Scope: ScopeReadShoutouts, condition: asModerator,
 		parse: func(raw json.RawMessage) (ChannelEvent, error) {

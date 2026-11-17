@@ -27,6 +27,41 @@ func TestRenderTemplate(t *testing.T) {
 	if anon != "Anonymous cheered" {
 		t.Fatalf("got %q", anon)
 	}
+	if got := renderTemplate("Danke {top}!", twitch.ChannelEvent{Kind: twitch.EvHypeEnd, Top: "Ben"}, "de"); got != "Danke Ben!" {
+		t.Fatalf("got %q", got)
+	}
+	if got := renderTemplate("Thanks {top}!", twitch.ChannelEvent{Kind: twitch.EvHypeEnd}, "en"); got != "Thanks everyone!" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+// A sub bomb: one gift event, then one sub per recipient. Only the gift
+// event runs an action; the sub action must not fire 50 times.
+func TestSubBombRunsOneAction(t *testing.T) {
+	a, out := newEventApp(t, map[string]config.EventAction{
+		twitch.EvSub:  {Enabled: true, Sound: "/sub.mp3", Volume: 1},
+		twitch.EvGift: {Enabled: true, Sound: "/bomb.mp3", Volume: 1},
+	})
+	a.handleEvent(twitch.ChannelEvent{Kind: twitch.EvGift, User: "Jonas", Amount: 50}, false)
+	for range 50 {
+		a.handleEvent(twitch.ChannelEvent{Kind: twitch.EvSub, User: "lucky", Gift: true}, false)
+	}
+	select {
+	case s := <-out.played:
+		if s.File != "/bomb.mp3" {
+			t.Fatalf("played %s first", s.File)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the gift event must play its sound")
+	}
+	select {
+	case s := <-out.played:
+		t.Fatalf("gift recipients must not play %s", s.File)
+	case <-time.After(200 * time.Millisecond):
+	}
+	if s := a.st.Snapshot().Session; s.GiftedSubs != 50 || s.Subs != 0 {
+		t.Fatalf("got %+v", s)
+	}
 }
 
 type recordOutput struct{ played chan config.Sound }
