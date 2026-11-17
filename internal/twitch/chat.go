@@ -23,7 +23,8 @@ const (
 	// MaxChatMessage is Twitch's limit for one chat message, in characters.
 	MaxChatMessage = 500
 	// badgeModerator is the badge set_id Twitch uses for moderators (as in
-	// the payload example of the EventSub reference).
+	// the payload example of the EventSub reference). The docs list no other
+	// moderator-like set_id (checked 2026-11-17), so only this one counts.
 	badgeModerator = "moderator"
 )
 

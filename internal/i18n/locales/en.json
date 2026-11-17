@@ -254,5 +254,6 @@
   "songs.cmdSkip": "Skips the current song: you, your moderators and, if allowed above, whoever requested it",
   "songs.legal": "Playing music you hold no rights to can get your VODs muted or your channel a DMCA strike on Twitch, and Spotify’s terms don’t allow broadcasting. What you play is your call.",
   "songs.save": "Save song requests",
-  "songs.saved": "Song requests saved."
+  "songs.saved": "Song requests saved.",
+  "chat.alreadyQueued": "This song is already playing or in the queue."
 }

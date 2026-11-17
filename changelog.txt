@@ -1,3 +1,13 @@
+2026-11-17 20:05 +08 — Song requests: security review fixes
+- Requester skip now compares Twitch user IDs (display names aren't unique) and a request
+  record is never overwritten; songs already playing or queued are refused, so nobody can
+  "claim" the streamer's song to skip it (also prevents duplicates).
+- Spam limits: one command per viewer per 3 s (mods/broadcaster exempt), refused requests
+  cost a 10 s retry wait instead of none, chat answers capped at 20 per 30 s.
+- Spotify refresh no longer uses the chat command's context, so a timeout can't lose a
+  rotated refresh token (which would force a logout).
+- Checked: no lead-moderator badge set_id is documented by Twitch; only "moderator" counts.
+
 2026-11-17 19:50 +08 — Song requests from chat via the streamer's own Spotify app
 - Chat commands: !sr/!songrequest <Spotify track link | spotify:track URI | search text>,
   !song, !next, !queue (next 5), !skip (broadcaster, moderators, optionally the requester).

@@ -254,5 +254,6 @@
   "songs.cmdSkip": "Überspringt den aktuellen Song: du, deine Mods und, falls oben erlaubt, wer ihn gewünscht hat",
   "songs.legal": "Musik ohne Rechte kann auf Twitch zu stummgeschalteten VODs oder DMCA-Strikes führen, und Spotifys Bedingungen erlauben kein Senden. Was du spielst, entscheidest du.",
   "songs.save": "Songwünsche speichern",
-  "songs.saved": "Songwünsche gespeichert."
+  "songs.saved": "Songwünsche gespeichert.",
+  "chat.alreadyQueued": "Dieser Song läuft schon oder ist in der Warteschlange."
 }

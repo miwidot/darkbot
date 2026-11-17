@@ -42,6 +42,7 @@ func (f *fakePlayer) AddToQueue(_ context.Context, uri string) error {
 		return f.addErr
 	}
 	f.queued = append(f.queued, uri)
+	f.queue.Next = append(f.queue.Next, spotify.Track{URI: uri})
 	return nil
 }
 func (f *fakePlayer) Next(context.Context) error {
@@ -50,7 +51,12 @@ func (f *fakePlayer) Next(context.Context) error {
 	f.mu.Unlock()
 	return nil
 }
-func (f *fakePlayer) GetQueue(context.Context) (*spotify.Queue, error) { q := f.queue; return &q, nil }
+func (f *fakePlayer) GetQueue(context.Context) (*spotify.Queue, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	q := f.queue
+	return &q, nil
+}
 
 type nopLog struct{}
 
@@ -100,6 +106,12 @@ func viewer(text string) twitch.ChatMessage {
 	return twitch.ChatMessage{ID: "m1", ChatterID: "42", ChatterLogin: "viewer", ChatterName: "Viewer", Text: text}
 }
 
+// say handles m a little later than the previous message, past the spam gate.
+func (hs *harness) say(m twitch.ChatMessage) {
+	hs.now = hs.now.Add(commandGap + time.Second)
+	hs.h.Handle(context.Background(), m)
+}
+
 func (hs *harness) last() string {
 	if len(hs.replies) == 0 {
 		return ""
@@ -109,7 +121,7 @@ func (hs *harness) last() string {
 
 func TestRequestByLinkQueuesAndReplies(t *testing.T) {
 	hs := newHarness()
-	hs.h.Handle(context.Background(), viewer("!sr https://open.spotify.com/intl-de/track/4uLU6hMCjMI75M1A2tKUQC?si=abc"))
+	hs.say(viewer("!sr https://open.spotify.com/intl-de/track/4uLU6hMCjMI75M1A2tKUQC?si=abc"))
 	if len(hs.p.queued) != 1 || hs.p.queued[0] != "spotify:track:4uLU6hMCjMI75M1A2tKUQC" {
 		t.Fatalf("queued %v", hs.p.queued)
 	}
@@ -124,7 +136,7 @@ func TestRequestByLinkQueuesAndReplies(t *testing.T) {
 func TestDisabledIgnoresEverything(t *testing.T) {
 	hs := newHarness()
 	hs.s.Enabled = false
-	hs.h.Handle(context.Background(), viewer("!sr song"))
+	hs.say(viewer("!sr song"))
 	if len(hs.replies) != 0 || len(hs.p.queued) != 0 {
 		t.Fatal("disabled song requests must stay silent")
 	}
@@ -132,59 +144,95 @@ func TestDisabledIgnoresEverything(t *testing.T) {
 
 func TestUserCooldownAndExemptions(t *testing.T) {
 	hs := newHarness()
-	hs.p.search = track("abc", "Searched", 3)
-	hs.h.Handle(context.Background(), viewer("!sr first"))
-	hs.h.Handle(context.Background(), viewer("!sr second"))
-	if len(hs.p.queued) != 1 || !strings.Contains(hs.last(), "wait 60 s") {
+	hs.p.search = track("a", "A", 3)
+	hs.say(viewer("!sr first"))
+	hs.p.search = track("b", "B", 3)
+	hs.say(viewer("!sr second"))
+	if len(hs.p.queued) != 1 || !strings.HasPrefix(hs.last(), "Please wait") {
 		t.Fatalf("second request must hit the cooldown, queued %v reply %q", hs.p.queued, hs.last())
 	}
-	hs.now = hs.now.Add(61 * time.Second)
-	hs.h.Handle(context.Background(), viewer("!sr third"))
+	hs.now = hs.now.Add(time.Minute)
+	hs.say(viewer("!sr third"))
 	if len(hs.p.queued) != 2 {
 		t.Fatal("cooldown should have expired")
 	}
 	mod := viewer("!sr mod")
 	mod.IsModerator = true
+	hs.p.search = track("c", "C", 3)
 	hs.h.Handle(context.Background(), mod)
+	hs.p.search = track("d", "D", 3)
 	hs.h.Handle(context.Background(), mod)
 	if len(hs.p.queued) != 4 {
-		t.Fatalf("moderators have no cooldown, queued %d", len(hs.p.queued))
+		t.Fatalf("moderators have no cooldown and no spam gate, queued %d", len(hs.p.queued))
 	}
 }
 
-func TestFailedRequestKeepsNoCooldown(t *testing.T) {
+func TestFailedRequestGetsShortCooldown(t *testing.T) {
 	hs := newHarness()
-	hs.h.Handle(context.Background(), viewer("!sr nothing matches"))
+	hs.say(viewer("!sr nothing matches"))
 	if hs.last() != "no song found" {
 		t.Fatalf("reply %q", hs.last())
 	}
 	hs.p.search = track("abc", "Found", 3)
-	hs.h.Handle(context.Background(), viewer("!sr better words"))
+	hs.say(viewer("!sr better words")) // 4 s later: still inside failCooldown
+	if len(hs.p.queued) != 0 || !strings.HasPrefix(hs.last(), "Please wait") {
+		t.Fatalf("retry right away must wait, reply %q", hs.last())
+	}
+	hs.now = hs.now.Add(failCooldown)
+	hs.say(viewer("!sr better words"))
 	if len(hs.p.queued) != 1 {
-		t.Fatal("a failed request must not start the cooldown")
+		t.Fatal("after failCooldown a refused request may be retried, not only after the full cooldown")
+	}
+}
+
+func TestSpamGate(t *testing.T) {
+	hs := newHarness()
+	hs.say(viewer("!sr"))
+	n := len(hs.replies)
+	hs.h.Handle(context.Background(), viewer("!sr")) // same instant
+	if len(hs.replies) != n {
+		t.Fatal("a viewer's second command within commandGap must be ignored")
+	}
+}
+
+func TestReplyCap(t *testing.T) {
+	hs := newHarness()
+	for i := range maxReplies + 5 {
+		m := viewer("!sr")
+		m.ChatterID = string(rune('a' + i)) // many different viewers
+		hs.h.Handle(context.Background(), m)
+	}
+	if len(hs.replies) != maxReplies {
+		t.Fatalf("%d replies, want the cap %d", len(hs.replies), maxReplies)
+	}
+	hs.now = hs.now.Add(replyWindow)
+	hs.say(viewer("!sr"))
+	if len(hs.replies) != maxReplies+1 {
+		t.Fatal("replies resume after the window")
 	}
 }
 
 func TestRules(t *testing.T) {
 	hs := newHarness()
+	hs.s.UserCooldownSeconds = 0
 	long := track("long", "Mix", 30)
 	hs.p.search = long
-	hs.h.Handle(context.Background(), viewer("!sr mix"))
+	hs.say(viewer("!sr mix"))
 	if hs.last() != "Songs can be at most 10 minutes long." {
 		t.Fatalf("reply %q", hs.last())
 	}
 	hs.s.BlockExplicit = true
 	hs.s.MaxMinutes = 0
 	long.Explicit = true
-	hs.h.Handle(context.Background(), viewer("!sr mix"))
+	hs.say(viewer("!sr mix"))
 	if hs.last() != "Explicit songs aren’t allowed." {
 		t.Fatalf("reply %q", hs.last())
 	}
-	hs.h.Handle(context.Background(), viewer("!sr https://youtu.be/dQw4w9WgXcQ"))
+	hs.say(viewer("!sr https://youtu.be/dQw4w9WgXcQ"))
 	if hs.last() != "Only Spotify links or song names work here." {
 		t.Fatalf("reply %q", hs.last())
 	}
-	hs.h.Handle(context.Background(), viewer("!sr https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"))
+	hs.say(viewer("!sr https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"))
 	if hs.last() != "only links to single songs work, not albums or playlists" {
 		t.Fatalf("reply %q", hs.last())
 	}
@@ -193,16 +241,28 @@ func TestRules(t *testing.T) {
 	}
 }
 
+func TestDuplicateRefused(t *testing.T) {
+	hs := newHarness()
+	hs.s.UserCooldownSeconds = 0
+	hs.p.search = track("dup", "Dup", 3)
+	hs.say(viewer("!sr dup"))
+	hs.say(viewer("!sr dup"))
+	if len(hs.p.queued) != 1 || hs.last() != "This song is already playing or in the queue." {
+		t.Fatalf("queued %v reply %q", hs.p.queued, hs.last())
+	}
+}
+
 func TestPlayerErrorsAreTranslated(t *testing.T) {
 	hs := newHarness()
+	hs.s.UserCooldownSeconds = 0
 	hs.p.search = track("abc", "Song", 3)
 	hs.p.addErr = errors.Join(spotify.ErrNoDevice)
-	hs.h.Handle(context.Background(), viewer("!sr song"))
+	hs.say(viewer("!sr song"))
 	if hs.last() != "Spotify isn’t playing on any device, start playback in Spotify first" {
 		t.Fatalf("reply %q", hs.last())
 	}
 	hs.p.addErr = errors.New("dial tcp: connection refused")
-	hs.h.Handle(context.Background(), viewer("!sr song"))
+	hs.say(viewer("!sr song"))
 	if hs.last() != "Something went wrong, please try again later." {
 		t.Fatalf("unexpected errors must not leak details into chat, got %q", hs.last())
 	}
@@ -211,50 +271,65 @@ func TestPlayerErrorsAreTranslated(t *testing.T) {
 func TestSkipPermissions(t *testing.T) {
 	hs := newHarness()
 	hs.p.search = track("mine", "Mine", 3)
-	hs.h.Handle(context.Background(), viewer("!sr mine"))
-	hs.p.queue.Current = hs.p.search
+	hs.say(viewer("!sr mine"))
+	hs.p.queue = spotify.Queue{Current: hs.p.search}
 
-	other := twitch.ChatMessage{ID: "m2", ChatterID: "7", ChatterName: "Other", Text: "!skip"}
-	hs.h.Handle(context.Background(), other)
+	other := twitch.ChatMessage{ID: "m2", ChatterID: "7", ChatterName: "Viewer", Text: "!skip"} // same display name, other account
+	hs.say(other)
 	if hs.p.skipped != 0 || hs.last() != "You can’t skip this song." {
-		t.Fatalf("other viewers must not skip, reply %q", hs.last())
+		t.Fatalf("only the requesting account may skip, reply %q", hs.last())
 	}
-	hs.h.Handle(context.Background(), viewer("!skip"))
+	hs.say(viewer("!skip"))
 	if hs.p.skipped != 1 {
 		t.Fatal("the requester may skip their own song")
 	}
 	hs.s.RequesterCanSkip = false
-	hs.h.Handle(context.Background(), viewer("!skip"))
+	hs.say(viewer("!skip"))
 	if hs.p.skipped != 1 {
 		t.Fatal("requester skip is off")
 	}
 	other.IsBroadcaster = true
-	hs.h.Handle(context.Background(), other)
+	hs.say(other)
 	if hs.p.skipped != 2 {
 		t.Fatal("the broadcaster can always skip")
+	}
+}
+
+func TestCannotClaimStreamersSong(t *testing.T) {
+	hs := newHarness()
+	playing := track("streamer", "Streamer pick", 3)
+	hs.p.queue = spotify.Queue{Current: playing}
+	hs.p.tracks[playing.ID] = playing
+	hs.say(viewer("!sr spotify:track:streamer"))
+	hs.say(viewer("!skip"))
+	if hs.p.skipped != 0 {
+		t.Fatal("requesting the song that already plays must not grant the right to skip it")
 	}
 }
 
 func TestInfoCommands(t *testing.T) {
 	hs := newHarness()
 	hs.p.search = track("req", "Wish", 3)
-	hs.h.Handle(context.Background(), viewer("!sr wish"))
+	hs.say(viewer("!sr wish"))
 	hs.p.queue = spotify.Queue{Current: track("now", "Now", 3), Next: []spotify.Track{*hs.p.search, *track("b", "B", 3)}}
 
-	hs.h.Handle(context.Background(), viewer("!song"))
+	hs.say(viewer("!song"))
 	if hs.last() != "Now playing: Artist – Now" {
 		t.Fatalf("reply %q", hs.last())
 	}
-	hs.h.Handle(context.Background(), viewer("!next"))
+	hs.say(viewer("!next"))
 	if hs.last() != "Up next: Artist – Wish (requested by Viewer)" {
 		t.Fatalf("reply %q", hs.last())
 	}
-	hs.h.Handle(context.Background(), viewer("!queue"))
+	hs.say(viewer("!queue"))
 	if hs.last() != "Coming up: 1. Artist – Wish (requested by Viewer) | 2. Artist – B" {
 		t.Fatalf("reply %q", hs.last())
 	}
 	n := len(hs.replies)
-	hs.h.Handle(context.Background(), viewer("!queue"))
+	other := viewer("!queue")
+	other.ChatterID = "99"
+	hs.now = hs.now.Add(time.Second)
+	hs.h.Handle(context.Background(), other)
 	if len(hs.replies) != n {
 		t.Fatal("info commands answer at most once per infoCooldown")
 	}

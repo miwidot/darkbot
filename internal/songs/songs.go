@@ -44,6 +44,18 @@ const (
 	// rememberFor: who requested which song, used for "requested by" and
 	// requester skips. Longer than any realistic queue.
 	rememberFor = 6 * time.Hour
+	// failCooldown: after a refused request (typo, not found, too long) a
+	// viewer may try again this soon, not after the full cooldown, but not
+	// instantly either, so nobody can hammer Spotify's search.
+	failCooldown = 10 * time.Second
+	// commandGap: a viewer (not mod/broadcaster) can trigger one command per
+	// this time; anything faster is ignored without a reply.
+	commandGap = 3 * time.Second
+	// maxReplies per replyWindow caps darkbot's chat answers well below
+	// Twitch's 100 messages per 30 s for the broadcaster
+	// (https://dev.twitch.tv/docs/chat/), so spam can't use up the budget.
+	maxReplies  = 20
+	replyWindow = 30 * time.Second
 )
 
 // Player is the part of the Spotify client the commands need.
@@ -90,8 +102,9 @@ type Deps struct {
 }
 
 type request struct {
-	user string
-	at   time.Time
+	userID string
+	user   string
+	at     time.Time
 }
 
 // Handler answers chat commands. Safe for concurrent use; every message may
@@ -100,9 +113,11 @@ type Handler struct {
 	d Deps
 
 	mu        sync.Mutex
-	lastSR    map[string]time.Time // chatter ID -> last accepted request
+	lastSR    map[string]time.Time // chatter ID -> when the request cooldown started
+	lastCmd   map[string]time.Time // chatter ID -> last command (spam gate)
 	lastInfo  map[string]time.Time // command -> last answer
 	requested map[string]request   // track URI -> who requested it
+	replies   []time.Time          // recent chat answers (rate cap)
 }
 
 // New creates a handler.
@@ -113,7 +128,7 @@ func New(d Deps) *Handler {
 	if d.OnActivity == nil {
 		d.OnActivity = func(Activity) {}
 	}
-	return &Handler{d: d, lastSR: map[string]time.Time{}, lastInfo: map[string]time.Time{}, requested: map[string]request{}}
+	return &Handler{d: d, lastSR: map[string]time.Time{}, lastCmd: map[string]time.Time{}, lastInfo: map[string]time.Time{}, requested: map[string]request{}}
 }
 
 // IsCommand reports whether text starts with one of our commands, so the
@@ -140,6 +155,9 @@ func (h *Handler) Handle(ctx context.Context, m twitch.ChatMessage) {
 		return
 	}
 	cmd, arg := split(m.Text)
+	if !h.commandAllowed(m) {
+		return
+	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 	switch cmd {
@@ -157,9 +175,49 @@ func (h *Handler) Handle(ctx context.Context, m twitch.ChatMessage) {
 func (h *Handler) t(key string, args ...any) string { return i18n.T(h.d.Lang(), key, args...) }
 
 func (h *Handler) reply(ctx context.Context, s config.SongRequests, m twitch.ChatMessage, text string) {
-	if s.ChatReplies {
+	if s.ChatReplies && h.replyAllowed() {
 		h.d.Reply(ctx, text, m.ID)
 	}
+}
+
+// commandAllowed is the per-viewer spam gate.
+func (h *Handler) commandAllowed(m twitch.ChatMessage) bool {
+	if privileged(m) {
+		return true
+	}
+	now := h.d.Now()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if last, ok := h.lastCmd[m.ChatterID]; ok && now.Sub(last) < commandGap {
+		return false
+	}
+	h.lastCmd[m.ChatterID] = now
+	for id, t := range h.lastCmd {
+		if now.Sub(t) > commandGap {
+			delete(h.lastCmd, id)
+		}
+	}
+	return true
+}
+
+// replyAllowed caps chat answers per replyWindow (sliding window).
+func (h *Handler) replyAllowed() bool {
+	now := h.d.Now()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	keep := h.replies[:0]
+	for _, t := range h.replies {
+		if now.Sub(t) < replyWindow {
+			keep = append(keep, t)
+		}
+	}
+	h.replies = keep
+	if len(h.replies) >= maxReplies {
+		h.d.Log.Warnf("Song requests: chat answer skipped, %d answers in the last %s", maxReplies, replyWindow)
+		return false
+	}
+	h.replies = append(h.replies, now)
+	return true
 }
 
 // errText words an error for chat: our own errors translated, anything
@@ -205,7 +263,7 @@ func (h *Handler) request(ctx context.Context, s config.SongRequests, m twitch.C
 	ok := false
 	defer func() {
 		if !ok {
-			h.release(m)
+			h.shorten(s, m)
 		}
 	}()
 
@@ -220,13 +278,25 @@ func (h *Handler) request(ctx context.Context, s config.SongRequests, m twitch.C
 		h.reject(ctx, s, m, title, why)
 		return
 	}
+	// Refuse songs that already play or wait: no duplicates, and nobody can
+	// "claim" the streamer's song to get the right to skip it.
+	q, err := h.d.Player.GetQueue(ctx)
+	if err != nil {
+		h.d.Log.Warnf("Read Spotify queue for %q: %v", title, err)
+		h.reject(ctx, s, m, title, h.errText(err))
+		return
+	}
+	if inQueue(q, track.URI) {
+		h.reject(ctx, s, m, title, h.t("chat.alreadyQueued"))
+		return
+	}
 	if err := h.d.Player.AddToQueue(ctx, track.URI); err != nil {
 		h.d.Log.Warnf("Queue %q for %s: %v", title, m.ChatterLogin, err)
 		h.reject(ctx, s, m, title, h.errText(err))
 		return
 	}
 	ok = true
-	h.remember(track.URI, m.ChatterName)
+	h.remember(track.URI, m)
 	h.d.Log.Infof("%s requested %q", m.ChatterName, title)
 	h.d.OnActivity(Activity{Kind: ActAdded, User: m.ChatterName, Title: title, At: h.d.Now()})
 	h.reply(ctx, s, m, h.t("chat.added", "title", title))
@@ -274,15 +344,33 @@ func (h *Handler) reserve(s config.SongRequests, m twitch.ChatMessage) time.Dura
 	return 0
 }
 
-// release undoes a reservation when the request failed, so a typo doesn't
-// cost the viewer their cooldown.
-func (h *Handler) release(m twitch.ChatMessage) {
+// shorten turns the full cooldown into failCooldown after a refused
+// request, so a typo doesn't cost the viewer the whole wait.
+func (h *Handler) shorten(s config.SongRequests, m twitch.ChatMessage) {
+	full := time.Duration(s.UserCooldownSeconds) * time.Second
+	if privileged(m) || full <= failCooldown {
+		return
+	}
 	h.mu.Lock()
-	delete(h.lastSR, m.ChatterID)
+	h.lastSR[m.ChatterID] = h.d.Now().Add(failCooldown - full)
 	h.mu.Unlock()
 }
 
-func (h *Handler) remember(uri, user string) {
+func inQueue(q *spotify.Queue, uri string) bool {
+	if q.Current != nil && q.Current.URI == uri {
+		return true
+	}
+	for _, t := range q.Next {
+		if t.URI == uri {
+			return true
+		}
+	}
+	return false
+}
+
+// remember records the requester. An existing record is never replaced, so
+// requesting a song again can't take over someone else's request.
+func (h *Handler) remember(uri string, m twitch.ChatMessage) {
 	now := h.d.Now()
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -291,13 +379,15 @@ func (h *Handler) remember(uri, user string) {
 			delete(h.requested, k)
 		}
 	}
-	h.requested[uri] = request{user: user, at: now}
+	if _, taken := h.requested[uri]; !taken {
+		h.requested[uri] = request{userID: m.ChatterID, user: m.ChatterName, at: now}
+	}
 }
 
-func (h *Handler) requester(uri string) string {
+func (h *Handler) requester(uri string) request {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return h.requested[uri].user
+	return h.requested[uri]
 }
 
 func (h *Handler) infoAllowed(cmd string) bool {
@@ -313,8 +403,8 @@ func (h *Handler) infoAllowed(cmd string) bool {
 
 // label is "Title (requested by user)" when a viewer asked for it.
 func (h *Handler) label(t spotify.Track) string {
-	if who := h.requester(t.URI); who != "" {
-		return h.t("chat.byUser", "title", t.Title(), "user", who)
+	if r := h.requester(t.URI); r.user != "" {
+		return h.t("chat.byUser", "title", t.Title(), "user", r.user)
 	}
 	return t.Title()
 }
@@ -371,7 +461,8 @@ func (h *Handler) skip(ctx context.Context, s config.SongRequests, m twitch.Chat
 		h.reply(ctx, s, m, h.t("chat.nothingPlaying"))
 		return
 	}
-	own := s.RequesterCanSkip && h.requester(q.Current.URI) == m.ChatterName
+	// Compare user IDs: display names can change and aren't unique.
+	own := s.RequesterCanSkip && m.ChatterID != "" && h.requester(q.Current.URI).userID == m.ChatterID
 	if !privileged(m) && !own {
 		h.reply(ctx, s, m, h.t("chat.skipDenied"))
 		return

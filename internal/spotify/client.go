@@ -176,7 +176,12 @@ func (c *Client) accessToken(ctx context.Context, force bool) (string, error) {
 	c.mu.RLock()
 	clientID := c.clientID
 	c.mu.RUnlock()
-	nt, err := refresh(ctx, clientID, cur.RefreshToken)
+	// Not tied to the caller's context: if a chat command's timeout hit after
+	// Spotify issued (and maybe rotated) the refresh token, the new token
+	// would be lost and the next refresh would fail with invalid_grant.
+	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), authTimeout)
+	defer cancel()
+	nt, err := refresh(rctx, clientID, cur.RefreshToken)
 	if errors.Is(err, ErrRejected) {
 		c.log.Errorf("Spotify rejected the login (%v), please connect Spotify again", err)
 		_ = c.logoutLocked()
