@@ -174,10 +174,13 @@ button { font: inherit; color: inherit; }
 }
 .swatch:hover { border-color: var(--ink-3); }
 .swatch[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 2px var(--metal-1); }
+.color-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 #edColor {
-  width: 40px; height: 28px; padding: 2px; cursor: pointer;
+  width: 56px; height: 40px; padding: 3px; cursor: pointer;
   border: 1px solid var(--metal-3); border-radius: var(--r-ctl); background: var(--metal-2);
 }
+#edColorHex { width: 104px; font-variant-numeric: tabular-nums; text-transform: uppercase; }
+#edColorHex.invalid { border-color: var(--fault); }
 .pad.off .led { background: var(--metal-3); }
 .pad.off .cd::before { content: "Off"; }
 

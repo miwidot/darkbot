@@ -959,21 +959,32 @@ function fillRewardSelect(selectedId, selectedTitle) {
 // colorChosen: send the color to Twitch. Off only for an older sound whose
 // color darkbot doesn't know yet, so saving never changes it by accident.
 let colorChosen = false;
-function setRewardColor(c, chosen) {
+function setRewardColor(c, chosen, fromHex) {
   $('edColor').value = c.toLowerCase();
+  if (!fromHex) $('edColorHex').value = chosen ? c.toUpperCase() : '';
+  $('edColorHex').classList.remove('invalid');
   colorChosen = chosen;
   for (const b of document.querySelectorAll('#edSwatches .swatch')) {
     b.setAttribute('aria-pressed', String(chosen && b.dataset.color === c.toUpperCase()));
   }
 }
 for (const c of REWARD_COLORS) {
-  $('edSwatches').insertBefore(el('button', {
+  $('edSwatches').append(colorChip(el('button', {
     type: 'button', class: 'swatch', 'data-color': c, title: c, 'aria-label': c,
     onclick: () => setRewardColor(c, true),
-  }), $('edColor'));
-  colorChip($('edSwatches').querySelector('[data-color="' + c + '"]'), c);
+  }), c));
 }
 $('edColor').addEventListener('input', () => setRewardColor($('edColor').value.toUpperCase(), true));
+// Typed hex: applied as soon as it is a full color; Go validates again on save.
+const HEX_COLOR = /^#?[0-9a-f]{6}$/i;
+$('edColorHex').addEventListener('input', () => {
+  const v = $('edColorHex').value.trim();
+  if (HEX_COLOR.test(v)) setRewardColor('#' + v.replace('#', '').toUpperCase(), true, true);
+  else $('edColorHex').classList.toggle('invalid', v !== '');
+});
+$('edColorHex').addEventListener('blur', () => {
+  if (colorChosen) $('edColorHex').value = $('edColor').value.toUpperCase();
+});
 
 function editorSource() { return document.querySelector('input[name=edSource]:checked').value; }
 function showSourceBlocks() {

@@ -1,3 +1,7 @@
+2026-11-18 03:15 +08 — Reward color picker up front
+- The color picker is now the first, larger control, with a hex field next to it (#RRGGBB,
+  marked red while incomplete); the 8 suggestions follow as quick picks. Tooltip explains all three.
+
 2026-11-18 03:06 +08 — Reward colors
 - Rewards darkbot creates get a background color on Twitch (Helix background_color, "#RRGGBB",
   docs checked 2026-11-18): 8 suggestions plus any custom color in the sound editor; new sounds

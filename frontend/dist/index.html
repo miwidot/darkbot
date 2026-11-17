@@ -343,8 +343,10 @@
     </div>
     <div class="field">
       <label for="edColor"><span data-i18n="editor.color"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.rewardColor" data-i18n-aria-label="tip.more"></span></label>
-      <div class="swatches" id="edSwatches">
-        <input id="edColor" type="color" data-i18n-title="editor.colorCustom" data-i18n-aria-label="editor.colorCustom">
+      <div class="color-row">
+        <input id="edColor" type="color" data-i18n-title="editor.colorPick" data-i18n-aria-label="editor.colorPick">
+        <input id="edColorHex" type="text" maxlength="7" spellcheck="false" autocomplete="off" placeholder="#9147FF" data-i18n-aria-label="editor.colorHex">
+        <div class="swatches" id="edSwatches" role="group" data-i18n-aria-label="editor.colorSuggestions"></div>
       </div>
     </div>
     <p class="hint" data-i18n="editor.newHint"></p>
