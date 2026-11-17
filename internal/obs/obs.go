@@ -102,8 +102,8 @@ func (o *Client) Connect(host string, port int, password string) (version string
 // OBS closes the websocket, and a failing ping covers silent deaths. It
 // stops quietly when c was replaced or closed by Disconnect.
 func (o *Client) watch(c *goobs.Client) {
-	ping := time.NewTicker(PingEvery)
-	defer ping.Stop()
+	tick := time.NewTicker(PingEvery)
+	defer tick.Stop()
 	for {
 		select {
 		case _, open := <-c.IncomingEvents:
@@ -112,16 +112,30 @@ func (o *Client) watch(c *goobs.Client) {
 			}
 			o.dropIf(c, errors.New("OBS closed the connection"))
 			return
-		case <-ping.C:
+		case <-tick.C:
 			if !o.current(c) {
 				return
 			}
-			if _, err := c.General.GetVersion(); err != nil {
-				o.dropIf(c, fmt.Errorf("OBS stopped answering: %w", err))
+			if err := ping(c); err != nil {
+				o.dropIf(c, err)
 				return
 			}
 		}
 	}
+}
+
+// ping reports a hung OBS: no answer within the response timeout. An
+// answer with an error status (e.g. NotReady 207 while OBS loads a scene
+// collection or starts to quit) means OBS is alive, so it is no drop; a
+// closing OBS is noticed through the closed connection instead. goobs
+// returns both cases as plain errors, so the elapsed time tells them apart.
+func ping(c *goobs.Client) error {
+	start := time.Now()
+	_, err := c.General.GetVersion()
+	if err == nil || time.Since(start) < connectTimeout {
+		return nil
+	}
+	return fmt.Errorf("OBS stopped answering: %w", err)
 }
 
 func (o *Client) current(c *goobs.Client) bool {

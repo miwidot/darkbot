@@ -91,3 +91,26 @@ func TestOBSNotRunning(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+// OBS answering "NotReady" (busy loading, about to quit) is alive: no drop.
+func TestBusyOBSIsNoDrop(t *testing.T) {
+	if testing.Short() {
+		t.Skip("waits for a ping")
+	}
+	f := obstest.New(t, false)
+	drops := make(chan error, 1)
+	o := New(func(err error) { drops <- err })
+	host, port := f.HostPort(t)
+	if _, err := o.Connect(host, port, ""); err != nil {
+		t.Fatal(err)
+	}
+	f.Busy.Store(true)
+	select {
+	case err := <-drops:
+		t.Fatalf("a busy OBS was dropped: %v", err)
+	case <-time.After(PingEvery + time.Second):
+	}
+	if !o.Connected() {
+		t.Fatal("must stay connected")
+	}
+}

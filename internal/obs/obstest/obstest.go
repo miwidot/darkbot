@@ -14,8 +14,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// connBuffer: accepted connections kept for the test to inspect.
-const connBuffer = 8
+const (
+	// connBuffer: accepted connections kept for the test to inspect.
+	connBuffer = 8
+	// notReady is obs-websocket's request status NotReady.
+	notReady = 207
+)
 
 // Server speaks just enough obs-websocket v5 (Hello, Identify,
 // Identified, GetVersion) for the connection logic.
@@ -24,6 +28,9 @@ type Server struct {
 	rejectAuth bool
 	// Frozen stops answering requests (a hung OBS).
 	Frozen atomic.Bool
+	// Busy answers every request with NotReady (207), like OBS while it
+	// loads a scene collection.
+	Busy atomic.Bool
 	// Conns receives each accepted connection.
 	Conns chan *websocket.Conn
 	wmu   sync.Mutex        // gorilla allows one concurrent writer
@@ -113,6 +120,13 @@ func (f *Server) serve(c *websocket.Conn) {
 				ID   string `json:"requestId"`
 			}
 			_ = json.Unmarshal(m.D, &req)
+			if f.Busy.Load() {
+				f.write(c, map[string]any{"op": 7, "d": map[string]any{
+					"requestType": req.Type, "requestId": req.ID,
+					"requestStatus": map[string]any{"result": false, "code": notReady, "comment": "OBS is not ready to perform the request."},
+				}})
+				continue
+			}
 			f.write(c, map[string]any{"op": 7, "d": map[string]any{
 				"requestType": req.Type, "requestId": req.ID,
 				"requestStatus": map[string]any{"result": true, "code": 100},

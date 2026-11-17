@@ -1,3 +1,9 @@
+2026-11-18 04:32 +08 — OBS: a busy OBS is not a lost connection
+- The keep-alive ping dropped the connection when OBS answered "NotReady (207)" (seen live: OBS
+  loading or starting to quit). An answer with an error status means OBS is alive; only no answer
+  within the response timeout counts as hung. A quitting OBS is noticed by the closed connection.
+- Test: fake OBS answering NotReady stays connected.
+
 2026-11-18 04:24 +08 — Release v0.2.4
 - OBS keep-alive and reconnect, dashboard totals from Twitch, no Client ID field, readable update
   notes; macOS bundle version 0.2.4.
