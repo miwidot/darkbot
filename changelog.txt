@@ -1,3 +1,10 @@
+2026-11-18 02:55 +08 — Built-in Twitch Client ID, release v0.2.0
+- darkbot now ships its own public Twitch app (client type Public, device code flow, no
+  secret): users just click "Connect Twitch". Client IDs are public by design (Twitch docs).
+  CLIENT_ID=... (make) or the repo variable TWITCH_CLIENT_ID still override it; users can
+  still enter their own in the app.
+- README, Makefile and release workflow comments updated; macOS bundle version 0.2.0.
+
 2026-11-17 21:40 +08 — Channel events: follows, subs, bits, raids and more, with actions
 - darkbot now receives (EventSub WebSocket, same connection as redemptions/chat; docs checked
   2026-11-17): follow v2, sub, resub message, gifted subs, sub end, cheer/Bits, incoming raid,

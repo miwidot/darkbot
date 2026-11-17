@@ -27,12 +27,15 @@ import (
 	"github.com/miwidot/darkbot/internal/version"
 )
 
-// defaultClientID can be baked into a release build:
+// defaultClientID is darkbot's own public Twitch app (client type Public,
+// device code flow, no secret). Client IDs are public by design
+// (https://dev.twitch.tv/docs/authentication/register-app/), so it lives in
+// the source. Forks can replace it at build time:
 //
-//	wails build -ldflags "-X main.defaultClientID=<your twitch client id>"
+//	make windows CLIENT_ID=<your twitch client id>
 //
-// Otherwise the user enters their own Client ID in the app.
-var defaultClientID = ""
+// Users can still enter their own Client ID in the app.
+var defaultClientID = "9dtliag7dlvijuuzim3gsttux64pqv"
 
 // Errors from other packages that the UI shows translated.
 func init() {

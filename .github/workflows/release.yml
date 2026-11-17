@@ -26,8 +26,8 @@ jobs:
     env:
       ASSET: ${{ matrix.asset }}
       TARGET: ${{ matrix.target }}
-      # Optional repo variable: a public Twitch Client ID baked into releases so
-      # users don't have to register their own Twitch app.
+      # Optional repo variable: overrides the built-in Twitch Client ID
+      # (app.go). Empty = keep the built-in one.
       CLIENT_ID: ${{ vars.TWITCH_CLIENT_ID }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

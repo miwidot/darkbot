@@ -46,7 +46,7 @@ Builds aren't code-signed yet. On macOS right-click darkbot and choose *Open* th
 ## First start
 
 1. **Connect Twitch.** Open Settings (gear icon), then Twitch, then *Connect Twitch*, and confirm the code on twitch.tv/activate. Channel points need an Affiliate or Partner channel.
-   If your build has no built-in Client ID, create one at [dev.twitch.tv/console](https://dev.twitch.tv/console): *Register your application*, client type **Public**, OAuth redirect URL `http://localhost` (required by the form, not used). Paste the Client ID under *Twitch application*.
+   darkbot comes with a built-in Client ID. Only if you build your own fork and want your own app: create one at [dev.twitch.tv/console](https://dev.twitch.tv/console): *Register your application*, client type **Public**, OAuth redirect URL `http://localhost` (required by the form, not used). Paste the Client ID under *Twitch application*.
 2. **Add a sound.** *Add sound*, then choose a file (mp3, wav, ogg, flac), a reward name and a price. Click a pad to preview it.
 3. **Choose the output.** Settings, then Audio output:
    - *Audio device:* to get the sound into OBS, pick a virtual cable or spare output and add it as *Audio Output Capture*. Or keep the default and add darkbot with *Application Audio Capture* (Windows) or *macOS Audio Capture* (macOS).
@@ -101,7 +101,7 @@ make mac       # build/bin/darkbot.app   (macOS, Xcode command line tools)
 make windows   # build/bin/darkbot.exe   (from any system, no C compiler needed)
 make linux     # build/bin/darkbot-linux (on Linux: libgtk-3-dev libwebkit2gtk-4.1-dev)
 
-make windows CLIENT_ID=xxxx VERSION=0.3.0   # bake in a Twitch Client ID and version
+make windows CLIENT_ID=xxxx VERSION=0.3.0   # your own Twitch Client ID (optional) and version
 ```
 
 Local builds report version `dev` and never update themselves.
@@ -109,7 +109,7 @@ Local builds report version `dev` and never update themselves.
 
 ### Releases
 
-Push a tag like `v0.3.0`. The `release` workflow builds all platforms on GitHub's free runners for public repositories and publishes the files the self-updater looks for. Set the repository variable `TWITCH_CLIENT_ID` to bake a Client ID into releases.
+Push a tag like `v0.3.0`. The `release` workflow builds all platforms on GitHub's free runners for public repositories and publishes the files the self-updater looks for. The repository variable `TWITCH_CLIENT_ID` overrides the built-in Client ID (optional).
 
 ## Project layout
 
