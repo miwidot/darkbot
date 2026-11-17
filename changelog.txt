@@ -1,3 +1,7 @@
+2026-11-18 04:24 +08 — Release v0.2.4
+- OBS keep-alive and reconnect, dashboard totals from Twitch, no Client ID field, readable update
+  notes; macOS bundle version 0.2.4.
+
 2026-11-18 04:18 +08 — Dashboard: followers and subs as on Twitch
 - The channel row's total line showed what darkbot counted. Follows and subs now show the channel
   as it is on Twitch: "Twitch: 1.834 followers", "Twitch: 42 subs, 58 points" (Get Channel Followers
