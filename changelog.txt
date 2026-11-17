@@ -1,3 +1,6 @@
+2026-11-18 04:37 +08 — Release v0.2.5
+- Busy OBS stays connected, chat suggestions for every event; macOS bundle version 0.2.5.
+
 2026-11-18 04:34 +08 — Suggested chat messages for every event
 - Events that were never set up open with a suggested message in the UI language (follow, sub,
   resub, gifted subs, Bits, raid, hype train start/level/end, shoutout, ad break, stream start and
