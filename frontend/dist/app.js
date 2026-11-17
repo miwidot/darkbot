@@ -9,6 +9,9 @@ const SINK_SUPPORTED = typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in
 const TRACK_COUNT = 6;
 const FEED_MAX = 120;
 const DEFAULT_COST = 100;
+// Suggested reward colors (Twitch accepts any #RRGGBB). New rewards start
+// with a random one so the reward list on Twitch stays easy to tell apart.
+const REWARD_COLORS = ['#9147FF', '#1F69FF', '#00C8AF', '#57BEE6', '#FACD3B', '#FF6905', '#EB0400', '#F074C9'];
 const TOAST_MS = 5000;
 const CONFIRM_MS = 4000;
 const SPOTIFY_DASHBOARD = 'https://developer.spotify.com/dashboard';
@@ -120,6 +123,21 @@ function setSignal(id, on, text) {
 
 // ---------- pads ----------
 
+// rewardColor: the managed reward's saved color, or the color Twitch
+// reports for the reward (existing rewards, older sounds).
+function rewardColor(s) {
+  if (s.reward_color) return s.reward_color;
+  const r = rewards.find((x) => x.id === s.reward_id);
+  return (r && r.background_color) || '';
+}
+
+// colorChip paints a swatch. Through CSSOM, because the CSP (style-src
+// 'self') blocks style attributes.
+function colorChip(node, color) {
+  node.style.setProperty('--chip', color);
+  return node;
+}
+
 function soundName(s) {
   const r = rewards.find((x) => x.id === s.reward_id);
   return (r && r.title) || s.reward_title || t('pad.unnamed');
@@ -152,7 +170,9 @@ function renderPads() {
       onkeydown: (e) => e.stopPropagation(),
     }, icon('edit')),
     el('span', { class: 'name' }, soundName(s)),
-    el('span', { class: 'file', title: s.file }, s.managed ? points(s.reward_cost) : basename(s.file)));
+    el('span', { class: 'file', title: s.file },
+      rewardColor(s) ? colorChip(el('span', { class: 'chip', 'aria-hidden': 'true' }), rewardColor(s)) : '',
+      s.managed ? points(s.reward_cost) : basename(s.file)));
     pads.append(pad);
   }
   tickCooldowns();
@@ -935,6 +955,26 @@ function fillRewardSelect(selectedId, selectedTitle) {
   if (selectedId && !found) sel.append(el('option', { value: selectedId, selected: true }, t('editor.notFound', { title: selectedTitle || t('editor.savedReward') })));
 }
 
+// ---------- reward color ----------
+// colorChosen: send the color to Twitch. Off only for an older sound whose
+// color darkbot doesn't know yet, so saving never changes it by accident.
+let colorChosen = false;
+function setRewardColor(c, chosen) {
+  $('edColor').value = c.toLowerCase();
+  colorChosen = chosen;
+  for (const b of document.querySelectorAll('#edSwatches .swatch')) {
+    b.setAttribute('aria-pressed', String(chosen && b.dataset.color === c.toUpperCase()));
+  }
+}
+for (const c of REWARD_COLORS) {
+  $('edSwatches').insertBefore(el('button', {
+    type: 'button', class: 'swatch', 'data-color': c, title: c, 'aria-label': c,
+    onclick: () => setRewardColor(c, true),
+  }), $('edColor'));
+  colorChip($('edSwatches').querySelector('[data-color="' + c + '"]'), c);
+}
+$('edColor').addEventListener('input', () => setRewardColor($('edColor').value.toUpperCase(), true));
+
 function editorSource() { return document.querySelector('input[name=edSource]:checked').value; }
 function showSourceBlocks() {
   const isNew = editorSource() === 'new';
@@ -964,6 +1004,9 @@ async function openEditor(s) {
   showSourceBlocks();
   $('edTitle').value = editing.managed ? editing.reward_title : '';
   $('edCost').value = editing.reward_cost || DEFAULT_COST;
+  if (isNew) setRewardColor(REWARD_COLORS[Math.floor(Math.random() * REWARD_COLORS.length)], true);
+  else if (rewardColor(editing)) setRewardColor(rewardColor(editing), true);
+  else setRewardColor(REWARD_COLORS[0], false);
   $('edFile').value = editing.file;
   $('edVolume').value = editing.volume;
   $('edVolumeVal').textContent = pct(editing.volume);
@@ -1007,6 +1050,7 @@ $('edSave').addEventListener('click', async () => {
     reward_id: rid,
     reward_title: managed ? $('edTitle').value.trim() : (r ? r.title : editing.reward_title),
     reward_cost: managed ? Math.max(1, parseInt($('edCost').value, 10) || 0) : 0,
+    reward_color: managed && colorChosen ? $('edColor').value.toUpperCase() : '',
     file: $('edFile').value,
     volume: +$('edVolume').value,
     cooldown_seconds: Math.max(0, parseInt($('edCooldown').value, 10) || 0),

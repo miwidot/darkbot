@@ -1,3 +1,12 @@
+2026-11-18 03:06 +08 — Reward colors
+- Rewards darkbot creates get a background color on Twitch (Helix background_color, "#RRGGBB",
+  docs checked 2026-11-18): 8 suggestions plus any custom color in the sound editor; new sounds
+  start with a random suggestion. Older sounds keep their Twitch color until you pick one
+  (an empty color is never sent, so saving does not re-randomize it).
+- Pads show the reward color as a small chip, also for existing rewards darkbot only listens to.
+- Colors are validated and normalized in Go (NormalizeRewardColor) and set via CSSOM because the
+  CSP blocks style attributes. Tests: color normalization, color only sent when chosen.
+
 2026-11-18 02:58 +08 — README: Twitch setup and permissions
 - First start no longer asks to register a Twitch app (built-in Client ID); own-app steps
   moved to Build from source for forks. Permissions table lists every scope and what it is for.

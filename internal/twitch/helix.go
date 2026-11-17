@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -115,6 +116,8 @@ type Reward struct {
 	Title     string `json:"title"`
 	Cost      int    `json:"cost"`
 	IsEnabled bool   `json:"is_enabled"`
+	// BackgroundColor is the reward's color on Twitch, "#RRGGBB".
+	BackgroundColor string `json:"background_color"`
 }
 
 // GetCustomRewards lists all custom rewards of the broadcaster.
@@ -161,6 +164,26 @@ type RewardSettings struct {
 	// CooldownSeconds > 0 enables Twitch's global cooldown (shown to viewers
 	// on Twitch when >= 60 s).
 	CooldownSeconds int
+	// BackgroundColor "#RRGGBB" (see NormalizeRewardColor). Empty: Twitch
+	// picks a random color on create and keeps the current one on update.
+	BackgroundColor string
+}
+
+// rewardColorPattern is the hex format Twitch documents for
+// background_color ("#9147FF"); the leading # is optional when typed.
+var rewardColorPattern = regexp.MustCompile(`^#?[0-9A-Fa-f]{6}$`)
+
+// NormalizeRewardColor turns "9147ff" or "#9147FF" into "#9147FF". "" stays
+// "" (no color chosen). ok is false for anything else.
+func NormalizeRewardColor(c string) (string, bool) {
+	c = strings.TrimSpace(c)
+	if c == "" {
+		return "", true
+	}
+	if !rewardColorPattern.MatchString(c) {
+		return "", false
+	}
+	return "#" + strings.ToUpper(strings.TrimPrefix(c, "#")), true
 }
 
 // Reward limits from the Twitch reference.
@@ -173,7 +196,7 @@ const (
 
 func (r RewardSettings) body() map[string]any {
 	// Limit fields are sent as pairs; omitting one resets it (docs).
-	return map[string]any{
+	b := map[string]any{
 		"title":                                 r.Title,
 		"cost":                                  r.Cost,
 		"is_enabled":                            r.Enabled,
@@ -181,6 +204,10 @@ func (r RewardSettings) body() map[string]any {
 		"global_cooldown_seconds":               max(r.CooldownSeconds, 0),
 		"should_redemptions_skip_request_queue": false, // keep UNFULFILLED so we can fulfill or reject
 	}
+	if r.BackgroundColor != "" {
+		b["background_color"] = r.BackgroundColor
+	}
+	return b
 }
 
 // CreateReward creates a custom reward owned by darkbot's Client ID.

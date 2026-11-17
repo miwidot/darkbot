@@ -77,8 +77,11 @@ type Sound struct {
 	// its redemptions. Unmanaged sounds use an existing reward read-only.
 	Managed bool `json:"managed"`
 	// RewardCost is the channel point price of a managed reward.
-	RewardCost int    `json:"reward_cost"`
-	File       string `json:"file"`
+	RewardCost int `json:"reward_cost"`
+	// RewardColor is the managed reward's color on Twitch, "#RRGGBB".
+	// Empty: not chosen yet (Twitch picks a random one on create).
+	RewardColor string `json:"reward_color,omitempty"`
+	File        string `json:"file"`
 	// Volume is a linear factor, 1.0 = 100 %.
 	Volume float64 `json:"volume"`
 	// CooldownSeconds blocks the sound for everyone after it was triggered.

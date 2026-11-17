@@ -485,3 +485,27 @@ func TestFollowerWatcherSkipsBigChannels(t *testing.T) {
 		t.Fatal("channels above the limit must be skipped")
 	}
 }
+
+func TestNormalizeRewardColor(t *testing.T) {
+	for in, want := range map[string]string{"": "", " #9147ff ": "#9147FF", "00e5cb": "#00E5CB", "#ABCDEF": "#ABCDEF"} {
+		if got, ok := NormalizeRewardColor(in); !ok || got != want {
+			t.Errorf("%q: got %q %v, want %q", in, got, ok, want)
+		}
+	}
+	for _, bad := range []string{"#12345", "#1234567", "red", "#GGGGGG", "##123456", "rgb(1,2,3)"} {
+		if _, ok := NormalizeRewardColor(bad); ok {
+			t.Errorf("%q must be rejected", bad)
+		}
+	}
+}
+
+func TestRewardBodyColor(t *testing.T) {
+	// Empty color is omitted: Twitch then picks a random one on create and
+	// keeps the current one on update (an empty string would re-randomize).
+	if _, has := (RewardSettings{Title: "a", Cost: 1}).body()["background_color"]; has {
+		t.Fatal("empty color must not be sent")
+	}
+	if got := (RewardSettings{Title: "a", Cost: 1, BackgroundColor: "#9147FF"}).body()["background_color"]; got != "#9147FF" {
+		t.Fatalf("got %v", got)
+	}
+}

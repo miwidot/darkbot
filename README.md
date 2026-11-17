@@ -7,7 +7,7 @@ darkbot does the sound part of tools like Streamer.bot, and nothing else: one wi
 
 ## What it does
 
-- **Turns audio files into channel point rewards.** Pick a file, give it a name and a price, and darkbot creates the reward on your Twitch channel. Renaming, repricing, switching it off and deleting are all done from darkbot.
+- **Turns audio files into channel point rewards.** Pick a file, give it a name, a price and a color, and darkbot creates the reward on your Twitch channel. Renaming, repricing, recoloring, switching it off and deleting are all done from darkbot.
 - **Works with rewards you already have.** You can also attach a sound to an existing reward. darkbot then only listens and doesn't change that reward.
 - **Cooldowns.** Set a cooldown for everyone and a separate one per viewer. For rewards darkbot created, Twitch shows the cooldown to viewers too (from 60 seconds up).
 - **Fair to viewers.** If a sound can't play (per-viewer cooldown, switched off, too many sounds waiting, file error), darkbot rejects the redemption instead of silently eating it, and Twitch returns the points. This only works for rewards darkbot created, because Twitch only lets the creating app change redemptions.

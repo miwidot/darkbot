@@ -715,7 +715,12 @@ func (a *App) syncReward(s *config.Sound) (bool, error) {
 	if s.RewardCost < twitch.MinRewardCost || s.RewardCost > twitch.MaxRewardCost {
 		return false, i18n.E("err.price", "min", twitch.MinRewardCost, "max", twitch.MaxRewardCost)
 	}
-	settings := twitch.RewardSettings{Title: s.RewardTitle, Cost: s.RewardCost, Enabled: s.Enabled, CooldownSeconds: s.CooldownSeconds}
+	color, ok := twitch.NormalizeRewardColor(s.RewardColor)
+	if !ok {
+		return false, i18n.E("err.rewardColor")
+	}
+	s.RewardColor = color
+	settings := twitch.RewardSettings{Title: s.RewardTitle, Cost: s.RewardCost, Enabled: s.Enabled, CooldownSeconds: s.CooldownSeconds, BackgroundColor: color}
 	ctx, cancel := context.WithTimeout(a.ctx, rewardsTimeout)
 	defer cancel()
 
@@ -735,6 +740,10 @@ func (a *App) syncReward(s *config.Sound) (bool, error) {
 		return false, i18n.Wrap(err, "err.createReward")
 	}
 	s.RewardID = r.ID
+	if s.RewardColor == "" {
+		// Twitch picked a random color: remember it so darkbot shows it.
+		s.RewardColor, _ = twitch.NormalizeRewardColor(r.BackgroundColor)
+	}
 	a.log.Infof("Created reward %q (%d points) on Twitch", s.RewardTitle, s.RewardCost)
 	return true, nil
 }
