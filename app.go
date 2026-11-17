@@ -68,18 +68,20 @@ const (
 // App is bound to the frontend: every exported method is callable from JS.
 type App struct {
 	tray trayState
-	ctx  context.Context
-	log  *applog.Log
-	cfg  *config.Store
-	tok  *twitch.TokenManager
-	hx   *twitch.Helix
-	obs  *obs.Client
-	bot  *bot.Bot
-	web  *webOutput
-	obsO *obs.Output
-	sp   *spotify.Client
-	sr   *songs.Handler
-	st   *stats.Stats
+	// OBS keep-alive, guarded by mu (see obs_app.go).
+	obsWant, obsAuthFailed, obsWaitLogged bool
+	ctx                                   context.Context
+	log                                   *applog.Log
+	cfg                                   *config.Store
+	tok                                   *twitch.TokenManager
+	hx                                    *twitch.Helix
+	obs                                   *obs.Client
+	bot                                   *bot.Bot
+	web                                   *webOutput
+	obsO                                  *obs.Output
+	sp                                    *spotify.Client
+	sr                                    *songs.Handler
+	st                                    *stats.Stats
 
 	mu          sync.Mutex
 	esCancel    context.CancelFunc
@@ -123,10 +125,7 @@ func NewApp(log *applog.Log) (*App, error) {
 			runtime.EventsEmit(a.ctx, "stats")
 		}
 	})
-	a.obs = obs.New(func(err error) {
-		log.Errorf("OBS connection lost: %v", err)
-		a.emitState()
-	})
+	a.obs = obs.New(a.onOBSDrop)
 	a.web = &webOutput{app: a, pending: map[string]chan string{}}
 	a.obsO = &obs.Output{OBS: a.obs, Cfg: cfg}
 	a.bot = bot.New(cfg, log, a.currentOutput, func(act bot.Activity) {
@@ -197,9 +196,7 @@ func (a *App) startup(ctx context.Context) {
 	} else {
 		a.log.Infof("Not logged in to Twitch yet")
 	}
-	if c := a.cfg.Get().OBS; c.AutoConnect {
-		go func() { _ = a.ConnectOBS() }()
-	}
+	a.startOBS(ctx)
 	go a.updateLoop(ctx)
 	a.startTray()
 	// darkbot may have been moved since autostart was switched on.
@@ -317,10 +314,14 @@ func (a *App) shutdown(context.Context) {
 
 // State is everything the UI renders.
 type State struct {
-	Config           config.Config    `json:"config"`
-	TwitchLogin      string           `json:"twitchLogin"`
-	EventSubOnline   bool             `json:"eventSubOnline"`
-	OBSConnected     bool             `json:"obsConnected"`
+	Config         config.Config `json:"config"`
+	TwitchLogin    string        `json:"twitchLogin"`
+	EventSubOnline bool          `json:"eventSubOnline"`
+	OBSConnected   bool          `json:"obsConnected"`
+	// OBSWaiting: darkbot should be connected and retries until OBS is
+	// there. OBSAuthFailed: OBS rejected the password, no retries.
+	OBSWaiting       bool             `json:"obsWaiting"`
+	OBSAuthFailed    bool             `json:"obsAuthFailed"`
 	LoginUserCode    string           `json:"loginUserCode"`
 	LoginURI         string           `json:"loginUri"`
 	SupportedFormats []string         `json:"supportedFormats"`
@@ -380,6 +381,7 @@ func (a *App) GetState() State {
 		s.LoginUserCode, s.LoginURI = a.loginCode.UserCode, a.loginCode.VerificationURI
 	}
 	s.Update, s.Updating = a.update, a.updating
+	s.OBSWaiting, s.OBSAuthFailed = a.obsStatusLocked(s.OBSConnected)
 	s.SpotifyLoginPending = a.spLogin != nil
 	a.mu.Unlock()
 	return s
@@ -601,26 +603,6 @@ func (a *App) SaveOBS(s OBSSettings) error {
 			c.OBS.Tracks[i] = i < len(s.Tracks) && s.Tracks[i]
 		}
 	}))
-}
-
-// ConnectOBS connects with the stored settings.
-func (a *App) ConnectOBS() error {
-	c := a.cfg.Get().OBS
-	v, err := a.obs.Connect(c.Host, c.Port, c.Password)
-	a.emitState()
-	if err != nil {
-		a.log.Errorf("%v", err)
-		return a.uiErr(err)
-	}
-	a.log.Infof("Connected to %s", v)
-	return nil
-}
-
-// DisconnectOBS closes the OBS connection.
-func (a *App) DisconnectOBS() {
-	a.obs.Disconnect()
-	a.log.Infof("Disconnected from OBS")
-	a.emitState()
 }
 
 // ---------- output & sounds ----------

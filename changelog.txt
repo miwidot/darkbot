@@ -1,3 +1,15 @@
+2026-11-18 04:16 +08 — OBS: notices OBS closing and reconnects by itself
+- darkbot only noticed a closed OBS when the next sound failed, and never reconnected when OBS
+  started later. Now: the connection is watched (goobs event stream end + ping every 5 s for a hung
+  OBS); while OBS is wanted (auto-connect from start, or after Connect until Disconnect) darkbot
+  retries every 5 s and logs only changes ("Waiting for OBS", connected, lost).
+- Wrong password (close code 4009) now says so instead of "is OBS running?", and stops the
+  retries until you connect again. Status shows Connected / Waiting for OBS / Password rejected.
+- Connect calls are serialized (user click vs. retry loop), so no connection leaks.
+- Tests with a fake obs-websocket server (internal/obs/obstest): connect, OBS quits (instant), OBS
+  crashes (instant via TCP close), hung OBS (ping), wrong password, Disconnect is no drop, OBS
+  starts later / comes back after quit and crash.
+
 2026-11-18 03:58 +08 — Twitch settings without Client ID
 - The Client ID field is gone from Settings, Twitch: the ID is built in, users never need it.
   The Affiliate/Partner hint stays under the connect button. SetClientID binding removed;

@@ -786,9 +786,12 @@ function renderOBS() {
     $('obsPort').value = o.port;
     $('obsAuto').checked = o.auto_connect;
   }
-  $('obsStatus').textContent = state.obsConnected ? t('obs.connected') : t('obs.notConnected');
+  $('obsStatus').textContent = state.obsConnected ? t('obs.connected')
+    : state.obsAuthFailed ? t('obs.authFailed')
+    : state.obsWaiting ? t('obs.waiting') : t('obs.notConnected');
   $('obsConnect').textContent = state.obsConnected ? t('obs.reconnect') : t('obs.connect');
-  $('obsDisconnect').classList.toggle('hidden', !state.obsConnected);
+  // While waiting, "Disconnect" stops the retries.
+  $('obsDisconnect').classList.toggle('hidden', !state.obsConnected && !state.obsWaiting);
 }
 $('obsPass').addEventListener('input', () => { obsPassDirty = true; });
 async function saveOBS() {
