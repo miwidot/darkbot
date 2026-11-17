@@ -68,6 +68,7 @@ const (
 // App is bound to the frontend: every exported method is callable from JS.
 type App struct {
 	tray trayState
+	ch   channelState
 	// OBS keep-alive, guarded by mu (see obs_app.go).
 	obsWant, obsAuthFailed, obsWaitLogged bool
 	ctx                                   context.Context
@@ -120,6 +121,7 @@ func NewApp(log *applog.Log) (*App, error) {
 	}
 
 	a := &App{log: log, cfg: cfg, tok: tok, hx: twitch.NewHelix(tok), st: stats.Open(cfg.StatsPath(), log)}
+	a.ch.kick = make(chan struct{}, 1)
 	a.st.OnChange(func() {
 		if a.ctx != nil {
 			runtime.EventsEmit(a.ctx, "stats")
@@ -185,6 +187,7 @@ func (a *App) startup(ctx context.Context) {
 			// token): stop listening so the status pills tell the truth.
 			a.stopEventSub()
 		}
+		a.refreshChannelTotalsSoon() // logged in, out, or new permissions
 		a.emitState()
 	})
 
@@ -197,6 +200,7 @@ func (a *App) startup(ctx context.Context) {
 		a.log.Infof("Not logged in to Twitch yet")
 	}
 	a.startOBS(ctx)
+	a.startChannelTotals(ctx)
 	go a.updateLoop(ctx)
 	a.startTray()
 	// darkbot may have been moved since autostart was switched on.
@@ -349,6 +353,8 @@ type State struct {
 	AutostartSupported bool `json:"autostartSupported"`
 	// TraySupported: closing can hide darkbot to the tray (Windows).
 	TraySupported bool `json:"traySupported"`
+	// Channel: followers and subs as they are on Twitch now.
+	Channel ChannelTotals `json:"channel"`
 }
 
 // GetState returns the current UI state.
@@ -367,6 +373,7 @@ func (a *App) GetState() State {
 	s.TwitchHealth, s.SpotifyHealth = a.tok.Health(), a.sp.Health()
 	s.FollowerStatus = a.followerStatus()
 	s.TraySupported = tray.Supported()
+	s.Channel = a.channelTotals()
 	s.AutostartSupported = autostart.Supported()
 	if s.AutostartSupported {
 		on, err := autostart.Enabled()

@@ -460,6 +460,7 @@ details.more summary { cursor: pointer; color: var(--ink-2); }
 .meter.bump .meter-value { color: var(--led); }
 .meter-value { transition: color .6s; }
 .meter-detail { color: var(--ink-3); font-size: var(--step--1); }
+.meter-total.now { color: var(--ink-2); }
 .meter-total { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--metal-3); color: var(--ink-3); font-size: var(--step--1); font-variant-numeric: tabular-nums; }
 
 .logins-wrap h2, .rank h2 { display: flex; align-items: center; gap: 2px; margin: 0 0 10px; font-size: var(--step-0); font-weight: 650; color: var(--ink-2); }

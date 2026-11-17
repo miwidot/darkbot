@@ -1,3 +1,13 @@
+2026-11-18 04:18 +08 — Dashboard: followers and subs as on Twitch
+- The channel row's total line showed what darkbot counted. Follows and subs now show the channel
+  as it is on Twitch: "Twitch: 1.834 followers", "Twitch: 42 subs, 58 points" (Get Channel Followers
+  total, Get Broadcaster Subscriptions total + points, read with first=1; docs checked
+  2026-11-18). Refreshed every 5 min, 5 s after follow/sub/gift/sub-end events (one read per
+  burst) and on login. Falls back to the counted total while unknown.
+- Bits and raids stay counted by darkbot: Twitch has no channel Bits total (the leaderboard is per
+  user) and no raid history; tooltips say so.
+- Tests: totals read with first=1, events request one refresh, raids/tests don't.
+
 2026-11-18 04:16 +08 — OBS: notices OBS closing and reconnects by itself
 - darkbot only noticed a closed OBS when the next sound failed, and never reconnected when OBS
   started later. Now: the connection is watched (goobs event stream end + ping every 5 s for a hung

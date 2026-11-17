@@ -447,10 +447,12 @@
   "dash.bitsDetail": "in dieser Sitzung gecheert",
   "dash.raids": "Raids",
   "dash.raidsDetail": "{n} Zuschauer mitgebracht",
-  "tip.dashFollows": "Neue Follows in dieser Sitzung. Unfollows zählen nur mit eingeschalteter Unfollow-Erkennung (Ereignisse).",
-  "tip.dashSubs": "Neue Abos und Verlängerungen in dieser Sitzung; verschenkte Abos zählen extra, einmal pro Geschenk.",
-  "tip.dashBits": "Alle Bits, die in dieser Sitzung in deinem Chat gecheert wurden.",
-  "tip.dashRaids": "Eingehende Raids in dieser Sitzung und wie viele Zuschauer sie mitgebracht haben.",
+  "dash.subsNow": "Twitch: {n} Abos, {points} Punkte",
+  "dash.followersNow": "Twitch: {n} Follower",
+  "tip.dashFollows": "Große Zahl: neue Follows in dieser Sitzung. Darunter: deine Follower-Zahl, wie Twitch sie jetzt zeigt (alle 5 Minuten und nach jedem Follow aktualisiert). Unfollows zählen nur mit eingeschalteter Unfollow-Erkennung (Ereignisse).",
+  "tip.dashSubs": "Große Zahl: neue Abos und Verlängerungen in dieser Sitzung; verschenkte Abos zählen extra, einmal pro Geschenk. Darunter: deine aktiven Abos und Abo-Punkte, wie Twitch sie jetzt zählt (Punkte schalten Emote-Plätze frei: Stufe 1 = 1, Stufe 2 = 2, Stufe 3 = 6).",
+  "tip.dashBits": "Alle Bits, die in dieser Sitzung in deinem Chat gecheert wurden. Twitch bietet keine Gesamtsumme aller Bits, daher ist „Gesamt“ das, was darkbot gezählt hat.",
+  "tip.dashRaids": "Eingehende Raids in dieser Sitzung und wie viele Zuschauer sie mitgebracht haben. Twitch bietet keine Raid-Historie, daher ist „Gesamt“ das, was darkbot gezählt hat.",
   "err.eventKind": "unbekanntes Ereignis „{kind}“",
   "err.chatTooLong": "die Chat-Nachricht darf höchstens {max} Zeichen lang sein"
 }

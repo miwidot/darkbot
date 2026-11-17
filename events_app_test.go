@@ -158,3 +158,25 @@ func TestServeEventSound(t *testing.T) {
 		}
 	}
 }
+
+// Follows and subs ask for fresh channel totals; one pending read is
+// enough for a burst of events.
+func TestChannelEventsRefreshTotals(t *testing.T) {
+	a, _ := newEventApp(t, nil)
+	a.ch.kick = make(chan struct{}, 1)
+	a.handleEvent(twitch.ChannelEvent{Kind: twitch.EvRaid, User: "r", Amount: 3}, false)
+	if len(a.ch.kick) != 0 {
+		t.Fatal("a raid doesn't change followers or subs")
+	}
+	for range 5 {
+		a.handleEvent(twitch.ChannelEvent{Kind: twitch.EvFollow, User: "f"}, false)
+	}
+	if len(a.ch.kick) != 1 {
+		t.Fatal("follows must ask for one refresh")
+	}
+	<-a.ch.kick
+	a.handleEvent(a.sampleEvent(twitch.EvSub), true)
+	if len(a.ch.kick) != 0 {
+		t.Fatal("a test event must not trigger a read")
+	}
+}

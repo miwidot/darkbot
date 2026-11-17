@@ -447,10 +447,12 @@
   "dash.bitsDetail": "cheered this session",
   "dash.raids": "Raids",
   "dash.raidsDetail": "{n} viewers brought",
-  "tip.dashFollows": "New follows this session. Unfollows only count with unfollow detection on (Events).",
-  "tip.dashSubs": "New subs and resubs this session; gifted subs are counted separately, once per gift.",
-  "tip.dashBits": "All Bits cheered in your chat this session.",
-  "tip.dashRaids": "Incoming raids this session and how many viewers they brought.",
+  "dash.subsNow": "Twitch: {n} subs, {points} points",
+  "dash.followersNow": "Twitch: {n} followers",
+  "tip.dashFollows": "Big number: new follows this session. Below: your follower count as Twitch shows it now (updated every 5 minutes and after each follow). Unfollows only count with unfollow detection on (Events).",
+  "tip.dashSubs": "Big number: new subs and resubs this session; gifted subs are counted separately, once per gift. Below: your active subs and sub points as Twitch counts them now (points unlock emote slots: tier 1 = 1, tier 2 = 2, tier 3 = 6).",
+  "tip.dashBits": "All Bits cheered in your chat this session. Twitch offers no all-time Bits total, so \"Total\" is what darkbot counted.",
+  "tip.dashRaids": "Incoming raids this session and how many viewers they brought. Twitch offers no raid history, so \"Total\" is what darkbot counted.",
   "err.eventKind": "unknown event “{kind}”",
   "err.chatTooLong": "the chat message can be at most {max} characters"
 }

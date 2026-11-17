@@ -70,6 +70,9 @@ func (a *App) handleEvent(ev twitch.ChannelEvent, test bool) {
 	}
 	if !test {
 		a.countEvent(ev)
+		if channelKinds[ev.Kind] {
+			a.refreshChannelTotalsSoon()
+		}
 		a.log.Infof("Event %s %s %d", ev.Kind, ev.User, ev.Amount)
 	}
 	if a.ctx != nil {

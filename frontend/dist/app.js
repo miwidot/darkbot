@@ -226,15 +226,23 @@ const num = (n) => Number(n || 0).toLocaleString(I18N.lang || undefined);
 
 // Four meters. The big number is this session; the lines below explain it.
 // Channel meters: what Twitch reports about your channel.
+// channelNow: Twitch reported this channel total (state.channel).
+function channelNow(key) {
+  return !!(state && state.channel && state.channel[key] != null);
+}
+
 const METERS_CHANNEL = [
   { id: 'follows', label: 'dash.follows', tip: 'tip.dashFollows',
     value: (s) => s.session.follows,
     detail: (s) => (state && state.config.unfollow_detection ? t('dash.followsDetail', { n: num(s.session.unfollows) }) : t('dash.followsNoDetect')),
-    total: (s) => s.total.follows },
+    total: (s) => s.total.follows,
+    // The channel as it is on Twitch now, when known; else darkbot's count.
+    now: () => (channelNow('followers') ? t('dash.followersNow', { n: num(state.channel.followers) }) : '') },
   { id: 'subs', label: 'dash.subs', tip: 'tip.dashSubs',
     value: (s) => s.session.subs,
     detail: (s) => t('dash.subsDetail', { n: num(s.session.giftedSubs) }),
-    total: (s) => s.total.subs },
+    total: (s) => s.total.subs,
+    now: () => (channelNow('subs') ? t('dash.subsNow', { n: num(state.channel.subs), points: num(state.channel.subPoints) }) : '') },
   { id: 'bits', label: 'dash.bits', tip: 'tip.dashBits',
     value: (s) => s.session.bits,
     detail: () => t('dash.bitsDetail'),
@@ -291,7 +299,8 @@ function renderMeters(id, defs) {
         el('span', { class: 'tip', tabindex: '0', role: 'button', 'data-tip': m.tip, 'aria-label': t('tip.more') })),
       el('div', { class: 'meter-value' }, num(v)),
       el('div', { class: 'meter-detail' }, m.detail(stats)),
-      m.total ? el('div', { class: 'meter-total' }, t('dash.total', { n: num(m.total(stats)) })) : null);
+      m.now && m.now() ? el('div', { class: 'meter-total now' }, m.now())
+        : m.total ? el('div', { class: 'meter-total' }, t('dash.total', { n: num(m.total(stats)) })) : null);
     if (bump) setTimeout(() => tile.classList.remove('bump'), BUMP_MS);
     return tile;
   }));

@@ -560,3 +560,29 @@ func TestHypeTrackerLevelUps(t *testing.T) {
 		}
 	}
 }
+
+func TestChannelTotals(t *testing.T) {
+	fakeTwitch(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("broadcaster_id") != "42" || q.Get("first") != "1" {
+			writeJSON(w, 400, map[string]any{"status": 400, "message": "only the totals are needed: first=1"})
+			return
+		}
+		switch r.URL.Path {
+		case "/helix/channels/followers":
+			writeJSON(w, 200, map[string]any{"total": 1834, "data": []map[string]any{{"user_id": "1", "user_name": "a"}}, "pagination": map[string]any{"cursor": "x"}})
+		case "/helix/subscriptions":
+			writeJSON(w, 200, map[string]any{"total": 42, "points": 58, "data": []map[string]any{{"user_id": "1", "tier": "1000"}}})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	m, _ := NewTokenManager("cid", &memStore{tok: &Token{AccessToken: "A1", RefreshToken: "R1", UserID: "42"}}, nopLog{})
+	h := NewHelix(m)
+	if n, err := h.GetFollowerCount(context.Background(), "42"); err != nil || n != 1834 {
+		t.Fatalf("followers %d %v", n, err)
+	}
+	if n, p, err := h.GetSubscriptionTotals(context.Background(), "42"); err != nil || n != 42 || p != 58 {
+		t.Fatalf("subs %d points %d %v", n, p, err)
+	}
+}
