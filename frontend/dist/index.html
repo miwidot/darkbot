@@ -20,9 +20,9 @@
   <header class="bar">
     <div class="brand">darkbot</div>
     <div class="signals" aria-live="polite">
-      <span class="signal" id="sigTwitch"><i></i><span></span></span>
-      <span class="signal" id="sigEvents"><i></i><span></span></span>
-      <span class="signal" id="sigObs"><i></i><span></span></span>
+      <span class="signal" id="sigTwitch" tabindex="0" data-tip="tip.sigTwitch"><i></i><span></span></span>
+      <span class="signal" id="sigEvents" tabindex="0" data-tip="tip.sigEvents"><i></i><span></span></span>
+      <span class="signal" id="sigObs" tabindex="0" data-tip="tip.sigObs"><i></i><span></span></span>
     </div>
     <div class="bar-end">
       <button class="update-chip hidden" id="updateChip"></button>
@@ -68,8 +68,9 @@
     <button class="strip-output" id="stripOutput" data-i18n-title="strip.change">
       <svg><use href="#i-speaker"/></svg><span id="outputName"></span>
     </button>
+    <a class="credit" id="credit" href="https://tarkov-stammtisch.de" data-i18n-title="credit.title"><span data-i18n="credit.text"></span> <b>Tarkov Stammtisch</b></a>
     <label class="strip-master">
-      <span data-i18n="strip.master"></span>
+      <span data-i18n="strip.master"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.master" data-i18n-aria-label="tip.more"></span>
       <input type="range" id="master" min="0.05" max="1" step="0.05" data-i18n-aria-label="strip.masterAria">
       <output id="masterVal"></output>
     </label>
@@ -98,7 +99,7 @@
       <section class="sec" id="sec-general">
         <h3 data-i18n="general.title"></h3>
         <div class="field">
-          <label for="language" data-i18n="general.language"></label>
+          <label for="language"><span data-i18n="general.language"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.language" data-i18n-aria-label="tip.more"></span></label>
           <select id="language"></select>
           <p class="hint" data-i18n="general.languageHint"></p>
         </div>
@@ -109,14 +110,14 @@
         <h3 data-i18n="audio.title"></h3>
         <div class="choice">
           <label class="choice-item"><input type="radio" name="mode" value="device">
-            <span><b data-i18n="audio.modeDevice"></b><small data-i18n="audio.modeDeviceText"></small></span></label>
+            <span><b><span data-i18n="audio.modeDevice"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.modeDevice" data-i18n-aria-label="tip.more"></span></b><small data-i18n="audio.modeDeviceText"></small></span></label>
           <label class="choice-item"><input type="radio" name="mode" value="obs">
-            <span><b data-i18n="audio.modeObs"></b><small data-i18n="audio.modeObsText"></small></span></label>
+            <span><b><span data-i18n="audio.modeObs"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.modeObs" data-i18n-aria-label="tip.more"></span></b><small data-i18n="audio.modeObsText"></small></span></label>
         </div>
 
         <div id="deviceBlock">
           <div class="field">
-            <label for="device" data-i18n="audio.device"></label>
+            <label for="device"><span data-i18n="audio.device"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.device" data-i18n-aria-label="tip.more"></span></label>
             <div class="inline"><select id="device"></select><button class="btn" id="refreshDevices" data-i18n="audio.refresh"></button></div>
             <p class="hint" id="deviceHint"></p>
           </div>
@@ -124,12 +125,12 @@
 
         <div id="obsBlock">
           <div class="field">
-            <span class="label" data-i18n="audio.tracks"></span>
+            <span class="label"><span data-i18n="audio.tracks"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.tracks" data-i18n-aria-label="tip.more"></span></span>
             <div class="tracks" id="tracks" role="group" data-i18n-aria-label="audio.tracksAria"></div>
             <p class="hint" data-i18n="audio.tracksHint"></p>
           </div>
           <div class="field">
-            <label for="obsInput" data-i18n="audio.inputName"></label>
+            <label for="obsInput"><span data-i18n="audio.inputName"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.inputName" data-i18n-aria-label="tip.more"></span></label>
             <input id="obsInput" type="text" maxlength="100">
             <p class="hint" data-i18n="audio.inputHint"></p>
           </div>
@@ -153,7 +154,7 @@
         <details class="more">
           <summary data-i18n="twitch.appSummary"></summary>
           <div class="field">
-            <label for="clientId" data-i18n="twitch.clientId"></label>
+            <label for="clientId"><span data-i18n="twitch.clientId"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.twitchClientId" data-i18n-aria-label="tip.more"></span></label>
             <div class="inline"><input id="clientId" type="text" autocomplete="off" spellcheck="false"><button class="btn" id="saveClientId" data-i18n="twitch.save"></button></div>
             <p class="hint" data-i18n="twitch.clientIdHint"></p>
           </div>
@@ -165,11 +166,11 @@
         <h3 data-i18n="obs.title"></h3>
         <p class="lede" data-i18n="obs.lede"></p>
         <div class="grid2">
-          <div class="field"><label for="obsHost" data-i18n="obs.host"></label><input id="obsHost" type="text"></div>
-          <div class="field"><label for="obsPort" data-i18n="obs.port"></label><input id="obsPort" type="number" min="1" max="65535"></div>
+          <div class="field"><label for="obsHost"><span data-i18n="obs.host"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.obsHost" data-i18n-aria-label="tip.more"></span></label><input id="obsHost" type="text"></div>
+          <div class="field"><label for="obsPort"><span data-i18n="obs.port"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.obsPort" data-i18n-aria-label="tip.more"></span></label><input id="obsPort" type="number" min="1" max="65535"></div>
         </div>
-        <div class="field"><label for="obsPass" data-i18n="obs.password"></label><input id="obsPass" type="password" autocomplete="off" data-i18n-placeholder="obs.passwordKeep"></div>
-        <label class="check"><input type="checkbox" id="obsAuto"> <span data-i18n="obs.auto"></span></label>
+        <div class="field"><label for="obsPass"><span data-i18n="obs.password"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.obsPassword" data-i18n-aria-label="tip.more"></span></label><input id="obsPass" type="password" autocomplete="off" data-i18n-placeholder="obs.passwordKeep"></div>
+        <label class="check"><input type="checkbox" id="obsAuto"> <span data-i18n="obs.auto"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.obsAuto" data-i18n-aria-label="tip.more"></span></label>
         <div class="sec-actions">
           <span class="status" id="obsStatus"></span>
           <button class="btn hidden" id="obsDisconnect" data-i18n="obs.disconnect"></button>
@@ -192,13 +193,13 @@
           <summary data-i18n="songs.setupSummary"></summary>
           <ol class="steps">
             <li data-i18n="songs.step1"></li>
-            <li><span data-i18n="songs.step2"></span>
+            <li><span data-i18n="songs.step2"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.redirect" data-i18n-aria-label="tip.more"></span>
               <div class="inline copy"><input id="spotifyRedirect" type="text" readonly><button type="button" class="btn" id="copyRedirect" data-i18n="songs.copy"></button></div></li>
             <li data-i18n="songs.step3"></li>
             <li data-i18n="songs.step4"></li>
           </ol>
           <div class="field">
-            <label for="spotifyClientId" data-i18n="songs.clientId"></label>
+            <label for="spotifyClientId"><span data-i18n="songs.clientId"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.spotifyClientId" data-i18n-aria-label="tip.more"></span></label>
             <input id="spotifyClientId" type="text" autocomplete="off" spellcheck="false">
           </div>
           <div class="sec-actions start">
@@ -208,7 +209,7 @@
           <div class="login hidden" id="spotifyPasteBox">
             <p data-i18n="songs.pasteHelp"></p>
             <div class="field">
-              <label for="spotifyPaste" data-i18n="songs.pasteLabel"></label>
+              <label for="spotifyPaste"><span data-i18n="songs.pasteLabel"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.spotifyPaste" data-i18n-aria-label="tip.more"></span></label>
               <input id="spotifyPaste" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="songs.pastePlaceholder">
             </div>
             <div class="inline">
@@ -219,22 +220,22 @@
           </div>
         </details>
 
-        <label class="check"><input type="checkbox" id="songsEnabled"> <span data-i18n="songs.enabled"></span></label>
+        <label class="check"><input type="checkbox" id="songsEnabled"> <span data-i18n="songs.enabled"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.songsEnabled" data-i18n-aria-label="tip.more"></span></label>
         <div class="grid2">
           <div class="field">
-            <label for="songsCooldown" data-i18n="songs.cooldown"></label>
+            <label for="songsCooldown"><span data-i18n="songs.cooldown"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.songsCooldown" data-i18n-aria-label="tip.more"></span></label>
             <input id="songsCooldown" type="number" min="0" step="1">
             <p class="hint" data-i18n="songs.cooldownHint"></p>
           </div>
           <div class="field">
-            <label for="songsMax" data-i18n="songs.maxMinutes"></label>
+            <label for="songsMax"><span data-i18n="songs.maxMinutes"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.songsMax" data-i18n-aria-label="tip.more"></span></label>
             <input id="songsMax" type="number" min="0" step="1">
             <p class="hint" data-i18n="songs.maxHint"></p>
           </div>
         </div>
-        <label class="check"><input type="checkbox" id="songsExplicit"> <span data-i18n="songs.blockExplicit"></span></label>
-        <label class="check"><input type="checkbox" id="songsRequesterSkip"> <span data-i18n="songs.requesterSkip"></span></label>
-        <label class="check"><input type="checkbox" id="songsReplies"> <span data-i18n="songs.replies"></span></label>
+        <label class="check"><input type="checkbox" id="songsExplicit"> <span data-i18n="songs.blockExplicit"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.songsExplicit" data-i18n-aria-label="tip.more"></span></label>
+        <label class="check"><input type="checkbox" id="songsRequesterSkip"> <span data-i18n="songs.requesterSkip"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.songsRequesterSkip" data-i18n-aria-label="tip.more"></span></label>
+        <label class="check"><input type="checkbox" id="songsReplies"> <span data-i18n="songs.replies"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.songsReplies" data-i18n-aria-label="tip.more"></span></label>
 
         <div class="commands">
           <h4 data-i18n="songs.commandsTitle"></h4>
@@ -254,7 +255,7 @@
       <section class="sec" id="sec-updates">
         <h3 data-i18n="updates.title"></h3>
         <p class="lede" id="updateStatus"></p>
-        <label class="check"><input type="checkbox" id="autoUpdate"> <span data-i18n="updates.auto"></span></label>
+        <label class="check"><input type="checkbox" id="autoUpdate"> <span data-i18n="updates.auto"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.autoUpdate" data-i18n-aria-label="tip.more"></span></label>
         <p class="hint" data-i18n="updates.autoHint"></p>
         <div class="notes hidden" id="updateNotes"></div>
         <div class="sec-actions start">
@@ -282,11 +283,11 @@
   <div id="edNewBlock">
     <div class="grid2 wide-first">
       <div class="field">
-        <label for="edTitle" data-i18n="editor.rewardName"></label>
+        <label for="edTitle"><span data-i18n="editor.rewardName"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.rewardName" data-i18n-aria-label="tip.more"></span></label>
         <input id="edTitle" type="text" maxlength="45" data-i18n-placeholder="editor.rewardNamePlaceholder">
       </div>
       <div class="field">
-        <label for="edCost" data-i18n="editor.price"></label>
+        <label for="edCost"><span data-i18n="editor.price"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.price" data-i18n-aria-label="tip.more"></span></label>
         <input id="edCost" type="number" min="1" max="1000000000" step="1">
       </div>
     </div>
@@ -294,33 +295,33 @@
   </div>
   <div id="edExistingBlock" class="hidden">
     <div class="field">
-      <label for="edReward" data-i18n="editor.reward"></label>
+      <label for="edReward"><span data-i18n="editor.reward"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.existingReward" data-i18n-aria-label="tip.more"></span></label>
       <div class="inline"><select id="edReward"></select><button type="button" class="btn" id="edRefreshRewards" data-i18n="editor.reload"></button></div>
       <p class="hint" id="edRewardHint"></p>
       <p class="hint" data-i18n="editor.existingHint"></p>
     </div>
   </div>
   <div class="field">
-    <label for="edFile" data-i18n="editor.file"></label>
+    <label for="edFile"><span data-i18n="editor.file"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.file" data-i18n-aria-label="tip.more"></span></label>
     <div class="inline"><input id="edFile" type="text" readonly data-i18n-placeholder="editor.filePlaceholder"><button type="button" class="btn" id="edPick" data-i18n="editor.chooseFile"></button></div>
   </div>
   <div class="field">
-    <label for="edVolume"><span data-i18n="editor.volume"></span> <output id="edVolumeVal"></output></label>
+    <label for="edVolume"><span data-i18n="editor.volume"></span> <output id="edVolumeVal"></output> <span class="tip" tabindex="0" role="button" data-tip="tip.volume" data-i18n-aria-label="tip.more"></span></label>
     <input id="edVolume" type="range" min="0.05" max="1" step="0.05">
   </div>
   <div class="grid2">
     <div class="field">
-      <label for="edCooldown" data-i18n="editor.cooldown"></label>
+      <label for="edCooldown"><span data-i18n="editor.cooldown"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cooldown" data-i18n-aria-label="tip.more"></span></label>
       <input id="edCooldown" type="number" min="0" step="1">
       <p class="hint" data-i18n="editor.cooldownHint"></p>
     </div>
     <div class="field">
-      <label for="edUserCooldown" data-i18n="editor.userCooldown"></label>
+      <label for="edUserCooldown"><span data-i18n="editor.userCooldown"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.userCooldown" data-i18n-aria-label="tip.more"></span></label>
       <input id="edUserCooldown" type="number" min="0" step="1">
       <p class="hint" data-i18n="editor.userCooldownHint"></p>
     </div>
   </div>
-  <label class="check"><input type="checkbox" id="edEnabled"> <span data-i18n="editor.enabled"></span></label>
+  <label class="check"><input type="checkbox" id="edEnabled"> <span data-i18n="editor.enabled"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.enabled" data-i18n-aria-label="tip.more"></span></label>
   <p class="error hidden" id="edError" role="alert"></p>
   <div class="modal-actions">
     <button type="button" class="btn danger quiet hidden" id="edDelete"></button>
@@ -333,6 +334,7 @@
 <div class="toast hidden" id="toast" role="status"></div>
 
 <script src="i18n.js"></script>
+<script src="tooltip.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

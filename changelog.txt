@@ -1,3 +1,15 @@
+2026-11-17 20:25 +08 — Tooltips everywhere + "powered by Tarkov Stammtisch"
+- New frontend/dist/tooltip.js: a "?" next to every setting (30 places: audio, OBS, Twitch,
+  song requests, updates, language, sound editor, master volume) and the header status lights
+  explain what the setting does and when to use it. Hover (short delay), keyboard focus and
+  click/tap; Escape closes only the tooltip; one shared role=tooltip bubble with
+  aria-describedby, moved into the open dialog so it stays above modal dialogs, kept inside
+  the window. Clicking "?" inside a label doesn't tick the checkbox or focus the field.
+- Tooltip texts in en + de (tip.* keys), checked against what the code really does
+  (Twitch cooldown/refund only for rewards darkbot created).
+- Status strip shows "powered by Tarkov Stammtisch", opening https://tarkov-stammtisch.de in
+  the system browser (the app window never navigates away).
+
 2026-11-17 20:05 +08 — Song requests: security review fixes
 - Requester skip now compares Twitch user IDs (display names aren't unique) and a request
   record is never overwritten; songs already playing or queued are refused, so nobody can

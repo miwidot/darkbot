@@ -17,6 +17,7 @@ darkbot does the sound part of tools like Streamer.bot, and nothing else: one wi
   - *Inside OBS:* darkbot plays the sound in an OBS media source and routes it to the audio tracks 1–6 you choose, for example stream only, or stream and recording but not your VOD track.
 - **Song requests from chat (Spotify).** Viewers type `!sr <Spotify link or song name>` and the song goes into your Spotify queue. `!song`, `!next` and `!queue` show what plays; `!skip` is for you, your moderators and (optional) whoever requested the song. Per-viewer cooldown, maximum length and an explicit filter are adjustable. Uses your own Spotify app, see [Song requests](#song-requests-spotify).
 - **Live view.** Every sound is a pad. It lights up while playing and shows its cooldown draining. An activity feed lists who redeemed what and why something didn't play.
+- **Explains itself.** Every setting has a ? tooltip that says what it does and when you need it.
 - **English and German.** darkbot follows your system language, or you pick one under Settings, General. All texts live in one file per language (`internal/i18n/locales/`), so adding a language means translating one JSON file.
 - **Updates itself.** On start, darkbot installs a newer release from GitHub automatically (can be switched off). While it's running, it only announces updates so a stream is never interrupted. Every download is verified against GitHub's SHA-256 digest.
 
@@ -129,3 +130,7 @@ Settings live in `%AppData%\darkbot`, `~/Library/Application Support/darkbot` or
 ## License
 
 MIT, see [LICENSE](LICENSE). The bundled Archivo font is licensed under the SIL Open Font License 1.1 (`frontend/dist/fonts/OFL.txt`).
+
+---
+
+powered by [Tarkov Stammtisch](https://tarkov-stammtisch.de)

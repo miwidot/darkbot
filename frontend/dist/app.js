@@ -257,6 +257,8 @@ $('closeSettings').addEventListener('click', () => $('settings').close());
 $('onboardConnect').addEventListener('click', () => openSettings('twitch'));
 $('reconnectBtn').addEventListener('click', () => openSettings('twitch'));
 $('updateChip').addEventListener('click', () => openSettings('updates'));
+// External links open in the system browser; the app window never navigates away.
+$('credit').addEventListener('click', (e) => { e.preventDefault(); window.runtime.BrowserOpenURL($('credit').href); });
 
 function renderSettings() {
   renderGeneral();

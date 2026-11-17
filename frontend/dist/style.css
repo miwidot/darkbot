@@ -377,3 +377,32 @@ details.more summary { cursor: pointer; color: var(--ink-2); }
 .commands dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
 .commands dt { color: var(--led); font-weight: 650; font-variant-numeric: tabular-nums; }
 .commands dd { margin: 0; color: var(--ink-2); }
+
+/* tooltips: "?" next to a label explains the setting */
+.tip {
+  display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 4px;
+  border-radius: 50%; border: 1px solid var(--metal-3); color: var(--ink-3);
+  font-size: 10.5px; font-weight: 700; line-height: 1; cursor: help; vertical-align: 1px;
+  user-select: none;
+}
+.tip::before { content: "?"; }
+.tip:hover, .tip:focus-visible, .tip[aria-describedby] { color: var(--led); border-color: var(--led-dim); }
+.tip:focus-visible, .signal:focus-visible { outline: 2px solid var(--led); outline-offset: 2px; }
+.signal[data-tip] { cursor: help; }
+.tooltip {
+  position: fixed; z-index: 50; max-width: min(300px, calc(100vw - 16px)); padding: 9px 12px;
+  background: #0d0f14; color: var(--ink); border: 1px solid var(--metal-3); border-radius: var(--r-ctl);
+  font-size: var(--step--1); line-height: 1.5; font-weight: 400; text-align: left; white-space: normal;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .45); pointer-events: none;
+}
+.tooltip[hidden] { display: none; }
+
+/* credit in the status strip */
+.credit {
+  margin: 0 auto; color: var(--ink-3); font-size: var(--step--1); text-decoration: none;
+  border-radius: var(--r-ctl); padding: 4px 8px;
+}
+.credit b { color: var(--ink-2); font-weight: 600; }
+.credit:hover b, .credit:focus-visible b { color: var(--led); }
+.credit:focus-visible { outline: 2px solid var(--led); outline-offset: 2px; }
+.credit + .strip-master { margin-left: 0; }
