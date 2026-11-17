@@ -906,7 +906,15 @@ function renderUpdates() {
   $('installUpdate').disabled = state.updating;
   $('installUpdate').textContent = state.updating ? t('updates.installing') : t('updates.install');
   $('updateNotes').classList.toggle('hidden', !(up && up.available && up.notes));
-  $('updateNotes').textContent = (up && up.notes) || '';
+  $('updateNotes').textContent = updateNotesText((up && up.notes) || '');
+}
+// The release notes are Markdown for GitHub; the panel shows the "What's
+// new" part as plain text (no downloads list, no # marks).
+function updateNotesText(md) {
+  return md.split(/^## Download/m)[0]
+    .replace(/^## What's new\s*/m, '')
+    .replace(/^#+\s*/gm, '')
+    .trim();
 }
 $('autoUpdate').addEventListener('change', () => call('SetAutoUpdate', $('autoUpdate').checked).then(refresh));
 $('checkUpdate').addEventListener('click', async () => {

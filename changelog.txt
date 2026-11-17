@@ -1,3 +1,10 @@
+2026-11-18 03:56 +08 — Release notes from commit messages
+- Releases only showed "Full Changelog: compare link": --generate-notes lists pull requests, and
+  darkbot commits straight to main. scripts/release-notes.sh now writes the notes from every commit
+  since the previous tag (title + message), plus downloads and the compare link; the release
+  workflow uses it. Notes of v0.2.0-v0.2.3 were rewritten the same way.
+- The update panel shows the "What's new" part as plain text (no Markdown marks, no downloads).
+
 2026-11-18 03:52 +08 — Release v0.2.3
 - Windows tray, single instance, 30-minute update check; macOS bundle version 0.2.3.
 
