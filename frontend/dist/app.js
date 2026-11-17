@@ -478,9 +478,17 @@ async function testEvent(kind) {
   try { await call('TestEvent', kind); toast(t('events.tested')); } catch (e) { /* toast shown */ }
 }
 
+// suggestedChat: darkbot's message suggestion for a kind in the UI
+// language ("" for kinds without one, like an ended sub).
+function suggestedChat(kind) {
+  return I18N.dict['evdefault.' + kind] || '';
+}
+
 function openEventEditor(k) {
   evEditing = k.kind;
-  const act = (state.config.events || {})[k.kind] || { enabled: true, sound: '', volume: 1, chat: '', min_amount: 0 };
+  // Never set up: start from the suggestion. Nothing is sent before Save.
+  const act = (state.config.events || {})[k.kind]
+    || { enabled: true, sound: '', volume: 1, chat: suggestedChat(k.kind), min_amount: 0 };
   $('evTitle').textContent = t('event.' + k.kind);
   $('evDesc').textContent = t('eventdesc.' + k.kind);
   $('evEnabled').checked = act.enabled;
@@ -490,6 +498,7 @@ function openEventEditor(k) {
   $('evChat').value = act.chat || '';
   $('evMin').value = act.min_amount || 0;
   $('evChatField').classList.toggle('hidden', !k.hasChat);
+  $('evSuggest').classList.toggle('hidden', !suggestedChat(k.kind));
   $('evMinField').classList.toggle('hidden', !k.hasAmount);
   $('evError').classList.add('hidden');
   $('evEditor').showModal();
@@ -511,6 +520,9 @@ $('evPick').addEventListener('click', async () => {
   if (f) $('evSound').value = f;
 });
 $('evClear').addEventListener('click', () => { $('evSound').value = ''; });
+// A chat message is one line: Enter doesn't add a line break.
+$('evChat').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+$('evSuggest').addEventListener('click', () => { $('evChat').value = suggestedChat(evEditing); $('evChat').focus(); });
 $('evCancel').addEventListener('click', () => $('evEditor').close());
 $('evSave').addEventListener('click', async () => {
   $('evSave').disabled = true;

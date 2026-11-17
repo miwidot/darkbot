@@ -7,12 +7,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
 	"github.com/miwidot/darkbot/internal/applog"
 	"github.com/miwidot/darkbot/internal/bot"
 	"github.com/miwidot/darkbot/internal/config"
+	"github.com/miwidot/darkbot/internal/i18n"
 	"github.com/miwidot/darkbot/internal/stats"
 	"github.com/miwidot/darkbot/internal/twitch"
 )
@@ -178,5 +180,44 @@ func TestChannelEventsRefreshTotals(t *testing.T) {
 	a.handleEvent(a.sampleEvent(twitch.EvSub), true)
 	if len(a.ch.kick) != 0 {
 		t.Fatal("a test event must not trigger a read")
+	}
+}
+
+// Every event that can post in chat has a suggestion in every language
+// (except an ended sub: announcing it would put the viewer on the spot),
+// and suggestions only use placeholders darkbot fills.
+func TestChatSuggestions(t *testing.T) {
+	placeholder := regexp.MustCompile(`\{[a-z]+\}`)
+	known := map[string]bool{"{user}": true, "{amount}": true, "{tier}": true, "{months}": true, "{top}": true}
+	a, _ := newEventApp(t, nil)
+	for _, lang := range i18n.Supported {
+		dict := i18n.Dict(lang)
+		for _, k := range a.GetEventKinds() {
+			s, has := dict["evdefault."+k.Kind]
+			want := k.HasChat && k.Kind != twitch.EvSubEnd
+			if has != want {
+				t.Errorf("%s %s: suggestion present=%v, want %v", lang, k.Kind, has, want)
+				continue
+			}
+			for _, p := range placeholder.FindAllString(s, -1) {
+				if !known[p] {
+					t.Errorf("%s %s: unknown placeholder %s", lang, k.Kind, p)
+				}
+			}
+			out := renderTemplate(s, a.sampleEvent(k.Kind), lang)
+			if placeholder.MatchString(out) || len([]rune(out)) > config.MaxChatTemplate {
+				t.Errorf("%s %s: rendered %q", lang, k.Kind, out)
+			}
+		}
+	}
+}
+
+func TestSaveEventActionMakesOneLine(t *testing.T) {
+	a, _ := newEventApp(t, nil)
+	if err := a.SaveEventAction(twitch.EvFollow, config.EventAction{Enabled: true, Chat: "  Danke\r\n{user}!\n\nWillkommen  "}); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.cfg.Get().Events[twitch.EvFollow].Chat; got != "Danke {user}! Willkommen" {
+		t.Fatalf("got %q", got)
 	}
 }

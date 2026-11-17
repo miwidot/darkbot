@@ -161,6 +161,8 @@ func (a *App) SaveEventAction(kind string, act config.EventAction) error {
 			return a.uiErr(i18n.Wrap(err, "err.readFile"))
 		}
 	}
+	// One chat line: line breaks and runs of spaces become single spaces.
+	act.Chat = strings.Join(strings.Fields(act.Chat), " ")
 	if utf8.RuneCountInString(act.Chat) > config.MaxChatTemplate {
 		return a.uiErr(i18n.E("err.chatTooLong", "max", config.MaxChatTemplate))
 	}

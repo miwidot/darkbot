@@ -48,7 +48,7 @@ body {
   user-select: none;
   overflow: hidden;
 }
-input, select, .log, .code { user-select: text; }
+input, select, textarea, .log, .code { user-select: text; }
 svg { width: 18px; height: 18px; flex: none; }
 .hidden { display: none !important; }
 button { font: inherit; color: inherit; }
@@ -244,12 +244,15 @@ button { font: inherit; color: inherit; }
 .btn.quiet:hover { color: var(--ink); background: var(--metal-2); }
 .btn:disabled { opacity: .45; cursor: default; }
 
-input[type=text], input[type=number], input[type=password], select {
+input[type=text], input[type=number], input[type=password], select, textarea {
   width: 100%; background: var(--metal-0); color: var(--ink);
   border: 1px solid var(--metal-3); border-radius: var(--r-ctl);
   padding: 8px 10px; font: inherit;
 }
-input:focus-visible, select:focus-visible { outline-offset: -1px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: -1px; }
+textarea { resize: vertical; line-height: 1.4; }
+/* chat message: the text field grows, the suggestion button sits on top */
+.chat-row { display: flex; gap: 8px; align-items: flex-start; }
 input[readonly] { color: var(--ink-2); }
 input[type=range] { accent-color: var(--led); }
 input[type=checkbox], input[type=radio] { accent-color: var(--led); width: 15px; height: 15px; margin: 0; }

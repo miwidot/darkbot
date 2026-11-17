@@ -1,3 +1,13 @@
+2026-11-18 04:34 +08 — Suggested chat messages for every event
+- Events that were never set up open with a suggested message in the UI language (follow, sub,
+  resub, gifted subs, Bits, raid, hype train start/level/end, shoutout, ad break, stream start and
+  end); nothing is sent until you save with the action on. "Use suggestion" puts it back later.
+  No suggestion for an ended sub (announcing it would put the viewer on the spot).
+- The chat message field is a two-line text area so the whole message is visible; it stays one
+  chat line (Enter adds no break, pasted line breaks become spaces when saving).
+- Tests: every chat event has a suggestion in every language with known placeholders that render
+  fully within 500 characters; saved messages become one line.
+
 2026-11-18 04:32 +08 — OBS: a busy OBS is not a lost connection
 - The keep-alive ping dropped the connection when OBS answered "NotReady (207)" (seen live: OBS
   loading or starting to quit). An answer with an error status means OBS is alive; only no answer
