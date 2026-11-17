@@ -458,21 +458,13 @@ func (a *App) GetLanguages() []string { return i18n.Supported }
 
 // ---------- Twitch ----------
 
-// SetClientID saves the Twitch Client ID.
-func (a *App) SetClientID(id string) error {
-	id = strings.TrimSpace(id)
-	if err := a.cfg.Update(func(c *config.Config) { c.TwitchClientID = id }); err != nil {
-		return a.uiErr(err)
-	}
-	a.tok.SetClientID(id)
-	return nil
-}
-
 // StartLogin begins the device code flow and opens the activation page.
+// The Client ID is built in (defaultClientID); it is missing only in a fork
+// built without one.
 func (a *App) StartLogin() error {
 	clientID := a.cfg.Get().TwitchClientID
 	if clientID == "" {
-		return a.uiErr(i18n.E("err.clientIdFirst"))
+		return a.uiErr(i18n.E("err.noClientID"))
 	}
 	a.tok.SetClientID(clientID)
 	a.CancelLogin()

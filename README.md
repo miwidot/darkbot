@@ -118,7 +118,7 @@ make linux     # build/bin/darkbot-linux (on Linux: libgtk-3-dev libwebkit2gtk-4
 make windows CLIENT_ID=xxxx VERSION=0.3.0   # your own Twitch Client ID (optional) and version
 ```
 
-Using your own Twitch app (forks): create one at [dev.twitch.tv/console](https://dev.twitch.tv/console) (needs 2FA on your Twitch account): *Register your application*, category *Application Integration*, client type **Public**, OAuth redirect URL `http://localhost` (required by the form, never used). Never generate a secret, darkbot doesn't use one. Build with `CLIENT_ID=<id>`, or users paste it in Settings, Twitch, *Twitch application*.
+Using your own Twitch app (forks): create one at [dev.twitch.tv/console](https://dev.twitch.tv/console) (needs 2FA on your Twitch account): *Register your application*, category *Application Integration*, client type **Public**, OAuth redirect URL `http://localhost` (required by the form, never used). Never generate a secret, darkbot doesn't use one. Build with `CLIENT_ID=<id>`. darkbot keeps the ID in `twitch_client_id` in its `config.json`; the settings don't show it, since users never need to change it.
 
 
 Local builds report version `dev` and never update themselves.

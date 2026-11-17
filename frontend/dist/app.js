@@ -769,18 +769,14 @@ function renderTwitch() {
   $('logout').classList.toggle('hidden', !loggedIn);
   $('loginBox').classList.toggle('hidden', !state.loginUserCode);
   $('loginCode').textContent = state.loginUserCode || '';
-  if (document.activeElement !== $('clientId')) $('clientId').value = state.config.twitch_client_id || '';
-  if (!state.config.twitch_client_id) $('sec-twitch').querySelector('details').open = true;
 }
 $('login').addEventListener('click', async () => {
-  if ($('clientId').value.trim() !== (state.config.twitch_client_id || '')) await call('SetClientID', $('clientId').value);
   await call('StartLogin');
   refresh();
 });
 $('cancelLogin').addEventListener('click', () => App().CancelLogin());
 $('loginLink').addEventListener('click', () => { if (state.loginUri) window.runtime.BrowserOpenURL(state.loginUri); });
 $('logout').addEventListener('click', async () => { await call('Logout'); refresh(); });
-$('saveClientId').addEventListener('click', async () => { await call('SetClientID', $('clientId').value); refresh(); toast(t('twitch.clientIdSaved')); });
 
 // obs
 function renderOBS() {
