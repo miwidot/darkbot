@@ -1,3 +1,6 @@
+2026-11-18 03:52 +08 — Release v0.2.3
+- Windows tray, single instance, 30-minute update check; macOS bundle version 0.2.3.
+
 2026-11-18 03:48 +08 — Windows tray, single instance, faster update notice
 - Update notice: a running darkbot checked GitHub only every 6 h, so a release published while
   it ran showed up hours later. Now every 30 min (GitHub allows 60 unauthenticated requests/h).
