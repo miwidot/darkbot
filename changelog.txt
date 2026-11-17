@@ -1,3 +1,24 @@
+2026-11-17 16:10 +08 — v0.2.0: rewards from audio files, auto-update, new design, public repo
+- Rewards from sounds: "New reward" in the sound editor creates the channel point reward on
+  Twitch (name, price, cooldown, on/off kept in sync; deleted together with the sound).
+  Redemptions of darkbot-created rewards are FULFILLED after playing and CANCELED when a sound
+  can't play (per-viewer cooldown, off, queue full, error). New scope channel:manage:redemptions;
+  old tokens show a "Reconnect Twitch" banner. Existing rewards still work read-only.
+- Auto-update from GitHub releases on Windows, macOS and Linux (ported from streamerchat):
+  SHA-256 digest + repo URL verification, binary swap with rollback, installs automatically only
+  at startup (setting), later checks only announce. Local builds are version "dev" and never update.
+- New UI ("sampler console"): sound pads with playing LED and cooldown sweep, live activity feed,
+  status strip with output + master volume, settings sheet (gear) with Audio output, Twitch,
+  OBS, Updates and Log. Archivo variable font embedded locally (no internet needed).
+- Bot emits activity events; cooldown ready-time query; tests for activity flow and fulfill/reject.
+- Repo github.com/miwidot/darkbot (public, MIT). Module path renamed to github.com/miwidot/darkbot.
+- Release workflow (tag v*.*.*): builds linux/windows/macOS arm64+amd64 on free public-repo runners,
+  optional repo variable TWITCH_CLIENT_ID baked into releases.
+- Security review fixes: Login/Logout serialized with token refresh (a refresh can no longer
+  resurrect a logged-out session), token fallback file written atomically and a damaged token no
+  longer blocks startup, EventSub reconnect URL restricted to wss://*.twitch.tv, Content-Security-
+  Policy in the UI, workflows least-privilege (only publish job may write) with SHA-pinned actions.
+
 2026-11-16 17:16 +08 — Initial darkbot v0.1.0
 - New Go/Wails desktop app (same stack as streamerchat): native window, no listening ports.
 - Twitch: device code login, TokenManager with automatic refresh (15 min before expiry,

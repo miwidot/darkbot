@@ -10,7 +10,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 
-	"github.com/miwi/darkbot/internal/applog"
+	"github.com/miwidot/darkbot/internal/applog"
 )
 
 //go:embed all:frontend/dist

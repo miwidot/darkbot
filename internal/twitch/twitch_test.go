@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -235,5 +237,69 @@ func TestHandleNotification(t *testing.T) {
 	if r.ID != "red-1" || r.RewardID != "92af127c-7326-4483-a52b-b0da0be61c01" || r.RewardTitle != "title" ||
 		r.UserID != "9001" || r.UserName != "Cooler_User" || r.UserInput != "pogchamp" || r.RedeemedAt.IsZero() {
 		t.Fatalf("unexpected redemption %+v", r)
+	}
+}
+
+// A logout while a refresh is in flight must win: the refreshed token must
+// not be written back afterwards.
+func TestLogoutDuringRefreshStaysLoggedOut(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	fakeTwitch(t, func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-release
+		writeJSON(w, 200, map[string]any{"access_token": "A2", "refresh_token": "R2", "expires_in": 14400})
+	})
+	store := &memStore{tok: &Token{AccessToken: "A1", RefreshToken: "R1"}}
+	m, _ := NewTokenManager("cid", store, nopLog{})
+
+	refreshDone := make(chan error, 1)
+	go func() { refreshDone <- m.RefreshIfStale(context.Background(), "A1") }()
+	<-started
+	logoutDone := make(chan error, 1)
+	go func() { logoutDone <- m.Logout() }()
+	close(release)
+
+	if err := <-refreshDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-logoutDone; err != nil {
+		t.Fatal(err)
+	}
+	if m.Current() != nil || store.tok != nil {
+		t.Fatal("logout must win over a concurrent refresh")
+	}
+}
+
+func TestIsTwitchWSURL(t *testing.T) {
+	ok := []string{"wss://eventsub.wss.twitch.tv/ws?x=1", "wss://twitch.tv/ws"}
+	bad := []string{"ws://eventsub.wss.twitch.tv/ws", "wss://evil.example/ws", "wss://twitch.tv.evil.example/ws", "https://eventsub.wss.twitch.tv/ws", "::"}
+	for _, u := range ok {
+		if !isTwitchWSURL(u) {
+			t.Errorf("%q should be allowed", u)
+		}
+	}
+	for _, u := range bad {
+		if isTwitchWSURL(u) {
+			t.Errorf("%q should be refused", u)
+		}
+	}
+}
+
+func TestCorruptTokenFileIsIgnored(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "token.json")
+	if err := os.WriteFile(p, []byte("{broken"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := &KeyringStore{FallbackPath: p, Log: nopLog{}}
+	tok, err := s.loadFile()
+	if err != nil || tok != nil {
+		t.Fatalf("corrupt file must read as logged out, got %v, %v", tok, err)
+	}
+	if err := writeFileAtomic(p, []byte(`{"access_token":"A"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if tok, _ := s.loadFile(); tok == nil || tok.AccessToken != "A" {
+		t.Fatal("atomic write not readable")
 	}
 }

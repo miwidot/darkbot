@@ -10,7 +10,10 @@
 #   make test
 
 TAGS      := desktop,production
-LDFLAGS   := -w -s
+# VERSION is baked in for the self-updater; local builds stay "dev" and never
+# update themselves. Releases: make windows VERSION=0.2.0
+VERSION   ?= dev
+LDFLAGS   := -w -s -X github.com/miwidot/darkbot/internal/version.Version=$(VERSION)
 # Optional: bake a Twitch Client ID into release builds:
 #   make windows CLIENT_ID=abc123
 ifdef CLIENT_ID

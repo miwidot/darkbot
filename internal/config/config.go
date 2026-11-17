@@ -51,6 +51,7 @@ const (
 	DefaultMasterVolume   = 1.0
 	MaxVolume             = 1.0 // 100 %: HTML audio elements cannot amplify
 	DefaultCooldownSecond = 0
+	DefaultRewardCost     = 100
 )
 
 // Sound maps one channel point reward to one audio file.
@@ -60,7 +61,13 @@ type Sound struct {
 	RewardID string `json:"reward_id"`
 	// RewardTitle is used for display and as fallback match if RewardID is empty.
 	RewardTitle string `json:"reward_title"`
-	File        string `json:"file"`
+	// Managed means darkbot created this reward on Twitch: darkbot keeps its
+	// title, cost, cooldown and on/off state in sync and fulfills or rejects
+	// its redemptions. Unmanaged sounds use an existing reward read-only.
+	Managed bool `json:"managed"`
+	// RewardCost is the channel point price of a managed reward.
+	RewardCost int    `json:"reward_cost"`
+	File       string `json:"file"`
 	// Volume is a linear factor, 1.0 = 100 %.
 	Volume float64 `json:"volume"`
 	// CooldownSeconds blocks the sound for everyone after it was triggered.
@@ -92,8 +99,11 @@ type Config struct {
 	AudioDeviceID   string  `json:"audio_device_id"`
 	AudioDeviceName string  `json:"audio_device_name"`
 	MasterVolume    float64 `json:"master_volume"`
-	OBS             OBS     `json:"obs"`
-	Sounds          []Sound `json:"sounds"`
+	// AutoUpdate installs a newer release automatically when darkbot starts
+	// (never mid-stream: while running, updates are only announced).
+	AutoUpdate bool    `json:"auto_update"`
+	OBS        OBS     `json:"obs"`
+	Sounds     []Sound `json:"sounds"`
 }
 
 // Default returns a config with sensible defaults.
@@ -101,6 +111,7 @@ func Default() Config {
 	return Config{
 		OutputMode:   OutputDevice,
 		MasterVolume: DefaultMasterVolume,
+		AutoUpdate:   true,
 		OBS: OBS{
 			Host:      DefaultOBSHost,
 			Port:      DefaultOBSPort,
@@ -140,6 +151,9 @@ func (c *Config) normalize() {
 		}
 		if s.UserCooldownSeconds < 0 {
 			s.UserCooldownSeconds = 0
+		}
+		if s.Managed && s.RewardCost <= 0 {
+			s.RewardCost = DefaultRewardCost
 		}
 	}
 }

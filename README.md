@@ -1,78 +1,107 @@
 # darkbot
 
-A deliberately small Twitch **channel points → sound** bot for Windows, macOS and Linux.
-Think "Streamer.bot, but only the sound part".
+**A small, open-source Twitch channel points sound bot for Windows, macOS and Linux.**
 
-- Native desktop window (Wails, same stack as `streamerchat`), **no open network ports**
-- Twitch login via device code (no client secret, no callback server)
-- Channel point redemptions via **EventSub WebSocket** (outgoing connection only)
-- Per-sound volume, **global cooldown** and **per-viewer cooldown**
-- Sounds play one after another (queue, max 20 waiting)
-- Two output modes, chosen globally:
-  - **Audio device** – plays in the app on the selected output device (like Streamer.bot / StreamElements). Capture it in OBS.
-  - **OBS media source** – plays inside OBS via obs-websocket on the selected **audio tracks 1–6**
+Viewers redeem a channel point reward, darkbot plays the matching sound. That's the whole idea.
+darkbot does the sound part of tools like Streamer.bot, and nothing else: one window, no scripting, no account, no server.
 
-## Setup
+## What it does
 
-1. **Twitch app** – [dev.twitch.tv/console](https://dev.twitch.tv/console) → *Register Your Application*
-   - OAuth Redirect URL: `http://localhost` (required by the form, not used)
-   - Category: *Application Integration*, **Client Type: Public**
-   - Copy the **Client ID** into darkbot → *Connections* → *Log in with Twitch*, confirm the code on twitch.tv/activate.
-   - Channel points require an **Affiliate or Partner** channel.
-2. **Sounds** – *Sounds* → *Add sound*: pick a reward, a file (mp3, wav, ogg, flac), volume and cooldowns.
-3. **Output** – *Audio output*:
-   - *Audio device*: choose the output. Get it into OBS with *Audio Output Capture* (for a virtual cable / dedicated device) or capture darkbot itself with *Application Audio Capture* (Windows) / *macOS Audio Capture → Application* (macOS).
-   - *OBS media source*: enable OBS → *Tools → WebSocket Server Settings*, enter host/port/password under *Connections*, tick the tracks. darkbot creates the media source `darkbot-sound` in the current scene. OBS only plays sources of the active scene, so add it to your other scenes too (*Add → Existing source*).
+- **Turns audio files into channel point rewards.** Pick a file, give it a name and a price, and darkbot creates the reward on your Twitch channel. Renaming, repricing, switching it off and deleting are all done from darkbot.
+- **Works with rewards you already have.** You can also attach a sound to an existing reward. darkbot then only listens and doesn't change that reward.
+- **Cooldowns.** Set a cooldown for everyone and a separate one per viewer. For rewards darkbot created, Twitch shows the cooldown to viewers too (from 60 seconds up).
+- **Fair to viewers.** If a sound can't play (per-viewer cooldown, switched off, too many sounds waiting, file error), darkbot rejects the redemption instead of silently eating it, and Twitch returns the points. This only works for rewards darkbot created, because Twitch only lets the creating app change redemptions.
+- **One sound at a time.** Redemptions queue up and play in order (max 20 waiting).
+- **Choose where sounds play:**
+  - *Audio device:* darkbot plays the sound itself on the output you pick, like Streamer.bot or StreamElements. Capture that output, or darkbot itself, in OBS.
+  - *Inside OBS:* darkbot plays the sound in an OBS media source and routes it to the audio tracks 1–6 you choose, for example stream only, or stream and recording but not your VOD track.
+- **Live view.** Every sound is a pad. It lights up while playing and shows its cooldown draining. An activity feed lists who redeemed what and why something didn't play.
+- **Updates itself.** On start, darkbot installs a newer release from GitHub automatically (can be switched off). While it's running, it only announces updates so a stream is never interrupted. Every download is verified against GitHub's SHA-256 digest.
 
-### Output device selection per OS
+## What it deliberately doesn't do
 
-| OS | Device picker | Notes |
+- No open network ports, no local web server, no browser source. It's a desktop app; the window *is* the app.
+- No chat bot, no commands, no alerts, no overlays. Other tools do that well.
+- No cloud, no telemetry, no account. Your settings stay on your computer; the Twitch login lives in the OS keychain.
+
+## Install
+
+Download the file for your system from [Releases](https://github.com/miwidot/darkbot/releases):
+
+| System | File |
+|---|---|
+| Windows 10/11 | `darkbot-windows-amd64.exe` (needs the WebView2 runtime, preinstalled on Windows 11) |
+| macOS, Apple Silicon | `darkbot-macos-arm64.app.zip` |
+| macOS, Intel | `darkbot-macos-amd64.app.zip` |
+| Linux | `darkbot-linux-amd64` (needs GTK 3 and WebKitGTK 4.1) |
+
+Builds aren't code-signed yet. On macOS right-click darkbot and choose *Open* the first time. On Windows choose *More info*, then *Run anyway*.
+
+## First start
+
+1. **Connect Twitch.** Open Settings (gear icon), then Twitch, then *Connect Twitch*, and confirm the code on twitch.tv/activate. Channel points need an Affiliate or Partner channel.
+   If your build has no built-in Client ID, create one at [dev.twitch.tv/console](https://dev.twitch.tv/console): *Register your application*, client type **Public**, OAuth redirect URL `http://localhost` (required by the form, not used). Paste the Client ID under *Twitch application*.
+2. **Add a sound.** *Add sound*, then choose a file (mp3, wav, ogg, flac), a reward name and a price. Click a pad to preview it.
+3. **Choose the output.** Settings, then Audio output:
+   - *Audio device:* to get the sound into OBS, pick a virtual cable or spare output and add it as *Audio Output Capture*. Or keep the default and add darkbot with *Application Audio Capture* (Windows) or *macOS Audio Capture* (macOS).
+   - *Inside OBS:* in OBS open Tools, then WebSocket Server Settings, and enable it. Enter host, port and password in Settings, then OBS. Tick the tracks. darkbot creates the media source `darkbot-sound` in the current scene. OBS only plays sources of the active scene, so add it to your other scenes as an existing source.
+
+### Picking an output device per system
+
+| System | Device list | Notes |
 |---|---|---|
-| Windows (WebView2) | yes | Device names appear after allowing microphone access once (*Refresh* button). Nothing is recorded; the stream is closed immediately. |
-| macOS (WKWebView) | no – system default | WebKit hides the output list. Use *macOS Audio Capture → Application: darkbot* in OBS, or OBS mode. |
-| Linux (WebKitGTK) | usually no – system default | Use PipeWire/Pulse routing or OBS mode. |
+| Windows (WebView2) | yes | Device names show after allowing microphone access once (*Refresh*). Nothing is recorded; darkbot closes the microphone immediately. |
+| macOS (WKWebView) | no, system default | WebKit doesn't expose the output list. Capture darkbot in OBS with *macOS Audio Capture*, or use *Inside OBS*. |
+| Linux (WebKitGTK) | usually no, system default | Use PipeWire/PulseAudio routing or *Inside OBS*. |
 
-## Twitch token: how auto refresh works
+## How the Twitch login stays alive
 
-Docs: [refresh tokens](https://dev.twitch.tv/docs/authentication/refresh-tokens/), [validate tokens](https://dev.twitch.tv/docs/authentication/validate-tokens/), [device code flow](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#device-code-grant-flow).
+Docs: [device code flow](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#device-code-grant-flow), [refresh tokens](https://dev.twitch.tv/docs/authentication/refresh-tokens/), [validate tokens](https://dev.twitch.tv/docs/authentication/validate-tokens/).
 
-- Access tokens from the device flow live ~4 hours. darkbot refreshes **15 minutes before expiry** (checked every minute).
-- The token is **validated on start and every hour** (mandatory per Twitch). A 401 there triggers a refresh.
-- Any Helix call that gets a 401 refreshes once and retries.
-- Device-flow refresh tokens are **single-use**: every refresh returns a new one, which is saved immediately. All refresh paths share one lock, and concurrent 401s cause exactly one refresh (tested).
-- Network errors never log you out, they are retried. Only an explicit 400/401 from Twitch ("Invalid refresh token") logs you out.
-- Public-client refresh tokens expire **30 days after they were issued**. Because each refresh issues a new one, you only need to log in again if darkbot didn't run for 30 days.
-- Tokens are stored in the OS keyring (Windows Credential Manager / macOS Keychain / Secret Service); fallback: `token.json` (0600) in the config dir.
+- Access tokens last about 4 hours. darkbot refreshes them 15 minutes before they expire.
+- The token is validated on start and every hour, as Twitch requires. A failed validation triggers a refresh.
+- A Twitch API call that answers 401 refreshes once and retries.
+- Device-flow refresh tokens are single-use. All refreshes share one lock, so parallel 401s cause exactly one refresh, and the new token is saved immediately.
+- Network problems never log you out; darkbot retries. Only an explicit "invalid refresh token" from Twitch does.
+- Refresh tokens of public apps expire 30 days after they were issued. Every refresh issues a new one, so you only log in again if darkbot didn't run for 30 days.
 
-## Cooldowns
+Scopes: `channel:read:redemptions` (receive redemptions, list rewards) and `channel:manage:redemptions` (create and manage darkbot's own rewards, fulfill or reject their redemptions).
 
-darkbot checks cooldowns itself, so it works with **any existing reward**. A redemption during cooldown is logged and ignored (no sound).
-Twitch only lets the app that *created* a reward refund points or set Twitch-side cooldowns, so darkbot doesn't refund. For a visible cooldown on Twitch, set the reward's cooldown in the Twitch dashboard as well.
+## Build from source
 
-## Build
+Requires Go 1.27+. darkbot uses [Wails v2](https://wails.io) with a plain HTML/CSS/JS frontend; no Node.js needed.
 
 ```bash
-make test      # vet + tests (race detector)
-make mac       # build/bin/darkbot.app   (macOS, Xcode CLT)
-make windows   # build/bin/darkbot.exe   (any OS, no C compiler needed)
+make test      # vet + tests with the race detector
+make mac       # build/bin/darkbot.app   (macOS, Xcode command line tools)
+make windows   # build/bin/darkbot.exe   (from any system, no C compiler needed)
 make linux     # build/bin/darkbot-linux (on Linux: libgtk-3-dev libwebkit2gtk-4.1-dev)
-make windows CLIENT_ID=xxxx   # bake a Twitch Client ID into the build
+
+make windows CLIENT_ID=xxxx VERSION=0.3.0   # bake in a Twitch Client ID and version
 ```
 
-`wails build` isn't used: the Wails v2.11 CLI binding generator crashes on Go 1.27, and darkbot calls bindings via `window.go.main.App` directly. CI (`.github/workflows/build.yml`) builds all three platforms on native runners.
+Local builds report version `dev` and never update themselves.
+`wails build` isn't used because the Wails v2.11 binding generator crashes on Go 1.27; the frontend calls `window.go.main.App` directly.
 
-## Files
+### Releases
 
-Config: `%AppData%\darkbot\config.json` / `~/Library/Application Support/darkbot/config.json` / `~/.config/darkbot/config.json` (0600, contains the OBS password).
+Push a tag like `v0.3.0`. The `release` workflow builds all platforms on GitHub's free runners for public repositories and publishes the files the self-updater looks for. Set the repository variable `TWITCH_CLIENT_ID` to bake a Client ID into releases.
 
-## Layout
+## Project layout
 
 ```
-main.go, app.go          Wails window, bindings, sound file handler (in-process, no port)
-frontend/dist/           vanilla HTML/CSS/JS UI, audio playback (setSinkId)
-internal/twitch/         device login, token manager (auto refresh), Helix, EventSub WebSocket
-internal/bot/            reward → sound matching, cooldowns, play queue
-internal/obs/            obs-websocket v5 client + media-source output
-internal/audio/          pure-Go decoding for file validation and length
-internal/config/         JSON config (atomic writes)
+main.go, app.go        window, bindings, sound file handler (in-process, no port)
+frontend/dist/         UI (HTML/CSS/JS), audio playback, Archivo font (OFL)
+internal/twitch/       device login, token manager, Helix, EventSub WebSocket
+internal/bot/          reward to sound matching, cooldowns, play queue
+internal/obs/          obs-websocket v5 client and media source output
+internal/selfupdate/   verified GitHub release updates
+internal/audio/        pure-Go decoding for validation and length
+internal/config/       settings file (atomic writes)
 ```
+
+Settings live in `%AppData%\darkbot`, `~/Library/Application Support/darkbot` or `~/.config/darkbot`.
+
+## License
+
+MIT, see [LICENSE](LICENSE). The bundled Archivo font is licensed under the SIL Open Font License 1.1 (`frontend/dist/fonts/OFL.txt`).

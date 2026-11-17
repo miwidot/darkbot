@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -133,8 +135,8 @@ func (e *EventSub) Run(ctx context.Context) {
 
 // session runs one logical session including any server-requested reconnects.
 func (e *EventSub) session(ctx context.Context) error {
-	url := fmt.Sprintf("%s?keepalive_timeout_seconds=%d", eventSubURL, keepaliveSeconds)
-	conn, welcome, err := e.dial(ctx, url)
+	wsURL := fmt.Sprintf("%s?keepalive_timeout_seconds=%d", eventSubURL, keepaliveSeconds)
+	conn, welcome, err := e.dial(ctx, wsURL)
 	if err != nil {
 		return err
 	}
@@ -167,6 +169,9 @@ func (e *EventSub) session(ctx context.Context) error {
 			var sp sessionPayload
 			if err := json.Unmarshal(msg.Payload, &sp); err != nil || sp.Session.ReconnectURL == nil {
 				return fmt.Errorf("bad session_reconnect message: %v", err)
+			}
+			if !isTwitchWSURL(*sp.Session.ReconnectURL) {
+				return fmt.Errorf("refusing reconnect to unexpected URL %q", *sp.Session.ReconnectURL)
 			}
 			newConn, newWelcome, err := e.reconnect(ctx, conn, *sp.Session.ReconnectURL)
 			if err != nil {
@@ -207,10 +212,10 @@ func (e *EventSub) reconnect(ctx context.Context, old *websocket.Conn, reconnect
 	return newConn, welcome, nil
 }
 
-func (e *EventSub) dial(ctx context.Context, url string) (*websocket.Conn, *sessionPayload, error) {
+func (e *EventSub) dial(ctx context.Context, wsURL string) (*websocket.Conn, *sessionPayload, error) {
 	dctx, cancel := context.WithTimeout(ctx, welcomeTimeout)
 	defer cancel()
-	conn, _, err := websocket.Dial(dctx, url, nil)
+	conn, _, err := websocket.Dial(dctx, wsURL, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("connect to EventSub: %w", err)
 	}
@@ -234,6 +239,16 @@ func (e *EventSub) dial(ctx context.Context, url string) (*websocket.Conn, *sess
 		sp.Session.KeepaliveTimeoutSeconds = keepaliveSeconds
 	}
 	return conn, &sp, nil
+}
+
+// isTwitchWSURL allows only secure WebSocket URLs on twitch.tv hosts.
+func isTwitchWSURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "wss" {
+		return false
+	}
+	h := strings.ToLower(u.Hostname())
+	return h == "twitch.tv" || strings.HasSuffix(h, ".twitch.tv")
 }
 
 func readMsg(ctx context.Context, conn *websocket.Conn, timeout time.Duration) (*wsMessage, error) {

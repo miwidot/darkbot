@@ -116,16 +116,28 @@ func (m *TokenManager) AccessToken() (string, error) {
 // Login completes a device-code login: validates the new token to learn the
 // user ID/login, stores it and notifies listeners.
 func (m *TokenManager) Login(ctx context.Context, tok *Token) error {
+	// Hold refreshMu so a refresh still running for the previous token can't
+	// overwrite the new login afterwards.
+	m.refreshMu.Lock()
+	defer m.refreshMu.Unlock()
 	v, err := validateToken(ctx, tok.AccessToken)
 	if err != nil {
 		return fmt.Errorf("validate new token: %w", err)
 	}
-	tok.UserID, tok.Login = v.UserID, v.Login
+	tok.UserID, tok.Login, tok.Scopes = v.UserID, v.Login, v.Scopes
 	return m.set(tok)
 }
 
-// Logout deletes the token.
+// Logout deletes the token. It waits for a running refresh, so a refresh
+// can't write a fresh token back after the user logged out.
 func (m *TokenManager) Logout() error {
+	m.refreshMu.Lock()
+	defer m.refreshMu.Unlock()
+	return m.logoutLocked()
+}
+
+// logoutLocked must be called with refreshMu held.
+func (m *TokenManager) logoutLocked() error {
 	m.mu.Lock()
 	m.tok = nil
 	cb := m.onChange
@@ -196,7 +208,7 @@ func (m *TokenManager) refreshLocked(ctx context.Context, cur *Token) error {
 
 func (m *TokenManager) reject(cause error) error {
 	m.log.Errorf("Twitch login expired or was revoked, please log in again (%v)", cause)
-	if err := m.Logout(); err != nil {
+	if err := m.logoutLocked(); err != nil { // reject runs with refreshMu held
 		m.log.Warnf("delete stored token: %v", err)
 	}
 	return fmt.Errorf("%w: %v", ErrTokenRejected, cause)
@@ -218,6 +230,7 @@ func (m *TokenManager) validate(ctx context.Context) {
 		if m.tok != nil && m.tok.AccessToken == cur.AccessToken {
 			m.tok.ExpiresAt = time.Now().Add(time.Duration(v.ExpiresIn) * time.Second)
 			m.tok.UserID, m.tok.Login = v.UserID, v.Login
+			m.tok.Scopes = v.Scopes
 		}
 		m.mu.Unlock()
 	case errors.Is(err, ErrTokenRejected):

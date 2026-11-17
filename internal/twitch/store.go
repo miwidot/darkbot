@@ -3,8 +3,8 @@ package twitch
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/zalando/go-keyring"
 )
@@ -31,7 +31,8 @@ func (s *KeyringStore) Load() (*Token, error) {
 	case err == nil:
 		var t Token
 		if err := json.Unmarshal([]byte(raw), &t); err != nil {
-			return nil, fmt.Errorf("parse token from keyring: %w", err)
+			s.Log.Warnf("Ignoring unreadable token in the OS keyring (%v), please log in again", err)
+			return nil, nil
 		}
 		return &t, nil
 	case errors.Is(err, keyring.ErrNotFound):
@@ -48,13 +49,42 @@ func (s *KeyringStore) Save(t *Token) error {
 	if err != nil {
 		return err
 	}
-	if err := keyring.Set(keyringService, keyringUser, string(data)); err == nil {
+	err = keyring.Set(keyringService, keyringUser, string(data))
+	if err == nil {
 		_ = os.Remove(s.FallbackPath) // never keep a plaintext copy next to the keyring
 		return nil
-	} else {
-		s.Log.Warnf("OS keyring unavailable (%v), saving token to %s", err, s.FallbackPath)
 	}
-	return os.WriteFile(s.FallbackPath, data, fileStorePerm)
+	s.Log.Warnf("OS keyring unavailable (%v), saving token to %s", err, s.FallbackPath)
+	return writeFileAtomic(s.FallbackPath, data)
+}
+
+// writeFileAtomic writes via temp file + rename so a crash never leaves a
+// half-written token file, and enforces 0600 even if the file existed.
+func writeFileAtomic(path string, data []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	if err := tmp.Chmod(fileStorePerm); err != nil && !errors.Is(err, errors.ErrUnsupported) {
+		tmp.Close()
+		os.Remove(name)
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(name)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(name)
+		return err
+	}
+	if err := os.Rename(name, path); err != nil {
+		os.Remove(name)
+		return err
+	}
+	return nil
 }
 
 // Delete removes the token from keyring and file.
@@ -79,7 +109,10 @@ func (s *KeyringStore) loadFile() (*Token, error) {
 	}
 	var t Token
 	if err := json.Unmarshal(data, &t); err != nil {
-		return nil, fmt.Errorf("parse token file: %w", err)
+		// A damaged token file must not stop darkbot from starting: treat it
+		// as logged out; the next login overwrites it.
+		s.Log.Warnf("Ignoring unreadable token file %s (%v), please log in again", s.FallbackPath, err)
+		return nil, nil
 	}
 	return &t, nil
 }

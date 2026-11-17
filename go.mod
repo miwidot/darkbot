@@ -1,4 +1,4 @@
-module github.com/miwi/darkbot
+module github.com/miwidot/darkbot
 
 go 1.27.1
 

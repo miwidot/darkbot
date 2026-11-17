@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/miwi/darkbot/internal/config"
-	"github.com/miwi/darkbot/internal/twitch"
+	"github.com/miwidot/darkbot/internal/config"
+	"github.com/miwidot/darkbot/internal/twitch"
 )
 
 // MaxQueue is how many sounds may wait; further redemptions are dropped so a
@@ -28,29 +28,87 @@ type Logger interface {
 	Errorf(format string, args ...any)
 }
 
+// Activity kinds reported to the UI.
+const (
+	ActQueued    = "queued"     // accepted, waiting in the queue
+	ActPlaying   = "playing"    // playback started
+	ActDone      = "done"       // playback finished
+	ActCooldown  = "cooldown"   // ignored: sound still on cooldown
+	ActDisabled  = "disabled"   // ignored: sound switched off
+	ActQueueFull = "queue_full" // ignored: too many sounds waiting
+	ActError     = "error"      // playback failed
+)
+
+// Activity is one event for the UI's live feed and pad lights.
+type Activity struct {
+	Kind        string    `json:"kind"`
+	SoundID     string    `json:"soundId"`
+	RewardTitle string    `json:"rewardTitle"`
+	User        string    `json:"user"`
+	Test        bool      `json:"test"`
+	At          time.Time `json:"at"`
+	// CooldownUntil is when the sound is free again (zero = no cooldown).
+	CooldownUntil time.Time `json:"cooldownUntil"`
+	// CooldownSeconds is the configured global cooldown, for the pad ring.
+	CooldownSeconds int    `json:"cooldownSeconds"`
+	Message         string `json:"message,omitempty"`
+}
+
 // Bot handles redemptions.
 type Bot struct {
-	cfg    *config.Store
-	log    Logger
-	output func() Output // resolved per sound so mode changes apply instantly
-	queue  chan job
-	cd     *Cooldowns
+	cfg        *config.Store
+	log        Logger
+	output     func() Output // resolved per sound so mode changes apply instantly
+	queue      chan job
+	cd         *Cooldowns
+	onActivity func(Activity)
+	// resolve fulfills (true) or rejects (false) a redemption of a reward
+	// darkbot manages. Twitch only allows this for rewards darkbot created.
+	resolve func(r twitch.Redemption, fulfill bool)
 }
 
 type job struct {
 	sound config.Sound
 	user  string
+	test  bool
+	red   *twitch.Redemption // nil for test plays
 }
 
-// New creates a bot. outputFor returns the Output for the current mode.
-func New(cfg *config.Store, log Logger, outputFor func() Output) *Bot {
-	return &Bot{
-		cfg:    cfg,
-		log:    log,
-		output: outputFor,
-		queue:  make(chan job, MaxQueue),
-		cd:     NewCooldowns(),
+// SetResolver installs the fulfill/reject callback for managed rewards.
+// Call before Run.
+func (b *Bot) SetResolver(fn func(r twitch.Redemption, fulfill bool)) { b.resolve = fn }
+
+// finish fulfills or rejects the redemption when the reward is managed.
+func (b *Bot) finish(s config.Sound, r *twitch.Redemption, fulfill bool) {
+	if r == nil || !s.Managed || b.resolve == nil {
+		return
 	}
+	go b.resolve(*r, fulfill)
+}
+
+// New creates a bot. outputFor returns the Output for the current mode;
+// onActivity (may be nil) receives every event for the UI.
+func New(cfg *config.Store, log Logger, outputFor func() Output, onActivity func(Activity)) *Bot {
+	if onActivity == nil {
+		onActivity = func(Activity) {}
+	}
+	return &Bot{
+		cfg:        cfg,
+		log:        log,
+		output:     outputFor,
+		queue:      make(chan job, MaxQueue),
+		cd:         NewCooldowns(),
+		onActivity: onActivity,
+	}
+}
+
+func (b *Bot) emit(kind string, s config.Sound, user string, test bool, msg string) {
+	a := Activity{
+		Kind: kind, SoundID: s.ID, RewardTitle: s.RewardTitle, User: user, Test: test,
+		At: time.Now(), CooldownSeconds: s.CooldownSeconds, Message: msg,
+	}
+	a.CooldownUntil = b.cd.GlobalReadyAt(s.ID)
+	b.onActivity(a)
 }
 
 // Run plays queued sounds until ctx is cancelled.
@@ -69,12 +127,20 @@ func (b *Bot) play(ctx context.Context, j job) {
 	out := b.output()
 	if out == nil {
 		b.log.Errorf("No audio output available for %q", j.sound.RewardTitle)
+		b.emit(ActError, j.sound, j.user, j.test, "no audio output available")
+		b.finish(j.sound, j.red, false)
 		return
 	}
 	master := b.cfg.Get().MasterVolume
+	b.emit(ActPlaying, j.sound, j.user, j.test, "")
 	if err := out.Play(ctx, j.sound, master); err != nil {
 		b.log.Errorf("Play %q failed: %v", j.sound.RewardTitle, err)
+		b.emit(ActError, j.sound, j.user, j.test, err.Error())
+		b.finish(j.sound, j.red, false)
+		return
 	}
+	b.emit(ActDone, j.sound, j.user, j.test, "")
+	b.finish(j.sound, j.red, true)
 }
 
 // HandleRedemption is called for every channel point redemption.
@@ -84,19 +150,27 @@ func (b *Bot) HandleRedemption(r twitch.Redemption) {
 	if !ok {
 		return // not a sound reward
 	}
+	s.RewardTitle = r.RewardTitle // show the current Twitch title
 	if !s.Enabled {
 		b.log.Infof("%s redeemed %q, but the sound is disabled", r.UserName, r.RewardTitle)
+		b.emit(ActDisabled, s, r.UserName, false, "")
+		b.finish(s, &r, false)
 		return
 	}
 	if wait, blocked := b.cd.Try(s, r.UserID, time.Now()); blocked {
 		b.log.Infof("%s redeemed %q, still on cooldown (%s left)", r.UserName, r.RewardTitle, wait.Round(time.Second))
+		b.emit(ActCooldown, s, r.UserName, false, wait.Round(time.Second).String())
+		b.finish(s, &r, false)
 		return
 	}
 	select {
-	case b.queue <- job{sound: s, user: r.UserName}:
+	case b.queue <- job{sound: s, user: r.UserName, red: &r}:
 		b.log.Infof("%s redeemed %q", r.UserName, r.RewardTitle)
+		b.emit(ActQueued, s, r.UserName, false, "")
 	default:
 		b.log.Warnf("%s redeemed %q, but %d sounds are already waiting, skipped", r.UserName, r.RewardTitle, MaxQueue)
+		b.emit(ActQueueFull, s, r.UserName, false, "")
+		b.finish(s, &r, false)
 	}
 }
 
@@ -104,7 +178,7 @@ func (b *Bot) HandleRedemption(r twitch.Redemption) {
 func (b *Bot) Test(ctx context.Context, soundID string) {
 	for _, s := range b.cfg.Get().Sounds {
 		if s.ID == soundID {
-			b.play(ctx, job{sound: s, user: "test"})
+			b.play(ctx, job{sound: s, test: true})
 			return
 		}
 	}
@@ -162,6 +236,17 @@ func (c *Cooldowns) Try(s config.Sound, userID string, now time.Time) (time.Dura
 	}
 	c.pruneLocked(now)
 	return 0, false
+}
+
+// GlobalReadyAt returns when the sound's global cooldown ends (zero = free).
+func (c *Cooldowns) GlobalReadyAt(soundID string) time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	t := c.global[soundID]
+	if !time.Now().Before(t) {
+		return time.Time{}
+	}
+	return t
 }
 
 // pruneLocked drops expired entries so the maps don't grow forever.

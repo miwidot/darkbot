@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/miwi/darkbot/internal/config"
+	"github.com/miwidot/darkbot/internal/config"
 )
 
 func TestServeSoundOnlyServesConfiguredFiles(t *testing.T) {

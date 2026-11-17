@@ -42,9 +42,26 @@ const (
 	slowDownStep = 5 * time.Second
 )
 
-// Scopes darkbot requests. channel:read:redemptions is enough to receive
-// channel.channel_points_custom_reward_redemption.add and to list rewards.
-var Scopes = []string{"channel:read:redemptions"}
+// Scopes darkbot requests:
+//   - channel:read:redemptions: receive redemptions (EventSub) and list rewards
+//   - channel:manage:redemptions: create/update/delete darkbot's own rewards
+//     and fulfill or reject their redemptions
+var Scopes = []string{"channel:read:redemptions", "channel:manage:redemptions"}
+
+// HasScopes reports whether the token was granted every scope darkbot needs.
+// Tokens from older darkbot versions lack channel:manage:redemptions.
+func (t *Token) HasScopes() bool {
+	have := map[string]bool{}
+	for _, s := range t.Scopes {
+		have[s] = true
+	}
+	for _, s := range Scopes {
+		if !have[s] {
+			return false
+		}
+	}
+	return true
+}
 
 // ErrTokenRejected means Twitch actively refused the token (HTTP 400/401):
 // it is expired, revoked or invalid and retrying will not help — the user has

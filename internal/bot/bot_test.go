@@ -1,10 +1,13 @@
 package bot
 
 import (
+	"context"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/miwi/darkbot/internal/config"
+	"github.com/miwidot/darkbot/internal/config"
+	"github.com/miwidot/darkbot/internal/twitch"
 )
 
 func TestFindSound(t *testing.T) {
@@ -62,5 +65,114 @@ func TestCooldownsZeroMeansNone(t *testing.T) {
 		if _, blocked := c.Try(s, "u", now); blocked {
 			t.Fatal("no cooldown configured, must never block")
 		}
+	}
+}
+
+type fakeOutput struct{ played chan string }
+
+func (f *fakeOutput) Play(_ context.Context, s config.Sound, _ float64) error {
+	f.played <- s.ID
+	return nil
+}
+
+func TestHandleRedemptionActivityFlow(t *testing.T) {
+	store, err := config.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = store.Update(func(c *config.Config) {
+		c.Sounds = []config.Sound{
+			{ID: "on", RewardID: "r1", RewardTitle: "Airhorn", File: "/a.mp3", CooldownSeconds: 30, Enabled: true},
+			{ID: "off", RewardID: "r2", RewardTitle: "Bruh", File: "/b.mp3", Enabled: false},
+		}
+	})
+
+	var mu sync.Mutex
+	var kinds []string
+	acts := make(chan Activity, 16)
+	out := &fakeOutput{played: make(chan string, 4)}
+	b := New(store, nopLogger{}, func() Output { return out }, func(a Activity) {
+		mu.Lock()
+		kinds = append(kinds, a.Kind)
+		mu.Unlock()
+		acts <- a
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go b.Run(ctx)
+
+	b.HandleRedemption(twitch.Redemption{RewardID: "r1", RewardTitle: "Airhorn", UserID: "u1", UserName: "Kim"})
+	b.HandleRedemption(twitch.Redemption{RewardID: "r1", RewardTitle: "Airhorn", UserID: "u2", UserName: "Max"})
+	b.HandleRedemption(twitch.Redemption{RewardID: "r2", RewardTitle: "Bruh", UserID: "u3", UserName: "Lea"})
+	b.HandleRedemption(twitch.Redemption{RewardID: "zz", RewardTitle: "Hydrate", UserID: "u4", UserName: "Ola"})
+
+	if id := <-out.played; id != "on" {
+		t.Fatalf("played %q", id)
+	}
+	// queued, cooldown, disabled, playing, done
+	for i := 0; i < 5; i++ {
+		select {
+		case <-acts:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("missing activity, got %v", kinds)
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	want := map[string]bool{ActQueued: true, ActCooldown: true, ActDisabled: true, ActPlaying: true, ActDone: true}
+	for _, k := range kinds {
+		delete(want, k)
+	}
+	if len(want) != 0 || len(kinds) != 5 {
+		t.Fatalf("activities = %v", kinds)
+	}
+}
+
+type nopLogger struct{}
+
+func (nopLogger) Infof(string, ...any)  {}
+func (nopLogger) Warnf(string, ...any)  {}
+func (nopLogger) Errorf(string, ...any) {}
+
+func TestManagedRedemptionsAreFulfilledOrRejected(t *testing.T) {
+	store, _ := config.Open(t.TempDir())
+	_ = store.Update(func(c *config.Config) {
+		c.Sounds = []config.Sound{
+			{ID: "m", RewardID: "rm", RewardTitle: "Managed", File: "/m.mp3", Managed: true, UserCooldownSeconds: 60, Enabled: true},
+			{ID: "x", RewardID: "rx", RewardTitle: "Existing", File: "/x.mp3", Enabled: true},
+		}
+	})
+	out := &fakeOutput{played: make(chan string, 4)}
+	b := New(store, nopLogger{}, func() Output { return out }, nil)
+	type res struct {
+		id      string
+		fulfill bool
+	}
+	got := make(chan res, 8)
+	b.SetResolver(func(r twitch.Redemption, fulfill bool) { got <- res{r.ID, fulfill} })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go b.Run(ctx)
+
+	b.HandleRedemption(twitch.Redemption{ID: "1", RewardID: "rm", UserID: "u1"})
+	b.HandleRedemption(twitch.Redemption{ID: "2", RewardID: "rm", UserID: "u1"}) // per-viewer cooldown
+	b.HandleRedemption(twitch.Redemption{ID: "3", RewardID: "rx", UserID: "u1"}) // not managed: never resolved
+
+	want := map[string]bool{"1": true, "2": false}
+	for i := 0; i < 2; i++ {
+		select {
+		case r := <-got:
+			if w, ok := want[r.id]; !ok || w != r.fulfill {
+				t.Fatalf("unexpected resolution %+v", r)
+			}
+			delete(want, r.id)
+		case <-time.After(2 * time.Second):
+			t.Fatalf("missing resolutions: %v", want)
+		}
+	}
+	select {
+	case r := <-got:
+		t.Fatalf("unmanaged reward must not be resolved: %+v", r)
+	case <-time.After(200 * time.Millisecond):
 	}
 }

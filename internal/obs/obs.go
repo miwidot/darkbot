@@ -26,8 +26,8 @@ import (
 	"github.com/andreykaipov/goobs/api/requests/scenes"
 	"github.com/andreykaipov/goobs/api/typedefs"
 
-	"github.com/miwi/darkbot/internal/audio"
-	"github.com/miwi/darkbot/internal/config"
+	"github.com/miwidot/darkbot/internal/audio"
+	"github.com/miwidot/darkbot/internal/config"
 )
 
 const (

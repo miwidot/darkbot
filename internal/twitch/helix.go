@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -23,6 +24,13 @@ const helixTimeout = 15 * time.Second
 
 // ErrNotAffiliate means the channel has no channel points (Helix 403).
 var ErrNotAffiliate = errors.New("channel points need a Twitch Affiliate or Partner account")
+
+// ErrNotFound is a Helix 404 (e.g. the reward was deleted on Twitch).
+var ErrNotFound = errors.New("not found on Twitch")
+
+// ErrNotOwner means the reward was created by another app (Helix 403 with a
+// Client-Id mismatch), so darkbot may not change it.
+var ErrNotOwner = errors.New("this reward was created outside darkbot, so darkbot can't change it")
 
 // Helix is a minimal Helix client that refreshes the token on 401.
 type Helix struct {
@@ -79,7 +87,12 @@ func (h *Helix) do(ctx context.Context, method, path string, query url.Values, b
 
 		if resp.StatusCode < 200 || resp.StatusCode > 299 {
 			te := readTwitchError(resp)
-			if resp.StatusCode == http.StatusForbidden && path == "/channel_points/custom_rewards" {
+			switch {
+			case resp.StatusCode == http.StatusNotFound:
+				return fmt.Errorf("%w: %s", ErrNotFound, te.Message)
+			case resp.StatusCode == http.StatusForbidden && strings.Contains(strings.ToLower(te.Message), "client-id"):
+				return ErrNotOwner
+			case resp.StatusCode == http.StatusForbidden && strings.Contains(strings.ToLower(te.Message), "partner"):
 				return ErrNotAffiliate
 			}
 			return fmt.Errorf("%s %s: status %d: %s", method, path, te.Status, te.Message)
@@ -134,4 +147,80 @@ func (h *Helix) SubscribeRedemptions(ctx context.Context, sessionID, broadcaster
 		},
 	}
 	return h.do(ctx, http.MethodPost, "/eventsub/subscriptions", nil, body, nil)
+}
+
+// RewardSettings are the reward fields darkbot manages for rewards it created.
+// Docs: https://dev.twitch.tv/docs/api/reference/channel-points (verified 2026-11-17)
+type RewardSettings struct {
+	Title   string
+	Cost    int
+	Enabled bool
+	// CooldownSeconds > 0 enables Twitch's global cooldown (shown to viewers
+	// on Twitch when >= 60 s).
+	CooldownSeconds int
+}
+
+// Reward limits from the Twitch reference.
+const (
+	MaxRewardTitle = 45
+	MinRewardCost  = 1
+	MaxRewardCost  = 1_000_000_000
+	MaxRewards     = 50
+)
+
+func (r RewardSettings) body() map[string]any {
+	// Limit fields are sent as pairs; omitting one resets it (docs).
+	return map[string]any{
+		"title":                                 r.Title,
+		"cost":                                  r.Cost,
+		"is_enabled":                            r.Enabled,
+		"is_global_cooldown_enabled":            r.CooldownSeconds > 0,
+		"global_cooldown_seconds":               max(r.CooldownSeconds, 0),
+		"should_redemptions_skip_request_queue": false, // keep UNFULFILLED so we can fulfill or reject
+	}
+}
+
+// CreateReward creates a custom reward owned by darkbot's Client ID.
+func (h *Helix) CreateReward(ctx context.Context, broadcasterID string, r RewardSettings) (*Reward, error) {
+	var out struct {
+		Data []Reward `json:"data"`
+	}
+	q := url.Values{"broadcaster_id": {broadcasterID}}
+	if err := h.do(ctx, http.MethodPost, "/channel_points/custom_rewards", q, r.body(), &out); err != nil {
+		return nil, err
+	}
+	if len(out.Data) == 0 {
+		return nil, errors.New("create reward: empty response")
+	}
+	return &out.Data[0], nil
+}
+
+// UpdateReward updates a reward darkbot created.
+func (h *Helix) UpdateReward(ctx context.Context, broadcasterID, rewardID string, r RewardSettings) error {
+	q := url.Values{"broadcaster_id": {broadcasterID}, "id": {rewardID}}
+	return h.do(ctx, http.MethodPatch, "/channel_points/custom_rewards", q, r.body(), nil)
+}
+
+// DeleteReward deletes a reward darkbot created. A reward that is already
+// gone (404) counts as deleted.
+func (h *Helix) DeleteReward(ctx context.Context, broadcasterID, rewardID string) error {
+	q := url.Values{"broadcaster_id": {broadcasterID}, "id": {rewardID}}
+	err := h.do(ctx, http.MethodDelete, "/channel_points/custom_rewards", q, nil, nil)
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	return err
+}
+
+// Redemption statuses for UpdateRedemptionStatus.
+const (
+	StatusFulfilled = "FULFILLED"
+	StatusCanceled  = "CANCELED"
+)
+
+// UpdateRedemptionStatus fulfills or rejects one UNFULFILLED redemption of a
+// reward darkbot created.
+func (h *Helix) UpdateRedemptionStatus(ctx context.Context, broadcasterID, rewardID, redemptionID, status string) error {
+	q := url.Values{"broadcaster_id": {broadcasterID}, "reward_id": {rewardID}, "id": {redemptionID}}
+	return h.do(ctx, http.MethodPatch, "/channel_points/custom_rewards/redemptions", q, map[string]string{"status": status}, nil)
 }

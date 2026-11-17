@@ -9,15 +9,18 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/miwi/darkbot/internal/applog"
-	"github.com/miwi/darkbot/internal/audio"
-	"github.com/miwi/darkbot/internal/bot"
-	"github.com/miwi/darkbot/internal/config"
-	"github.com/miwi/darkbot/internal/obs"
-	"github.com/miwi/darkbot/internal/twitch"
+	"github.com/miwidot/darkbot/internal/applog"
+	"github.com/miwidot/darkbot/internal/audio"
+	"github.com/miwidot/darkbot/internal/bot"
+	"github.com/miwidot/darkbot/internal/config"
+	"github.com/miwidot/darkbot/internal/obs"
+	"github.com/miwidot/darkbot/internal/selfupdate"
+	"github.com/miwidot/darkbot/internal/twitch"
+	"github.com/miwidot/darkbot/internal/version"
 )
 
 // defaultClientID can be baked into a release build:
@@ -33,6 +36,10 @@ const (
 	playbackGrace  = 5 * time.Second
 	rewardsTimeout = 15 * time.Second
 	soundURLPrefix = "/sound/"
+	// firstUpdateCheck waits a moment after start so the window is up first.
+	firstUpdateCheck = 5 * time.Second
+	// updateCheckEvery: while running, new releases are only announced.
+	updateCheckEvery = 6 * time.Hour
 )
 
 // App is bound to the frontend: every exported method is callable from JS.
@@ -52,6 +59,8 @@ type App struct {
 	esConnected bool
 	loginCancel context.CancelFunc
 	loginCode   *twitch.DeviceCode
+	update      *selfupdate.Info
+	updating    bool
 }
 
 // NewApp wires all components. Errors here are fatal config/keyring problems.
@@ -82,7 +91,12 @@ func NewApp(log *applog.Log) (*App, error) {
 	})
 	a.web = &webOutput{app: a, pending: map[string]chan string{}}
 	a.obsO = &obs.Output{OBS: a.obs, Cfg: cfg}
-	a.bot = bot.New(cfg, log, a.currentOutput)
+	a.bot = bot.New(cfg, log, a.currentOutput, func(act bot.Activity) {
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, "activity", act)
+		}
+	})
+	a.bot.SetResolver(a.resolveRedemption)
 	return a, nil
 }
 
@@ -95,6 +109,8 @@ func (a *App) currentOutput() bot.Output {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	selfupdate.CleanupPrevious()
+	a.log.Infof("darkbot %s", version.Version)
 	a.log.OnChange(func() { runtime.EventsEmit(ctx, "log") })
 	a.tok.OnChange(func(t *twitch.Token) {
 		if t == nil {
@@ -116,6 +132,97 @@ func (a *App) startup(ctx context.Context) {
 	if c := a.cfg.Get().OBS; c.AutoConnect {
 		go func() { _ = a.ConnectOBS() }()
 	}
+	go a.updateLoop(ctx)
+}
+
+// ---------- updates ----------
+
+// updateLoop checks GitHub releases. Only the check right after start may
+// install automatically (the stream hasn't started yet); later checks just
+// show the update in the UI so a running stream is never interrupted.
+func (a *App) updateLoop(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(firstUpdateCheck):
+	}
+	if info := a.checkUpdate(); info != nil && info.Available && a.cfg.Get().AutoUpdate {
+		a.log.Infof("Installing update v%s automatically", info.Latest)
+		if err := a.InstallUpdate(); err != nil {
+			a.log.Errorf("Automatic update failed: %v", err)
+		}
+	}
+	ticker := time.NewTicker(updateCheckEvery)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			a.checkUpdate()
+		}
+	}
+}
+
+func (a *App) checkUpdate() *selfupdate.Info {
+	info, err := selfupdate.Check(version.RepoOwner, version.RepoName, version.Version)
+	if err != nil {
+		a.log.Warnf("Update check: %v", err)
+		return nil
+	}
+	a.mu.Lock()
+	a.update = info
+	a.mu.Unlock()
+	if info.Available {
+		a.log.Infof("Update available: v%s (you have %s)", info.Latest, version.Version)
+	}
+	a.emitState()
+	return info
+}
+
+// CheckUpdate runs an update check now (Settings → Updates).
+func (a *App) CheckUpdate() (*selfupdate.Info, error) {
+	info, err := selfupdate.Check(version.RepoOwner, version.RepoName, version.Version)
+	if err != nil {
+		return nil, err
+	}
+	a.mu.Lock()
+	a.update = info
+	a.mu.Unlock()
+	a.emitState()
+	return info, nil
+}
+
+// InstallUpdate downloads and verifies the latest release, replaces the
+// program and restarts it.
+func (a *App) InstallUpdate() error {
+	a.mu.Lock()
+	if a.updating {
+		a.mu.Unlock()
+		return errors.New("an update is already being installed")
+	}
+	a.updating = true
+	a.mu.Unlock()
+	a.emitState()
+	defer func() {
+		a.mu.Lock()
+		a.updating = false
+		a.mu.Unlock()
+		a.emitState()
+	}()
+
+	tag, err := selfupdate.Update(version.RepoOwner, version.RepoName, version.Version)
+	if err != nil {
+		return err
+	}
+	a.log.Infof("Update %s installed, restarting", tag)
+	a.obs.Disconnect()
+	return selfupdate.Restart()
+}
+
+// SetAutoUpdate toggles automatic installation on start.
+func (a *App) SetAutoUpdate(on bool) error {
+	return a.cfg.Update(func(c *config.Config) { c.AutoUpdate = on })
 }
 
 func (a *App) shutdown(context.Context) {
@@ -126,27 +233,35 @@ func (a *App) shutdown(context.Context) {
 
 // State is everything the UI renders.
 type State struct {
-	Config           config.Config `json:"config"`
-	TwitchLogin      string        `json:"twitchLogin"`
-	EventSubOnline   bool          `json:"eventSubOnline"`
-	OBSConnected     bool          `json:"obsConnected"`
-	LoginUserCode    string        `json:"loginUserCode"`
-	LoginURI         string        `json:"loginUri"`
-	SupportedFormats []string      `json:"supportedFormats"`
+	Config           config.Config    `json:"config"`
+	TwitchLogin      string           `json:"twitchLogin"`
+	EventSubOnline   bool             `json:"eventSubOnline"`
+	OBSConnected     bool             `json:"obsConnected"`
+	LoginUserCode    string           `json:"loginUserCode"`
+	LoginURI         string           `json:"loginUri"`
+	SupportedFormats []string         `json:"supportedFormats"`
+	Version          string           `json:"version"`
+	Update           *selfupdate.Info `json:"update"`
+	Updating         bool             `json:"updating"`
+	// NeedsReconnect: the stored token lacks a scope (e.g. from an older
+	// darkbot), so creating rewards needs a fresh Twitch login.
+	NeedsReconnect bool `json:"needsReconnect"`
 }
 
 // GetState returns the current UI state.
 func (a *App) GetState() State {
-	s := State{Config: a.cfg.Get(), OBSConnected: a.obs.Connected(), SupportedFormats: audio.Extensions}
+	s := State{Config: a.cfg.Get(), OBSConnected: a.obs.Connected(), SupportedFormats: audio.Extensions, Version: version.Version}
 	s.Config.OBS.Password = "" // never send secrets back to the UI
 	if t := a.tok.Current(); t != nil {
 		s.TwitchLogin = t.Login
+		s.NeedsReconnect = !t.HasScopes()
 	}
 	a.mu.Lock()
 	s.EventSubOnline = a.esConnected
 	if a.loginCode != nil {
 		s.LoginUserCode, s.LoginURI = a.loginCode.UserCode, a.loginCode.VerificationURI
 	}
+	s.Update, s.Updating = a.update, a.updating
 	a.mu.Unlock()
 	return s
 }
@@ -348,6 +463,11 @@ func (a *App) SaveOutput(mode string, deviceID, deviceName string, master float6
 	})
 }
 
+// SetMasterVolume changes only the master volume (status bar slider).
+func (a *App) SetMasterVolume(v float64) error {
+	return a.cfg.Update(func(c *config.Config) { c.MasterVolume = v })
+}
+
 // PickSoundFile opens a native file dialog.
 func (a *App) PickSoundFile() (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
@@ -362,6 +482,7 @@ func (a *App) PickSoundFile() (string, error) {
 // SaveSound adds or updates a sound (matched by ID).
 func (a *App) SaveSound(s config.Sound) (config.Sound, error) {
 	s.File = strings.TrimSpace(s.File)
+	s.RewardTitle = strings.TrimSpace(s.RewardTitle)
 	if s.File == "" {
 		return s, errors.New("choose a sound file")
 	}
@@ -371,12 +492,32 @@ func (a *App) SaveSound(s config.Sound) (config.Sound, error) {
 	if _, err := audio.Duration(s.File); err != nil {
 		return s, fmt.Errorf("cannot read sound file: %w", err)
 	}
-	if s.RewardID == "" && strings.TrimSpace(s.RewardTitle) == "" {
-		return s, errors.New("choose a channel point reward")
-	}
 	if s.ID == "" {
 		s.ID = config.NewID()
 	}
+
+	if s.Managed {
+		created, err := a.syncReward(&s)
+		if err != nil {
+			return s, err
+		}
+		if err := a.storeSound(s); err != nil {
+			if created {
+				// Don't leave an orphan reward on Twitch.
+				a.deleteReward(s.RewardID)
+			}
+			return s, err
+		}
+		return s, nil
+	}
+
+	if s.RewardID == "" && s.RewardTitle == "" {
+		return s, errors.New("choose a channel point reward")
+	}
+	return s, a.storeSound(s)
+}
+
+func (a *App) storeSound(s config.Sound) error {
 	err := a.cfg.Update(func(c *config.Config) {
 		for i := range c.Sounds {
 			if c.Sounds[i].ID == s.ID {
@@ -387,11 +528,94 @@ func (a *App) SaveSound(s config.Sound) (config.Sound, error) {
 		c.Sounds = append(c.Sounds, s)
 	})
 	a.emitState()
-	return s, err
+	return err
 }
 
-// DeleteSound removes a sound.
+// syncReward creates or updates the Twitch reward of a managed sound.
+// It reports whether a new reward was created.
+func (a *App) syncReward(s *config.Sound) (bool, error) {
+	t, err := a.requireManageScope()
+	if err != nil {
+		return false, err
+	}
+	if n := utf8.RuneCountInString(s.RewardTitle); n < 1 || n > twitch.MaxRewardTitle {
+		return false, fmt.Errorf("the reward name must be 1 to %d characters", twitch.MaxRewardTitle)
+	}
+	if s.RewardCost < twitch.MinRewardCost || s.RewardCost > twitch.MaxRewardCost {
+		return false, fmt.Errorf("the price must be between %d and %d points", twitch.MinRewardCost, twitch.MaxRewardCost)
+	}
+	settings := twitch.RewardSettings{Title: s.RewardTitle, Cost: s.RewardCost, Enabled: s.Enabled, CooldownSeconds: s.CooldownSeconds}
+	ctx, cancel := context.WithTimeout(a.ctx, rewardsTimeout)
+	defer cancel()
+
+	if s.RewardID != "" {
+		err := a.hx.UpdateReward(ctx, t.UserID, s.RewardID, settings)
+		if err == nil {
+			a.log.Infof("Updated reward %q on Twitch", s.RewardTitle)
+			return false, nil
+		}
+		if !errors.Is(err, twitch.ErrNotFound) {
+			return false, fmt.Errorf("update reward on Twitch: %w", err)
+		}
+		a.log.Warnf("Reward %q was deleted on Twitch, creating it again", s.RewardTitle)
+	}
+	r, err := a.hx.CreateReward(ctx, t.UserID, settings)
+	if err != nil {
+		return false, fmt.Errorf("create reward on Twitch: %w", err)
+	}
+	s.RewardID = r.ID
+	a.log.Infof("Created reward %q (%d points) on Twitch", s.RewardTitle, s.RewardCost)
+	return true, nil
+}
+
+func (a *App) requireManageScope() (*twitch.Token, error) {
+	t := a.tok.Current()
+	if t == nil {
+		return nil, errors.New("connect Twitch first (Settings, Twitch)")
+	}
+	if !t.HasScopes() {
+		return nil, errors.New("reconnect Twitch so darkbot may create rewards (Settings, Twitch, Disconnect, Connect)")
+	}
+	return t, nil
+}
+
+func (a *App) deleteReward(rewardID string) {
+	t := a.tok.Current()
+	if t == nil || rewardID == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, rewardsTimeout)
+	defer cancel()
+	if err := a.hx.DeleteReward(ctx, t.UserID, rewardID); err != nil {
+		a.log.Errorf("Delete reward on Twitch: %v", err)
+	}
+}
+
+// DeleteSound removes a sound. For a reward darkbot created, the reward is
+// deleted on Twitch first, so no orphan reward stays on the channel.
 func (a *App) DeleteSound(id string) error {
+	var target *config.Sound
+	for _, s := range a.cfg.Get().Sounds {
+		if s.ID == id {
+			target = &s
+			break
+		}
+	}
+	if target == nil {
+		return nil
+	}
+	if target.Managed && target.RewardID != "" {
+		t, err := a.requireManageScope()
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(a.ctx, rewardsTimeout)
+		defer cancel()
+		if err := a.hx.DeleteReward(ctx, t.UserID, target.RewardID); err != nil {
+			return fmt.Errorf("delete reward on Twitch: %w", err)
+		}
+		a.log.Infof("Deleted reward %q on Twitch", target.RewardTitle)
+	}
 	err := a.cfg.Update(func(c *config.Config) {
 		out := c.Sounds[:0]
 		for _, s := range c.Sounds {
@@ -403,6 +627,28 @@ func (a *App) DeleteSound(id string) error {
 	})
 	a.emitState()
 	return err
+}
+
+// resolveRedemption fulfills a played redemption or rejects one that
+// couldn't play (cooldown, off, queue full, error).
+func (a *App) resolveRedemption(r twitch.Redemption, fulfill bool) {
+	t := a.tok.Current()
+	if t == nil {
+		return
+	}
+	status := twitch.StatusCanceled
+	if fulfill {
+		status = twitch.StatusFulfilled
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, rewardsTimeout)
+	defer cancel()
+	if err := a.hx.UpdateRedemptionStatus(ctx, t.UserID, r.RewardID, r.ID, status); err != nil {
+		a.log.Warnf("Could not mark redemption of %q by %s as %s: %v", r.RewardTitle, r.UserName, strings.ToLower(status), err)
+		return
+	}
+	if !fulfill {
+		a.log.Infof("Rejected %s's redemption of %q", r.UserName, r.RewardTitle)
+	}
 }
 
 // TestSound plays a sound now (ignores cooldowns).
