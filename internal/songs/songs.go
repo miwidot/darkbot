@@ -137,6 +137,16 @@ func New(d Deps) *Handler {
 
 // IsCommand reports whether text starts with one of our commands, so the
 // caller only spawns work for relevant messages.
+// CommandNames are the song commands without "!", so the streamer's own
+// chat commands can't take them.
+func CommandNames() []string {
+	var out []string
+	for _, c := range []string{cmdRequest, cmdRequestLong, cmdSong, cmdNext, cmdQueue, cmdSkip} {
+		out = append(out, strings.TrimPrefix(c, "!"))
+	}
+	return out
+}
+
 func IsCommand(text string) bool {
 	cmd, _ := split(text)
 	switch cmd {

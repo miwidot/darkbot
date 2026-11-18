@@ -11,14 +11,15 @@ darkbot does the sound part of tools like Streamer.bot, and nothing else: one wi
 - **Works with rewards you already have.** You can also attach a sound to an existing reward. darkbot then only listens and doesn't change that reward.
 - **Cooldowns.** Set a cooldown for everyone and a separate one per viewer. For rewards darkbot created, Twitch shows the cooldown to viewers too (from 60 seconds up).
 - **Fair to viewers.** If a sound can't play (per-viewer cooldown, switched off, too many sounds waiting, file error), darkbot rejects the redemption instead of silently eating it, and Twitch returns the points. This only works for rewards darkbot created, because Twitch only lets the creating app change redemptions.
-- **One sound at a time.** Redemptions queue up and play in order (max 20 waiting).
+- **One sound at a time.** Redemptions, events, chat commands and tests share one queue and play in order (max 20 waiting), so sounds never mix.
 - **Choose where sounds play:**
   - *Audio device:* darkbot plays the sound itself on the output you pick, like Streamer.bot or StreamElements. Capture that output, or darkbot itself, in OBS.
   - *Inside OBS:* darkbot plays the sound in an OBS media source and routes it to the audio tracks 1–6 you choose, for example stream only, or stream and recording but not your VOD track.
 - **Song requests from chat (Spotify).** Viewers type `!sr <Spotify link or song name>` and the song goes into your Spotify queue. `!song`, `!next` and `!queue` show what plays; `!skip` is for you, your moderators and (optional) whoever requested the song. Per-viewer cooldown, maximum length and an explicit filter are adjustable. Uses your own Spotify app, see [Song requests](#song-requests-spotify).
 - **Channel events with actions.** Follows, subs, resubs, gifted subs, Bits, raids, hype trains (start, level ups, end), shoutouts, ad breaks and stream start/end appear live in the activity feed. For each you can play a sound and/or post a chat message (`{user}`, `{amount}`, `{tier}`, `{months}`, `{top}` for the biggest hype train contributor), optionally only from a minimum amount or level. A sub bomb runs one action for the gifter, not one per recipient. Twitch has no unfollow event; an opt-in check compares your follower list every 10 minutes (up to 5,000 followers).
+- **Chat commands and timers (off until you turn them on).** Your own commands like `!discord` or `!hug @name` with a chat answer (`{user}`, `{target}`), an optional sound, other names, who may use them (everyone, subscribers, VIPs, moderators, only you) and cooldowns. Timers post a message every few minutes while you are live, optionally only after some chat messages, never two at once. darkbot writes with your account and ignores its own messages, so a command can't trigger itself.
 - **Alerts in OBS, without a port.** Each event can show a picture, animated GIF or video (WebM with transparency works) and a text like "{user} is following!" in OBS, together with its sound. One click in Settings, OBS creates a scene called `[darkbot]` that holds everything darkbot shows or plays, and adds it on top of each of your scenes; nothing else in your scenes changes. New scenes are noticed and offered. *Remove from OBS* takes it all out again.
-- **Dashboard.** The start page counts redemptions, chat commands and song requests per session and in total, ranks the most redeemed sounds and most active viewers, and shows the state of your Twitch and Spotify logins (valid until, next automatic renewal, how long the login lasts) with a renew button.
+- **Dashboard.** The start page counts redemptions, chat commands and song requests per stream (kept across restarts and updates; a new stream starts a new count) and in total, ranks the most redeemed sounds and most active viewers, and shows the state of your Twitch and Spotify logins (valid until, next automatic renewal, how long the login lasts) with a renew button.
 - **Starts with your computer** if you want (Windows, macOS, Linux; per user, no admin rights). On Windows it starts quietly in the tray.
 - **Lives in the Windows tray.** Closing the window keeps darkbot running next to the clock (can be switched off); click the icon to open it, the menu installs updates and quits. Starting darkbot a second time just shows the running one, so no sound plays twice.
 - **Live view.** Every sound is a pad. It lights up while playing and shows its cooldown draining. An activity feed lists who redeemed what and why something didn't play.
@@ -142,6 +143,8 @@ internal/audio/        pure-Go decoding for validation and length
 internal/config/       settings file (atomic writes)
 internal/spotify/      Spotify PKCE login (paste flow, no port) and Web API client
 internal/songs/        chat commands !sr !song !next !queue !skip
+internal/chatbot/      your own chat commands and timers
+internal/stats/        dashboard counts (session and total, kept on disk)
 internal/secret/       OS keyring storage with 0600 file fallback
 internal/i18n/         UI languages: locales/en.json, de.json (shared by Go and the UI)
 ```

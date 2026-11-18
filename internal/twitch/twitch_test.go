@@ -332,6 +332,17 @@ func TestParseChatEvent(t *testing.T) {
 		t.Fatalf("broadcaster message: ok=%v %+v", ok, m)
 	}
 
+	for _, tc := range []struct {
+		badge    string
+		vip, sub bool
+	}{{"vip", true, false}, {"subscriber", false, true}, {"founder", false, true}, {"sub-gifter", false, false}} {
+		raw := `{"broadcaster_user_id":"1","chatter_user_id":"3","message":{"text":"x"},"badges":[{"set_id":"` + tc.badge + `","id":"1","info":""}]}`
+		m, _, _ := parseChatEvent(json.RawMessage(raw))
+		if m.IsVIP != tc.vip || m.IsSubscriber != tc.sub || m.IsModerator {
+			t.Errorf("badge %s: %+v", tc.badge, m)
+		}
+	}
+
 	shared := `{"broadcaster_user_id":"1","chatter_user_id":"9","message":{"text":"!sr x"},"badges":[],"source_broadcaster_user_id":"5"}`
 	if _, ok, _ := parseChatEvent(json.RawMessage(shared)); ok {
 		t.Fatal("Shared Chat messages from other channels must be ignored")
@@ -584,5 +595,31 @@ func TestChannelTotals(t *testing.T) {
 	}
 	if n, p, err := h.GetSubscriptionTotals(context.Background(), "42"); err != nil || n != 42 || p != 58 {
 		t.Fatalf("subs %d points %d %v", n, p, err)
+	}
+}
+
+func TestLiveSince(t *testing.T) {
+	live := true
+	fakeTwitch(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if r.URL.Path != "/helix/streams" || q.Get("user_id") != "42" || q.Get("type") != "live" {
+			writeJSON(w, 400, map[string]any{"status": 400, "message": "unexpected request"})
+			return
+		}
+		data := []map[string]any{}
+		if live {
+			data = append(data, map[string]any{"id": "1", "user_id": "42", "type": "live", "started_at": "2026-11-18T19:00:00Z"})
+		}
+		writeJSON(w, 200, map[string]any{"data": data, "pagination": map[string]any{}})
+	})
+	m, _ := NewTokenManager("cid", &memStore{tok: &Token{AccessToken: "A1", RefreshToken: "R1", UserID: "42"}}, nopLog{})
+	h := NewHelix(m)
+	on, since, err := h.LiveSince(context.Background(), "42")
+	if err != nil || !on || !since.Equal(time.Date(2026, 11, 18, 19, 0, 0, 0, time.UTC)) {
+		t.Fatalf("live: %v %v %v", on, since, err)
+	}
+	live = false // offline: Twitch returns an empty list
+	if on, _, err := h.LiveSince(context.Background(), "42"); err != nil || on {
+		t.Fatalf("offline: %v %v", on, err)
 	}
 }

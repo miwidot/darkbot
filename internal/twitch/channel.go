@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 // Channel totals for the dashboard (verified 2026-11-18):
@@ -16,6 +17,28 @@ import (
 // Both are read with first=1: only the totals are needed, not the lists.
 // There is no channel-wide Bits total in the API (the Bits leaderboard is
 // per user), so Bits stay counted by darkbot.
+
+// LiveSince reports whether the broadcaster is streaming now and since
+// when. Get Streams (https://dev.twitch.tv/docs/api/reference/streams,
+// checked 2026-11-18) needs no scope and "Returns only the streams of
+// those users that are broadcasting", so an offline channel is an empty
+// list; started_at is "The UTC date and time ... of when the broadcast
+// began".
+func (h *Helix) LiveSince(ctx context.Context, broadcasterID string) (live bool, since time.Time, err error) {
+	var out struct {
+		Data []struct {
+			StartedAt time.Time `json:"started_at"`
+		} `json:"data"`
+	}
+	q := url.Values{"user_id": {broadcasterID}, "type": {"live"}}
+	if err := h.do(ctx, http.MethodGet, "/streams", q, nil, &out); err != nil {
+		return false, time.Time{}, err
+	}
+	if len(out.Data) == 0 {
+		return false, time.Time{}, nil
+	}
+	return true, out.Data[0].StartedAt, nil
+}
 
 // GetFollowerCount returns how many users follow the broadcaster.
 func (h *Helix) GetFollowerCount(ctx context.Context, broadcasterID string) (int, error) {

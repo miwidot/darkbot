@@ -89,7 +89,10 @@ func (a *App) countEvent(ev twitch.ChannelEvent) {
 	case twitch.EvOnline:
 		// A new stream is a new session on the dashboard.
 		a.st.ResetSession()
+		a.setLive(true, time.Time{})
 		a.log.Infof("Stream is live, dashboard session started")
+	case twitch.EvOffline:
+		a.setLive(false, time.Time{})
 	case twitch.EvFollow:
 		a.st.Follow(ev.User)
 	case twitch.EvUnfollow:

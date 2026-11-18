@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 )
 
 type nopLog struct{}
@@ -88,5 +89,50 @@ func TestConcurrentUpdates(t *testing.T) {
 	s.Flush()
 	if snap := s.Snapshot(); snap.Session.Redemptions != 50 || snap.Session.Commands != 50 {
 		t.Fatalf("got %+v", snap.Session)
+	}
+}
+
+// A restart (e.g. an update mid-stream) keeps the running session.
+func TestSessionSurvivesRestart(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "stats.json")
+	s := Open(p, nopLog{})
+	s.Redemption("Anna", "Airhorn", true)
+	s.Follow("Ben")
+	before := s.Snapshot()
+	s.Flush()
+
+	after := Open(p, nopLog{}).Snapshot()
+	if after.Session != before.Session || !after.Since.Equal(before.Since) || after.Viewers != before.Viewers {
+		t.Fatalf("session lost: before %+v after %+v", before, after)
+	}
+	if len(after.TopSounds) != 1 || after.TopSounds[0] != (Entry{"Airhorn", 1}) {
+		t.Fatalf("top sounds lost: %+v", after.TopSounds)
+	}
+}
+
+// A stream that started while darkbot was off starts the session at the
+// stream's start; that reset is saved too.
+func TestResetSessionAtIsSaved(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "stats.json")
+	s := Open(p, nopLog{})
+	s.Redemption("Anna", "Airhorn", true)
+	start := time.Date(2026, 11, 18, 19, 0, 0, 0, time.UTC)
+	s.ResetSessionAt(start)
+	s.Flush()
+	snap := Open(p, nopLog{}).Snapshot()
+	if !snap.Since.Equal(start) || snap.Session != (Counts{}) || snap.Total.Redemptions != 1 {
+		t.Fatalf("got %+v", snap)
+	}
+}
+
+// Files from v0.2.7 and older have no session: it starts at launch.
+func TestOldFileWithoutSession(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "stats.json")
+	if err := os.WriteFile(p, []byte(`{"since":"2026-01-01T00:00:00Z","total":{"follows":7}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	snap := Open(p, nopLog{}).Snapshot()
+	if snap.Total.Follows != 7 || snap.Session != (Counts{}) || time.Since(snap.Since) > time.Minute {
+		t.Fatalf("got %+v", snap)
 	}
 }

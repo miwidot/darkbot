@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/miwidot/darkbot/internal/audio"
 	"github.com/miwidot/darkbot/internal/autostart"
 	"github.com/miwidot/darkbot/internal/bot"
+	"github.com/miwidot/darkbot/internal/chatbot"
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/i18n"
 	"github.com/miwidot/darkbot/internal/obs"
@@ -79,6 +81,8 @@ type App struct {
 	hx                                    *twitch.Helix
 	obs                                   *obs.Client
 	bot                                   *bot.Bot
+	cb                                    *chatbot.Bot
+	live                                  atomic.Bool // the stream is live (chat_app.go)
 	web                                   *webOutput
 	obsO                                  *obs.Output
 	sp                                    *spotify.Client
@@ -141,6 +145,7 @@ func NewApp(log *applog.Log) (*App, error) {
 	a.bot.SetResolver(a.resolveRedemption)
 	a.bot.SetOverlay(a.overlay)
 	a.bot.SetLocalizer(func(err error) string { return i18n.Localize(err, a.lang()) })
+	a.cb = a.newChatBot()
 
 	spStore := &spotify.KeyringStore{FallbackPath: cfg.SpotifyTokenPath(), Log: log}
 	if a.sp, err = spotify.NewClient(cfg.Get().Songs.SpotifyClientID, spStore, log); err != nil {
@@ -196,6 +201,7 @@ func (a *App) startup(ctx context.Context) {
 
 	go a.tok.Run(ctx)
 	go a.bot.Run(ctx)
+	go a.cb.Run(ctx)
 
 	if a.tok.Current() != nil {
 		a.startEventSub()
@@ -360,6 +366,8 @@ type State struct {
 	TraySupported bool `json:"traySupported"`
 	// Channel: followers and subs as they are on Twitch now.
 	Channel ChannelTotals `json:"channel"`
+	// Live: the stream is live (timers post only then).
+	Live bool `json:"live"`
 }
 
 // GetState returns the current UI state.
@@ -379,6 +387,7 @@ func (a *App) GetState() State {
 	s.FollowerStatus = a.followerStatus()
 	s.TraySupported = tray.Supported()
 	s.Channel = a.channelTotals()
+	s.Live = a.live.Load()
 	s.AutostartSupported = autostart.Supported()
 	if s.AutostartSupported {
 		on, err := autostart.Enabled()
@@ -558,10 +567,14 @@ func (a *App) startEventSub() {
 	})
 	es.OnChannelEvent(a.onChannelEvent)
 	es.OnChat(func(m twitch.ChatMessage) {
-		// EventSub delivers on its read loop; Spotify calls must not block it.
+		// EventSub delivers on its read loop; Spotify and chat calls must
+		// not block it.
 		if songs.IsCommand(m.Text) {
 			go a.sr.Handle(ctx, m)
 		}
+		// Every message counts for the timers; song commands are reserved
+		// names, so the chat bot never answers them.
+		go a.cb.Handle(ctx, m)
 	})
 	go es.Run(ctx)
 	a.startFollowerWatcher()

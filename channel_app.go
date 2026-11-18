@@ -10,6 +10,7 @@ import (
 
 // The dashboard's channel row shows the channel as it is now (followers,
 // active subs) from Twitch, next to what darkbot counted this session.
+// The same loop reads whether the stream is live (see chat_app.go).
 
 const (
 	// channelTotalsEvery: regular refresh, two cheap requests.
@@ -77,17 +78,18 @@ func (a *App) channelTotalsLoop(ctx context.Context) {
 func (a *App) readChannelTotals(ctx context.Context) {
 	tok := a.tok.Current()
 	if tok == nil {
+		a.setLive(false, time.Time{})
 		a.setChannelTotals(ChannelTotals{}, nil)
 		return
 	}
 	ctx, cancel := context.WithTimeout(ctx, channelTotalsTimeout)
 	defer cancel()
 	var t ChannelTotals
-	var firstErr error
+	firstErr := a.readLive(ctx, tok.UserID)
 	if tok.HasScope(twitch.ScopeReadFollowers) {
 		if n, err := a.hx.GetFollowerCount(ctx, tok.UserID); err == nil {
 			t.Followers = &n
-		} else {
+		} else if firstErr == nil {
 			firstErr = err
 		}
 	}
@@ -109,7 +111,7 @@ func (a *App) setChannelTotals(t ChannelTotals, err error) {
 	a.ch.totals = t
 	a.ch.mu.Unlock()
 	if logFail {
-		a.log.Warnf("Could not read follower/sub totals from Twitch: %v", err)
+		a.log.Warnf("Could not read the stream state or follower/sub totals from Twitch: %v", err)
 	}
 	a.emitState()
 }

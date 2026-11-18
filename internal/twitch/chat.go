@@ -26,6 +26,17 @@ const (
 	// the payload example of the EventSub reference). The docs list no other
 	// moderator-like set_id (checked 2026-11-17), so only this one counts.
 	badgeModerator = "moderator"
+	// badgeVIP and badgeSubscriber are the set_ids of the VIP and
+	// subscriber badges (Get Global Chat Badges example and the chat
+	// message payload example, checked 2026-11-18). Twitch says to read
+	// badges from each message, not to store them.
+	badgeVIP        = "vip"
+	badgeSubscriber = "subscriber"
+	// badgeFounder: Twitch's badge for a channel's first subscribers,
+	// shown instead of the subscriber badge. It is not in the docs'
+	// examples; it is one of Twitch's global badge sets (Get Global Chat
+	// Badges) and founders are subscribers, so it counts as one.
+	badgeFounder = "founder"
 )
 
 // ChatMessage is one chat message from the broadcaster's channel.
@@ -38,6 +49,8 @@ type ChatMessage struct {
 	Text          string
 	IsBroadcaster bool
 	IsModerator   bool
+	IsVIP         bool
+	IsSubscriber  bool
 }
 
 type chatEvent struct {
@@ -78,8 +91,13 @@ func parseChatEvent(raw json.RawMessage) (ChatMessage, bool, error) {
 		IsBroadcaster: ev.ChatterUserID != "" && ev.ChatterUserID == ev.BroadcasterUserID,
 	}
 	for _, b := range ev.Badges {
-		if b.SetID == badgeModerator {
+		switch b.SetID {
+		case badgeModerator:
 			m.IsModerator = true
+		case badgeVIP:
+			m.IsVIP = true
+		case badgeSubscriber, badgeFounder:
+			m.IsSubscriber = true
 		}
 	}
 	return m, true, nil

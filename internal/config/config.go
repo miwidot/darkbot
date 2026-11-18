@@ -18,6 +18,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -148,6 +149,73 @@ type EventAction struct {
 	Seconds     int    `json:"seconds,omitempty"`
 }
 
+// Permission says who may use a chat command. Each level includes the
+// ones above it in this list (a moderator may use a VIP command).
+type Permission string
+
+const (
+	PermEveryone    Permission = "everyone"
+	PermSubscriber  Permission = "subscriber"
+	PermVIP         Permission = "vip"
+	PermModerator   Permission = "moderator"
+	PermBroadcaster Permission = "broadcaster"
+)
+
+// Permissions lists every level, lowest first.
+var Permissions = []Permission{PermEveryone, PermSubscriber, PermVIP, PermModerator, PermBroadcaster}
+
+// ChatCommand answers "!name" (or an alias) in chat.
+type ChatCommand struct {
+	ID string `json:"id"`
+	// Name without "!", lowercase.
+	Name    string   `json:"name"`
+	Aliases []string `json:"aliases,omitempty"`
+	// Response template; placeholders {user} and {target}.
+	Response   string     `json:"response"`
+	Permission Permission `json:"permission"`
+	// CooldownSeconds blocks the command for everyone after a use;
+	// UserCooldownSeconds for the same viewer. The broadcaster is exempt.
+	CooldownSeconds     int `json:"cooldown_seconds"`
+	UserCooldownSeconds int `json:"user_cooldown_seconds"`
+	// Sound file played in the sound queue ("" = none) at Volume.
+	Sound   string  `json:"sound,omitempty"`
+	Volume  float64 `json:"volume,omitempty"`
+	Enabled bool    `json:"enabled"`
+}
+
+// ChatTimer posts a message every IntervalMinutes while the stream is live.
+type ChatTimer struct {
+	ID              string `json:"id"`
+	Message         string `json:"message"`
+	IntervalMinutes int    `json:"interval_minutes"`
+	// MinLines: chat messages needed since its last post, so it never
+	// talks into an empty chat; 0 = no minimum.
+	MinLines int  `json:"min_lines"`
+	Enabled  bool `json:"enabled"`
+}
+
+// Chat holds commands and timers. Both are off until the streamer turns
+// them on.
+type Chat struct {
+	CommandsEnabled bool          `json:"commands_enabled"`
+	TimersEnabled   bool          `json:"timers_enabled"`
+	Commands        []ChatCommand `json:"commands"`
+	Timers          []ChatTimer   `json:"timers"`
+}
+
+// Limits for commands and timers.
+const (
+	MaxCommands        = 200
+	MaxTimers          = 50
+	MaxAliases         = 10
+	MaxCommandCooldown = 3600 // one hour, in seconds
+	// MinTimerMinutes keeps timers from flooding chat; MaxTimerMinutes is
+	// half a day.
+	MinTimerMinutes = 5
+	MaxTimerMinutes = 720
+	MaxTimerLines   = 1000
+)
+
 // MaxChatTemplate matches Twitch's chat message limit (500 characters).
 const MaxChatTemplate = 500
 
@@ -183,6 +251,8 @@ type Config struct {
 	// QuitOnClose: closing the window quits darkbot. Default false: where
 	// darkbot has a tray icon (Windows), it keeps running there.
 	QuitOnClose bool `json:"quit_on_close"`
+	// Chat: commands and timers.
+	Chat Chat `json:"chat"`
 }
 
 // Default returns a config with sensible defaults.
@@ -219,6 +289,28 @@ func (c *Config) normalize() {
 		}
 		a.MinAmount = max(a.MinAmount, 0)
 		c.Events[k] = a
+	}
+	for i := range c.Chat.Commands {
+		cmd := &c.Chat.Commands[i]
+		if cmd.ID == "" {
+			cmd.ID = NewID()
+		}
+		if !slices.Contains(Permissions, cmd.Permission) {
+			cmd.Permission = PermBroadcaster // unknown level: fail closed
+		}
+		cmd.CooldownSeconds = min(max(cmd.CooldownSeconds, 0), MaxCommandCooldown)
+		cmd.UserCooldownSeconds = min(max(cmd.UserCooldownSeconds, 0), MaxCommandCooldown)
+		if cmd.Volume <= 0 || cmd.Volume > MaxVolume {
+			cmd.Volume = DefaultSoundVolume
+		}
+	}
+	for i := range c.Chat.Timers {
+		tm := &c.Chat.Timers[i]
+		if tm.ID == "" {
+			tm.ID = NewID()
+		}
+		tm.IntervalMinutes = min(max(tm.IntervalMinutes, MinTimerMinutes), MaxTimerMinutes)
+		tm.MinLines = min(max(tm.MinLines, 0), MaxTimerLines)
 	}
 	c.Songs.SpotifyClientID = strings.TrimSpace(c.Songs.SpotifyClientID)
 	c.Songs.UserCooldownSeconds = max(c.Songs.UserCooldownSeconds, 0)
@@ -262,6 +354,12 @@ func (c *Config) normalize() {
 func (c Config) Clone() Config {
 	out := c
 	out.Sounds = append([]Sound(nil), c.Sounds...)
+	out.Chat.Commands = make([]ChatCommand, len(c.Chat.Commands))
+	for i, cmd := range c.Chat.Commands {
+		cmd.Aliases = append([]string(nil), cmd.Aliases...)
+		out.Chat.Commands[i] = cmd
+	}
+	out.Chat.Timers = append([]ChatTimer(nil), c.Chat.Timers...)
 	if c.Events != nil {
 		out.Events = make(map[string]EventAction, len(c.Events))
 		maps.Copy(out.Events, c.Events)

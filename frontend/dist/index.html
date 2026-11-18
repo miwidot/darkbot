@@ -23,6 +23,7 @@
       <button data-view="dash" data-i18n="view.dash"></button>
       <button data-view="sounds" data-i18n="view.sounds"></button>
       <button data-view="events" data-i18n="view.events"></button>
+      <button data-view="chat" data-i18n="view.chat"></button>
     </nav>
     <div class="signals" aria-live="polite">
       <span class="signal" id="sigTwitch" tabindex="0" data-tip="tip.sigTwitch"><i></i><span></span></span>
@@ -104,6 +105,37 @@
         <p class="hint" id="unfollowStatus"></p>
       </div>
       <ul class="event-list" id="eventList"></ul>
+    </section>
+
+    <section class="board view hidden" id="viewChat" aria-labelledby="chatTitle">
+      <div class="board-head">
+        <h1 id="chatTitle" data-i18n="cmds.title"></h1>
+      </div>
+      <p class="lede events-lede" data-i18n="cmds.lede"></p>
+      <p class="notice hidden" id="chatMissing" data-i18n="cmds.missing"></p>
+
+      <div class="chat-block">
+        <div class="chat-head">
+          <h2 data-i18n="cmds.commands"></h2>
+          <label class="check"><input type="checkbox" id="cmdsEnabled"> <span data-i18n="cmds.commandsOn"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.commandsOn" data-i18n-aria-label="tip.more"></span></label>
+          <span class="spacer"></span>
+          <button class="btn" id="cmdAdd" data-i18n="cmds.addCommand"></button>
+        </div>
+        <p class="hint" id="cmdEmpty" data-i18n="cmds.noCommands"></p>
+        <ul class="event-list" id="cmdList"></ul>
+      </div>
+
+      <div class="chat-block">
+        <div class="chat-head">
+          <h2 data-i18n="cmds.timers"></h2>
+          <label class="check"><input type="checkbox" id="timersEnabled"> <span data-i18n="cmds.timersOn"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.timersOn" data-i18n-aria-label="tip.more"></span></label>
+          <span class="spacer"></span>
+          <button class="btn" id="timerAdd" data-i18n="cmds.addTimer"></button>
+        </div>
+        <p class="hint" id="timersState"></p>
+        <p class="hint" id="timerEmpty" data-i18n="cmds.noTimers"></p>
+        <ul class="event-list" id="timerList"></ul>
+      </div>
     </section>
 
     <aside class="feed" aria-labelledby="feedTitle">
@@ -438,6 +470,81 @@
     <span class="spacer"></span>
     <button type="button" class="btn quiet" id="evCancel" data-i18n="editor.cancel"></button>
     <button type="button" class="btn primary" id="evSave" data-i18n="evedit.save"></button>
+  </div>
+</dialog>
+
+<dialog class="modal" id="cmdEditor" aria-labelledby="cmdTitle">
+  <h2 id="cmdTitle"></h2>
+  <label class="check"><input type="checkbox" id="cmdEnabled"> <span data-i18n="cmdedit.enabled"></span></label>
+  <div class="grid2 wide-first">
+    <div class="field">
+      <label for="cmdName"><span data-i18n="cmdedit.name"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdName" data-i18n-aria-label="tip.more"></span></label>
+      <div class="cmd-name"><span aria-hidden="true">!</span><input id="cmdName" type="text" maxlength="26" autocomplete="off" spellcheck="false" data-i18n-placeholder="cmdedit.namePlaceholder"></div>
+    </div>
+    <div class="field">
+      <label for="cmdPermission" data-i18n="cmdedit.permission"></label>
+      <select id="cmdPermission"></select>
+    </div>
+  </div>
+  <div class="field">
+    <label for="cmdAliases"><span data-i18n="cmdedit.aliases"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdAliases" data-i18n-aria-label="tip.more"></span></label>
+    <input id="cmdAliases" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="cmdedit.aliasesPlaceholder">
+  </div>
+  <div class="field">
+    <label for="cmdResponse"><span data-i18n="cmdedit.response"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdResponse" data-i18n-aria-label="tip.more"></span></label>
+    <textarea id="cmdResponse" rows="2" maxlength="500" data-i18n-placeholder="cmdedit.responsePlaceholder"></textarea>
+    <p class="hint" data-i18n="cmdedit.responseHint"></p>
+  </div>
+  <div class="grid2">
+    <div class="field">
+      <label for="cmdCooldown"><span data-i18n="cmdedit.cooldown"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdCooldown" data-i18n-aria-label="tip.more"></span></label>
+      <input id="cmdCooldown" type="number" min="0" max="3600" step="1">
+    </div>
+    <div class="field">
+      <label for="cmdUserCooldown" data-i18n="cmdedit.userCooldown"></label>
+      <input id="cmdUserCooldown" type="number" min="0" max="3600" step="1">
+    </div>
+  </div>
+  <div class="field">
+    <label for="cmdSound"><span data-i18n="cmdedit.sound"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdSound" data-i18n-aria-label="tip.more"></span></label>
+    <div class="inline"><input id="cmdSound" type="text" readonly data-i18n-placeholder="evedit.noSound"><button type="button" class="btn" id="cmdPick" data-i18n="editor.chooseFile"></button><button type="button" class="btn quiet" id="cmdClear" data-i18n="evedit.clear"></button></div>
+  </div>
+  <div class="field" id="cmdVolumeField">
+    <label for="cmdVolume"><span data-i18n="editor.volume"></span> <output id="cmdVolumeVal"></output></label>
+    <input id="cmdVolume" type="range" min="0.05" max="1" step="0.05">
+  </div>
+  <p class="error hidden" id="cmdError" role="alert"></p>
+  <div class="modal-actions">
+    <button type="button" class="btn danger" id="cmdDelete" data-i18n="cmdedit.delete"></button>
+    <span class="spacer"></span>
+    <button type="button" class="btn quiet" id="cmdCancel" data-i18n="editor.cancel"></button>
+    <button type="button" class="btn primary" id="cmdSave" data-i18n="evedit.save"></button>
+  </div>
+</dialog>
+
+<dialog class="modal" id="timerEditor" aria-labelledby="timerTitle">
+  <h2 id="timerTitle"></h2>
+  <label class="check"><input type="checkbox" id="timerEnabled"> <span data-i18n="timeredit.enabled"></span></label>
+  <div class="field">
+    <label for="timerMessage" data-i18n="timeredit.message"></label>
+    <textarea id="timerMessage" rows="2" maxlength="500" data-i18n-placeholder="timeredit.messagePlaceholder"></textarea>
+  </div>
+  <div class="grid2">
+    <div class="field">
+      <label for="timerInterval"><span data-i18n="timeredit.interval"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.timerInterval" data-i18n-aria-label="tip.more"></span></label>
+      <input id="timerInterval" type="number" min="5" max="720" step="1">
+    </div>
+    <div class="field">
+      <label for="timerLines"><span data-i18n="timeredit.lines"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.timerLines" data-i18n-aria-label="tip.more"></span></label>
+      <input id="timerLines" type="number" min="0" max="1000" step="1">
+    </div>
+  </div>
+  <p class="error hidden" id="timerError" role="alert"></p>
+  <div class="modal-actions">
+    <button type="button" class="btn danger" id="timerDelete" data-i18n="timeredit.delete"></button>
+    <span class="spacer"></span>
+    <button type="button" class="btn quiet" id="timerCancel" data-i18n="editor.cancel"></button>
+    <button type="button" class="btn primary" id="timerSave" data-i18n="evedit.save"></button>
   </div>
 </dialog>
 

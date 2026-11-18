@@ -1,5 +1,7 @@
 // Package stats counts what happened for the dashboard: per session (since
-// darkbot started or the user reset it) and in total (saved to disk).
+// the stream started or the user reset it) and in total. Both are saved to
+// disk, so a restart or an update in the middle of a stream keeps the
+// session; the next stream starts a new one.
 package stats
 
 import (
@@ -7,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"sync"
@@ -60,8 +63,18 @@ type Snapshot struct {
 }
 
 type persisted struct {
-	Since time.Time `json:"since"`
-	Total Counts    `json:"total"`
+	Since   time.Time         `json:"since"`
+	Total   Counts            `json:"total"`
+	Session *persistedSession `json:"session,omitempty"`
+}
+
+// persistedSession is the running session (files from before v0.2.8
+// have none: the session then starts at launch, as it used to).
+type persistedSession struct {
+	Since   time.Time      `json:"since"`
+	Counts  Counts         `json:"counts"`
+	Sounds  map[string]int `json:"sounds"`
+	Viewers map[string]int `json:"viewers"`
 }
 
 // Logger is the minimal logging interface this package needs.
@@ -104,6 +117,15 @@ func Open(path string, log Logger) *Stats {
 			if !p.Since.IsZero() {
 				s.totalSince = p.Since
 			}
+			if ps := p.Session; ps != nil && !ps.Since.IsZero() {
+				s.since, s.session = ps.Since, ps.Counts
+				if ps.Sounds != nil {
+					s.sounds = ps.Sounds
+				}
+				if ps.Viewers != nil {
+					s.viewers = ps.Viewers
+				}
+			}
 		}
 	}
 	return s
@@ -124,13 +146,18 @@ func (s *Stats) update(fn func(c *Counts), rank func()) {
 	if rank != nil {
 		rank()
 	}
-	if s.saveTimer == nil {
-		s.saveTimer = time.AfterFunc(saveDelay, s.saveNow)
-	}
+	s.scheduleSave()
 	cb := s.onChange
 	s.mu.Unlock()
 	if cb != nil {
 		cb()
+	}
+}
+
+// scheduleSave writes after saveDelay; call with mu held.
+func (s *Stats) scheduleSave() {
+	if s.saveTimer == nil {
+		s.saveTimer = time.AfterFunc(saveDelay, s.saveNow)
 	}
 }
 
@@ -194,13 +221,19 @@ func (s *Stats) rankViewer(user string) {
 	}
 }
 
-// ResetSession starts a new session (e.g. a new stream). Totals stay.
-func (s *Stats) ResetSession() {
+// ResetSession starts a new session now (the user's reset, or a stream
+// that just started). Totals stay.
+func (s *Stats) ResetSession() { s.ResetSessionAt(time.Now()) }
+
+// ResetSessionAt starts a new session that began at since (a stream that
+// started while darkbot was not running).
+func (s *Stats) ResetSessionAt(since time.Time) {
 	s.mu.Lock()
-	s.since = time.Now()
+	s.since = since
 	s.session = Counts{}
 	s.sounds = map[string]int{}
 	s.viewers = map[string]int{}
+	s.scheduleSave()
 	cb := s.onChange
 	s.mu.Unlock()
 	if cb != nil {
@@ -240,7 +273,9 @@ func top(m map[string]int) []Entry {
 func (s *Stats) saveNow() {
 	s.mu.Lock()
 	s.saveTimer = nil
-	p := persisted{Since: s.totalSince, Total: s.total}
+	p := persisted{Since: s.totalSince, Total: s.total, Session: &persistedSession{
+		Since: s.since, Counts: s.session, Sounds: maps.Clone(s.sounds), Viewers: maps.Clone(s.viewers),
+	}}
 	s.mu.Unlock()
 	if err := s.write(p); err != nil {
 		s.log.Warnf("Could not save statistics: %v", err)

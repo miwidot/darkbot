@@ -108,6 +108,7 @@ function render() {
   showView(loggedIn ? view : 'dash');
   renderDash();
   renderEvents();
+  renderChat();
   renderLogins();
 
   renderPads();
@@ -209,6 +210,7 @@ function showView(name) {
   $('viewDash').classList.toggle('hidden', name !== 'dash');
   $('viewSounds').classList.toggle('hidden', name !== 'sounds');
   $('viewEvents').classList.toggle('hidden', name !== 'events');
+  $('viewChat').classList.toggle('hidden', name !== 'chat');
 }
 for (const b of document.querySelectorAll('.views button')) {
   b.addEventListener('click', () => {
@@ -217,7 +219,7 @@ for (const b of document.querySelectorAll('.views button')) {
     showView(view);
   });
 }
-const VIEWS = ['dash', 'sounds', 'events'];
+const VIEWS = ['dash', 'sounds', 'events', 'chat'];
 try { const v = localStorage.getItem(VIEW_KEY); view = VIEWS.includes(v) ? v : 'dash'; } catch (e) { view = 'dash'; }
 
 // ---------- dashboard ----------
@@ -276,8 +278,11 @@ const lastValues = new Map();
 function renderDash() {
   if (!stats) return;
   const totalSince = new Date(stats.totalSince);
+  // The session survives restarts, so it may have begun on another day.
+  const since = new Date(stats.since);
+  const sameDay = since.toDateString() === new Date().toDateString();
   $('dashSince').textContent = t('dash.since', {
-    time: clock(new Date(stats.since)),
+    time: sameDay ? clock(since) : since.toLocaleString(I18N.lang || undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
     date: totalSince.toLocaleDateString(I18N.lang || undefined, { day: 'numeric', month: 'short', year: 'numeric' }),
   });
 
@@ -570,6 +575,189 @@ $('evTest').addEventListener('click', async () => {
     $('evError').textContent = errText(e);
     $('evError').classList.remove('hidden');
   }
+});
+
+// ---------- chat: commands and timers ----------
+
+const PERMISSIONS = ['everyone', 'subscriber', 'vip', 'moderator', 'broadcaster'];
+const DEFAULT_TIMER_MINUTES = 15;
+let cmdEditing = null;    // command open in the editor (null id = new)
+let timerEditing = null;  // timer open in the editor
+
+const cmdNames = (c) => ['!' + c.name, ...(c.aliases || []).map((a) => '!' + a)].join(', ');
+
+function cmdSummary(c) {
+  const bits = [t('perm.' + c.permission)];
+  if (c.cooldown_seconds > 0) bits.push(t('cmds.cooldown', { n: num(c.cooldown_seconds) }));
+  if (c.sound) bits.push(t('events.sound'));
+  return bits.join(', ');
+}
+
+function timerSummary(tm) {
+  const bits = [t('cmds.every', { n: num(tm.interval_minutes) })];
+  if (tm.min_lines > 0) bits.push(t('cmds.minLines', { n: num(tm.min_lines) }));
+  return bits.join(', ');
+}
+
+function chatRow(on, title, sub, summary, open) {
+  return el('li', { class: 'event-row' + (on ? ' on' : '') },
+    el('span', { class: 'event-led', 'aria-hidden': 'true' }),
+    el('div', { class: 'event-text' }, el('b', {}, title), el('span', {}, sub)),
+    el('span', { class: 'event-summary' }, summary),
+    el('button', { class: 'btn', onclick: open }, t('events.edit')));
+}
+
+function renderChat() {
+  if (!state) return;
+  const c = state.config.chat || {};
+  const cmds = c.commands || [];
+  const timers = c.timers || [];
+  $('chatMissing').classList.toggle('hidden', !state.twitchLogin || state.chatReady);
+  $('cmdsEnabled').checked = !!c.commands_enabled;
+  $('timersEnabled').checked = !!c.timers_enabled;
+  $('cmdEmpty').classList.toggle('hidden', cmds.length > 0);
+  $('timerEmpty').classList.toggle('hidden', timers.length > 0);
+  $('cmdList').replaceChildren(...cmds.map((cmd) => chatRow(
+    c.commands_enabled && cmd.enabled, cmdNames(cmd), cmd.response || t('cmds.soundOnly'), cmdSummary(cmd), () => openCommandEditor(cmd))));
+  $('timerList').replaceChildren(...timers.map((tm) => chatRow(
+    c.timers_enabled && tm.enabled, timerSummary(tm), tm.message, '', () => openTimerEditor(tm))));
+  let st = t('cmds.timersOff');
+  if (c.timers_enabled) st = state.live ? t('cmds.timersLive') : t('cmds.timersWaiting');
+  $('timersState').textContent = st;
+}
+
+$('cmdsEnabled').addEventListener('change', async () => {
+  try { await call('SetCommandsEnabled', $('cmdsEnabled').checked); } catch (e) { /* toast shown */ }
+  refresh();
+});
+$('timersEnabled').addEventListener('change', async () => {
+  try { await call('SetTimersEnabled', $('timersEnabled').checked); } catch (e) { /* toast shown */ }
+  refresh();
+});
+
+$('cmdPermission').replaceChildren(...PERMISSIONS.map((p) => el('option', { value: p }, '')));
+function fillPermissionLabels() {
+  for (const o of $('cmdPermission').options) o.textContent = t('perm.' + o.value);
+}
+
+let cmdDeleteArmed = 0;
+function openCommandEditor(cmd) {
+  cmdEditing = cmd || { id: '', name: '', aliases: [], response: '', permission: 'everyone', cooldown_seconds: 0, user_cooldown_seconds: 0, sound: '', volume: 1, enabled: true };
+  fillPermissionLabels();
+  $('cmdTitle').textContent = cmd ? '!' + cmd.name : t('cmdedit.new');
+  $('cmdEnabled').checked = cmdEditing.enabled;
+  $('cmdName').value = cmdEditing.name;
+  $('cmdAliases').value = (cmdEditing.aliases || []).join(', ');
+  $('cmdResponse').value = cmdEditing.response || '';
+  $('cmdPermission').value = cmdEditing.permission;
+  $('cmdCooldown').value = cmdEditing.cooldown_seconds || 0;
+  $('cmdUserCooldown').value = cmdEditing.user_cooldown_seconds || 0;
+  $('cmdSound').value = cmdEditing.sound || '';
+  $('cmdVolume').value = cmdEditing.volume || 1;
+  $('cmdVolumeVal').textContent = pct(+$('cmdVolume').value);
+  $('cmdDelete').classList.toggle('hidden', !cmd);
+  $('cmdDelete').textContent = t('cmdedit.delete');
+  cmdDeleteArmed = 0;
+  $('cmdError').classList.add('hidden');
+  $('cmdEditor').showModal();
+  $('cmdName').focus();
+}
+const intIn = (id) => Math.max(0, parseInt($(id).value, 10) || 0);
+function editedCommand() {
+  return {
+    id: cmdEditing.id,
+    name: $('cmdName').value,
+    aliases: $('cmdAliases').value.split(/[,\s]+/).filter(Boolean),
+    response: $('cmdResponse').value,
+    permission: $('cmdPermission').value,
+    cooldown_seconds: intIn('cmdCooldown'),
+    user_cooldown_seconds: intIn('cmdUserCooldown'),
+    sound: $('cmdSound').value,
+    volume: +$('cmdVolume').value,
+    enabled: $('cmdEnabled').checked,
+  };
+}
+function editorFailed(id, e) {
+  $(id).textContent = errText(e);
+  $(id).classList.remove('hidden');
+}
+$('cmdAdd').addEventListener('click', () => openCommandEditor(null));
+$('cmdVolume').addEventListener('input', () => { $('cmdVolumeVal').textContent = pct(+$('cmdVolume').value); });
+$('cmdPick').addEventListener('click', async () => {
+  const f = await call('PickSoundFile');
+  if (f) $('cmdSound').value = f;
+});
+$('cmdClear').addEventListener('click', () => { $('cmdSound').value = ''; });
+$('cmdResponse').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+$('cmdCancel').addEventListener('click', () => $('cmdEditor').close());
+$('cmdSave').addEventListener('click', async () => {
+  $('cmdSave').disabled = true;
+  try {
+    await App().SaveCommand(editedCommand());
+    $('cmdEditor').close();
+    toast(t('cmdedit.saved'));
+    refresh();
+  } catch (e) { editorFailed('cmdError', e); } finally { $('cmdSave').disabled = false; }
+});
+$('cmdDelete').addEventListener('click', async () => {
+  if (Date.now() - cmdDeleteArmed > CONFIRM_MS) {
+    cmdDeleteArmed = Date.now();
+    $('cmdDelete').textContent = t('cmdedit.deleteConfirm');
+    return;
+  }
+  try {
+    await App().DeleteCommand(cmdEditing.id);
+    $('cmdEditor').close();
+    toast(t('cmdedit.deleted'));
+    refresh();
+  } catch (e) { editorFailed('cmdError', e); }
+});
+
+let timerDeleteArmed = 0;
+function openTimerEditor(tm) {
+  timerEditing = tm || { id: '', message: '', interval_minutes: DEFAULT_TIMER_MINUTES, min_lines: 0, enabled: true };
+  $('timerTitle').textContent = tm ? t('timeredit.edit') : t('timeredit.new');
+  $('timerEnabled').checked = timerEditing.enabled;
+  $('timerMessage').value = timerEditing.message;
+  $('timerInterval').value = timerEditing.interval_minutes;
+  $('timerLines').value = timerEditing.min_lines || 0;
+  $('timerDelete').classList.toggle('hidden', !tm);
+  $('timerDelete').textContent = t('timeredit.delete');
+  timerDeleteArmed = 0;
+  $('timerError').classList.add('hidden');
+  $('timerEditor').showModal();
+  $('timerMessage').focus();
+}
+$('timerAdd').addEventListener('click', () => openTimerEditor(null));
+$('timerMessage').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+$('timerCancel').addEventListener('click', () => $('timerEditor').close());
+$('timerSave').addEventListener('click', async () => {
+  $('timerSave').disabled = true;
+  try {
+    await App().SaveTimer({
+      id: timerEditing.id,
+      message: $('timerMessage').value,
+      interval_minutes: intIn('timerInterval'),
+      min_lines: intIn('timerLines'),
+      enabled: $('timerEnabled').checked,
+    });
+    $('timerEditor').close();
+    toast(t('timeredit.saved'));
+    refresh();
+  } catch (e) { editorFailed('timerError', e); } finally { $('timerSave').disabled = false; }
+});
+$('timerDelete').addEventListener('click', async () => {
+  if (Date.now() - timerDeleteArmed > CONFIRM_MS) {
+    timerDeleteArmed = Date.now();
+    $('timerDelete').textContent = t('timeredit.deleteConfirm');
+    return;
+  }
+  try {
+    await App().DeleteTimer(timerEditing.id);
+    $('timerEditor').close();
+    toast(t('timeredit.deleted'));
+    refresh();
+  } catch (e) { editorFailed('timerError', e); }
 });
 
 // ---------- activity feed ----------

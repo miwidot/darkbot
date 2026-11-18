@@ -1,3 +1,16 @@
+2026-11-18 18:20 +08 — Chat commands and timers (off by default); the dashboard session survives restarts
+- New Chat view: own commands (!name, other names, answer with {user}/{target}, permission
+  everyone/subscribers/VIPs/moderators/only you, cooldown for all and per viewer, optional sound in
+  the sound queue) and timers (interval 5-720 min, minimum chat messages, only while live, one at a
+  time a minute apart, a full interval after going live). Both have a main switch that starts off.
+- Song command names are reserved; darkbot's own chat messages are recognised and trigger nothing;
+  answers are capped at 20 per 30 s (Twitch allows the broadcaster 100).
+- Chat badges: VIP, subscriber and founder are read per message (twitch.ChatMessage.IsVIP/IsSubscriber).
+- Live state: Get Streams (LiveSince) in the 5-minute channel loop plus stream.online/offline.
+- Stats: the running session (counts, top sounds, viewers, start) is saved with the totals, so a
+  restart or update mid-stream keeps it. A stream that started while darkbot was off starts a new
+  session at the stream's start; the dashboard shows the date when the session began on another day.
+
 2026-11-18 17:28 +08 — Tests wait in the sound queue
 - The sound Test button no longer plays past the queue: it waits its turn like redemptions and
   events, so no two sounds ever mix. New test: raid, sub, redemption and test arriving together
