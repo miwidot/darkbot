@@ -197,6 +197,27 @@ const (
 // Permissions lists every level, lowest first.
 var Permissions = []Permission{PermEveryone, PermSubscriber, PermVIP, PermModerator, PermBroadcaster}
 
+// NowPlaying: the "Now Playing" overlay, a browser source in the darkbot
+// scene showing the song Spotify or YouTube Music plays.
+type NowPlaying struct {
+	// Enabled shows the overlay in OBS.
+	Enabled bool `json:"enabled"`
+	// Theme is one of NowPlayingThemes.
+	Theme          string `json:"theme"`
+	ShowCover      bool   `json:"show_cover"`
+	ShowProgress   bool   `json:"show_progress"`
+	ShowRequester  bool   `json:"show_requester"`
+	HideWhenPaused bool   `json:"hide_when_paused"`
+}
+
+// NowPlayingThemes are the overlay designs (frontend/dist/overlay).
+var NowPlayingThemes = []string{"console", "glass", "band", "vinyl", "minimal", "pill"}
+
+// DefaultNowPlaying: off, the darkbot look, everything shown.
+func DefaultNowPlaying() NowPlaying {
+	return NowPlaying{Theme: NowPlayingThemes[0], ShowCover: true, ShowProgress: true, ShowRequester: true, HideWhenPaused: true}
+}
+
 // Command triggers.
 const (
 	// TriggerCommand: the message starts with "!name" (or an alias).
@@ -305,6 +326,8 @@ type Config struct {
 	QuitOnClose bool `json:"quit_on_close"`
 	// Chat: commands and timers.
 	Chat Chat `json:"chat"`
+	// NowPlaying is the song overlay for OBS.
+	NowPlaying NowPlaying `json:"now_playing"`
 }
 
 // Default returns a config with sensible defaults.
@@ -312,6 +335,7 @@ func Default() Config {
 	return Config{
 		OutputMode:   OutputDevice,
 		MasterVolume: DefaultMasterVolume,
+		NowPlaying:   DefaultNowPlaying(),
 		AutoUpdate:   true,
 		OBS: OBS{
 			Host:      DefaultOBSHost,
@@ -374,6 +398,13 @@ func (c *Config) normalize() {
 	c.Songs.MaxMinutes = max(c.Songs.MaxMinutes, 0)
 	if c.Songs.YTMusicPort <= 0 || c.Songs.YTMusicPort > maxPort {
 		c.Songs.YTMusicPort = DefaultYTMusicPort
+	}
+	// No theme: settings from before the overlay existed get its defaults
+	// (its switches are false there only because they were missing).
+	if c.NowPlaying.Theme == "" {
+		c.NowPlaying = DefaultNowPlaying()
+	} else if !slices.Contains(NowPlayingThemes, c.NowPlaying.Theme) {
+		c.NowPlaying.Theme = NowPlayingThemes[0]
 	}
 	if c.Songs.SearchService != ServiceSpotify && c.Songs.SearchService != ServiceYTMusic {
 		c.Songs.SearchService = ServiceSpotify

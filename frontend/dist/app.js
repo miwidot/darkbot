@@ -118,6 +118,8 @@ function refresh() {
 function render() {
   const c = state.config;
   const loggedIn = !!state.twitchLogin;
+  if (npBuilt) npLabels();
+  if (npOpen && npState) npUpdate(npState);
 
   setSignal('sigTwitch', loggedIn, loggedIn ? state.twitchLogin : t('signal.twitch'), loggedIn && state.needsReconnect ? 'attn' : '');
   // Red: it should run but doesn't (logged in without live events, OBS
@@ -253,6 +255,8 @@ function showView(name) {
   $('viewSounds').classList.toggle('hidden', name !== 'sounds');
   $('viewEvents').classList.toggle('hidden', name !== 'events');
   $('viewChat').classList.toggle('hidden', name !== 'chat');
+  $('viewNp').classList.toggle('hidden', name !== 'np');
+  npSetOpen(name === 'np');
 }
 for (const b of document.querySelectorAll('.views button')) {
   b.addEventListener('click', () => {
@@ -261,8 +265,135 @@ for (const b of document.querySelectorAll('.views button')) {
     showView(view);
   });
 }
-const VIEWS = ['dash', 'sounds', 'events', 'chat'];
+const VIEWS = ['dash', 'sounds', 'events', 'chat', 'np'];
 try { const v = localStorage.getItem(VIEW_KEY); view = VIEWS.includes(v) ? v : 'dash'; } catch (e) { view = 'dash'; }
+
+// ---------- now playing ----------
+
+// The tab shows all six designs live: each preview frame runs the same
+// page as OBS (overlay/nowplaying.html) and gets the same data by
+// postMessage. While the tab is open darkbot asks the services.
+const NP_THEMES = ['console', 'glass', 'band', 'vinyl', 'minimal', 'pill'];
+const NP_PAGE_WIDTH = 800; // the overlay page's size in OBS
+const NP_SAMPLE_DURATION_MS = 240000;
+const NP_SAMPLE_PROGRESS_MS = 72000;
+let npState = null;  // last NowPlayingState from Go
+let npOpen = false;
+let npBuilt = false;
+
+function npSetOpen(open) {
+  if (open === npOpen) return;
+  npOpen = open;
+  App().SetNowPlayingPreview(open);
+  if (open) {
+    npBuild();
+    App().GetNowPlaying().then(npUpdate).catch((e) => console.error('now playing', e));
+  }
+}
+
+// The data a preview gets: the real song, or a sample while nothing plays.
+function npPreviewData() {
+  const p = { ...npState.payload };
+  if (!p.song) {
+    p.song = { service: 'sample', serviceName: 'Spotify', id: 'sample', title: t('np.sampleTitle'), artist: t('np.sampleArtist'),
+      cover: '', durationMs: NP_SAMPLE_DURATION_MS, progressMs: NP_SAMPLE_PROGRESS_MS, playing: true, requestedBy: t('np.sampleViewer') };
+  }
+  return p;
+}
+
+function npPost(frame) {
+  if (!npState || !frame.contentWindow) return;
+  frame.contentWindow.postMessage({ type: 'darkbot-nowplaying', data: npPreviewData() }, location.origin);
+}
+
+function npBuild() {
+  if (npBuilt) return;
+  npBuilt = true;
+  $('npGallery').replaceChildren(...NP_THEMES.map((theme) => {
+    const frame = el('iframe', { src: 'overlay/nowplaying.html?preview=1&theme=' + theme, tabindex: '-1', 'aria-hidden': 'true', title: theme });
+    const box = el('div', { class: 'np-frame' }, frame);
+    const tile = el('button', { class: 'np-tile', type: 'button', 'data-theme': theme },
+      box, el('span', { class: 'np-caption' }, el('span', { class: 'np-name' }), el('span', { class: 'np-badge' })));
+    tile.addEventListener('click', () => npSave({ theme }));
+    // Scale the 800 px page down to the tile.
+    new ResizeObserver(() => { frame.style.transform = 'scale(' + (box.clientWidth / NP_PAGE_WIDTH) + ')'; }).observe(box);
+    return tile;
+  }));
+  npLabels();
+}
+
+// A frame says when it is ready; then it gets the current data.
+window.addEventListener('message', (e) => {
+  if (e.origin !== location.origin || !e.data || e.data.type !== 'darkbot-nowplaying-ready') return;
+  for (const f of document.querySelectorAll('#npGallery iframe')) if (f.contentWindow === e.source) npPost(f);
+});
+
+function npLabels() {
+  for (const tile of document.querySelectorAll('#npGallery .np-tile')) {
+    tile.querySelector('.np-name').textContent = t('np.theme.' + tile.dataset.theme);
+  }
+}
+
+function npUpdate(st) {
+  if (!st) return;
+  npState = st;
+  const p = st.payload;
+  const song = p.song;
+  const now = $('npNow');
+  now.classList.toggle('playing', !!song && song.playing);
+  now.classList.toggle('paused', !!song && !song.playing);
+  now.classList.toggle('problem', !song && !!st.problem);
+  let text = t('np.nothing');
+  if (song) text = t(song.playing ? 'np.playing' : 'np.paused', { title: song.title, artist: song.artist, service: song.serviceName });
+  else if (st.problem) text = t('np.problem', { error: st.problem });
+  else if (!npAnyService()) text = t('np.noService');
+  $('npNowText').textContent = text;
+  // Settings only when Go sent the OBS status (tab opened, saved).
+  if (st.obsReady !== undefined) npRenderSettings(st);
+  for (const tile of document.querySelectorAll('#npGallery .np-tile')) {
+    const on = tile.dataset.theme === p.theme;
+    tile.setAttribute('aria-pressed', on ? 'true' : 'false');
+    tile.querySelector('.np-badge').textContent = on ? t('np.selected') : '';
+  }
+  for (const f of document.querySelectorAll('#npGallery iframe')) npPost(f);
+}
+
+function npAnyService() {
+  return !!(state && (state.spotifyUser || (state.config.songs.ytmusic_enabled && (state.ytmusicHealth || {}).linked)));
+}
+
+function npRenderSettings(st) {
+  const c = state ? state.config.now_playing : null;
+  if (!c) return;
+  $('npEnabled').checked = c.enabled;
+  $('npCover').checked = c.show_cover;
+  $('npProgress').checked = c.show_progress;
+  $('npRequester').checked = c.show_requester;
+  $('npHide').checked = c.hide_when_paused;
+  let obsText = t('np.off');
+  if (c.enabled) obsText = st.obsReady ? t('np.obsReady') : st.obsProblem;
+  $('npObs').textContent = obsText;
+  $('npObs').classList.toggle('warn-text', c.enabled && !st.obsReady);
+}
+
+async function npSave(change) {
+  const c = state.config.now_playing;
+  const next = {
+    enabled: $('npEnabled').checked, theme: c.theme, show_cover: $('npCover').checked, show_progress: $('npProgress').checked,
+    show_requester: $('npRequester').checked, hide_when_paused: $('npHide').checked, ...change,
+  };
+  try {
+    const st = await call('SaveNowPlaying', next);
+    await refresh();
+    npUpdate(st);
+  } catch (e) {
+    await refresh();
+    App().GetNowPlaying().then(npUpdate).catch(() => {});
+  }
+}
+for (const id of ['npEnabled', 'npCover', 'npProgress', 'npRequester', 'npHide']) {
+  $(id).addEventListener('change', () => npSave({}));
+}
 
 // ---------- dashboard ----------
 
@@ -1694,6 +1825,7 @@ window.addEventListener('unhandledrejection', (ev) => {
 
 window.addEventListener('DOMContentLoaded', async () => {
   window.runtime.EventsOn('state', refresh);
+  window.runtime.EventsOn('nowplaying', npUpdate);
   window.runtime.EventsOn('play', playSound);
   window.runtime.EventsOn('activity', onActivity);
   window.runtime.EventsOn('stats', loadStats);

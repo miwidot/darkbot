@@ -102,6 +102,7 @@ type App struct {
 	sr       *songs.Handler
 	st       *stats.Stats
 	act      *activity.Log // the activity feed, kept on disk
+	np       nowPlaying    // the Now Playing overlay (nowplaying_app.go)
 
 	mu          sync.Mutex
 	esCancel    context.CancelFunc
@@ -239,6 +240,7 @@ func (a *App) startup(wailsCtx context.Context) {
 		a.log.Infof("Not logged in to Twitch yet")
 	}
 	a.startOBS(ctx)
+	a.startNowPlaying(ctx)
 	a.startChannelTotals(ctx)
 	go a.updateLoop(ctx)
 	a.startTray()
@@ -937,6 +939,10 @@ func (a *App) SoundDone(token, errMsg string) { a.web.done(token, errMsg) }
 // are configured as a sound (looked up by ID) are served — never arbitrary
 // paths. This runs inside Wails' in-process asset server: no network port.
 func (a *App) serveSound(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == coverURLPath && r.Method == http.MethodGet {
+		a.serveCover(w) // Now Playing preview
+		return
+	}
 	if !strings.HasPrefix(r.URL.Path, soundURLPrefix) || r.Method != http.MethodGet {
 		http.NotFound(w, r)
 		return

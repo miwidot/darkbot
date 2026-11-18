@@ -100,6 +100,7 @@ func (a *App) connectOBS() (string, error) {
 		a.log.Infof("Connected to %s", v)
 		a.emitState()
 		go a.refreshOBSScene()
+		go a.nowPlayingOnOBSConnect()
 		go func() {
 			// An alert of a dropped connection may still be on screen.
 			if err := a.obs.HideAlerts(); err != nil {

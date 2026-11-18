@@ -24,6 +24,7 @@
       <button data-view="sounds" data-i18n="view.sounds"></button>
       <button data-view="events" data-i18n="view.events"></button>
       <button data-view="chat" data-i18n="view.chat"></button>
+      <button data-view="np" data-i18n="view.np"></button>
     </nav>
     <div class="signals" aria-live="polite">
       <span class="signal" id="sigTwitch" tabindex="0" data-tip="tip.sigTwitch"><i></i><span></span></span>
@@ -105,6 +106,28 @@
         <p class="hint" id="unfollowStatus"></p>
       </div>
       <ul class="event-list" id="eventList"></ul>
+    </section>
+
+    <section class="board view hidden" id="viewNp" aria-labelledby="npTitle">
+      <div class="board-head">
+        <h1 id="npTitle" data-i18n="np.title"></h1>
+      </div>
+      <p class="lede events-lede" data-i18n="np.lede"></p>
+
+      <div class="np-panel">
+        <p class="np-now" id="npNow"><span class="np-dot" aria-hidden="true"></span><span id="npNowText"></span></p>
+        <label class="check"><input type="checkbox" id="npEnabled"> <span data-i18n="np.enabled"></span></label>
+        <p class="hint" id="npObs"></p>
+        <div class="np-options">
+          <label class="check"><input type="checkbox" id="npCover"> <span data-i18n="np.showCover"></span></label>
+          <label class="check"><input type="checkbox" id="npProgress"> <span data-i18n="np.showProgress"></span></label>
+          <label class="check"><input type="checkbox" id="npRequester"> <span data-i18n="np.showRequester"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.npRequester" data-i18n-aria-label="tip.more"></span></label>
+          <label class="check"><input type="checkbox" id="npHide"> <span data-i18n="np.hideWhenPaused"></span></label>
+        </div>
+      </div>
+
+      <h2 class="np-designs" data-i18n="np.designs"></h2>
+      <div class="np-gallery" id="npGallery"></div>
     </section>
 
     <section class="board view hidden" id="viewChat" aria-labelledby="chatTitle">

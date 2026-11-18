@@ -460,6 +460,54 @@ func (c *Client) Playing(ctx context.Context) (bool, error) {
 	return st.IsPlaying, nil
 }
 
+// Playback is what Spotify plays now (Get Currently Playing Track).
+type Playback struct {
+	IsPlaying  bool `json:"is_playing"`
+	ProgressMS int  `json:"progress_ms"`
+	// Type is "track", "episode", "ad" or "unknown"; Item is nil for an ad.
+	Type string `json:"currently_playing_type"`
+	Item *struct {
+		Track
+		Album struct {
+			// Images: "The cover art for the album in various sizes,
+			// widest first."
+			Images []struct {
+				URL   string `json:"url"`
+				Width int    `json:"width"`
+			} `json:"images"`
+		} `json:"album"`
+	} `json:"item"`
+}
+
+// Cover returns the URL of the smallest album image at least minWidth
+// pixels wide (or the widest there is), "" without images.
+func (p *Playback) Cover(minWidth int) string {
+	if p.Item == nil || len(p.Item.Album.Images) == 0 {
+		return ""
+	}
+	imgs := p.Item.Album.Images
+	best := imgs[0].URL // widest first
+	for _, im := range imgs {
+		if im.Width >= minWidth {
+			best = im.URL
+		}
+	}
+	return best
+}
+
+// CurrentlyPlaying reads the track playing now; nil when nothing plays
+// (204) or an ad does.
+func (c *Client) CurrentlyPlaying(ctx context.Context) (*Playback, error) {
+	var p Playback
+	if err := c.do(ctx, http.MethodGet, "/me/player/currently-playing", url.Values{"market": {marketFromToken}}, &p); err != nil {
+		return nil, err
+	}
+	if p.Item == nil || p.Type != "track" {
+		return nil, nil
+	}
+	return &p, nil
+}
+
 // Spotify IDs are base62 (https://developer.spotify.com/documentation/web-api/concepts/spotify-uris-ids).
 var (
 	trackURL = regexp.MustCompile(`^https?://open\.spotify\.com/(?:intl-[a-zA-Z-]+/)?(track|album|playlist|artist|episode|show)/([0-9A-Za-z]+)`)

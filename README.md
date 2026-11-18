@@ -19,6 +19,7 @@ darkbot does the sound part of tools like Streamer.bot, and nothing else: one wi
 - **Channel events with actions.** Follows, subs, resubs, gifted subs, Bits, raids, watch streaks shared in chat, hype trains (start, level ups, end), shoutouts, ad breaks and stream start/end appear live in the activity feed. For each you can play a sound and/or post a chat message (`{user}`, `{amount}`, `{tier}`, `{months}`, `{top}` for the biggest hype train contributor, `{points}` for the channel points of a watch streak), optionally only from a minimum amount or level. A sub bomb runs one action for the gifter, not one per recipient. Twitch has no unfollow event; an opt-in check compares your follower list every 10 minutes (up to 5,000 followers). darkbot keeps that list, so after a start it also lists follows and unfollows from while it was off (marked, without sound or chat message).
 - **Chat commands and timers (off until you turn them on).** Your own commands like `!discord` or `!hug @name` with a chat answer (`{user}`, `{target}`), an optional sound, other names, who may use them (everyone, subscribers, VIPs, moderators, only you) and cooldowns. A command can also react to a word at the start of a message instead of `!name` (e.g. "hi", which also catches "Hi!" and "hallo," as another name), and answer with a random line from a text file you pick (one answer per line, re-read when you edit it, never the same line twice in a row). "Once per stream" answers each viewer only once until your next stream starts, which suits greetings. Your own messages never trigger a word. Timers post a message every few minutes while you are live, optionally only after some chat messages, never two at once. darkbot writes with your account and ignores its own messages, so a command can't trigger itself.
 - **Alerts in OBS, without a port.** Each event can show a picture, animated GIF or video (WebM with transparency works) and a text like "{user} is following!" in OBS, together with its sound. One click in Settings, OBS creates a scene called `[darkbot]` that holds everything darkbot shows or plays, and adds it on top of each of your scenes; nothing else in your scenes changes. New scenes are noticed and offered. *Remove from OBS* takes it all out again.
+- **Now Playing overlay (OBS).** Shows the song Spotify or YouTube Music is playing in your stream, in one of six designs (Console, Glass, Lower third, Vinyl, Minimal, Compact), with cover, progress bar and, for song requests, who asked for it. The Now Playing tab previews all six live with your current song; one click picks the design. darkbot adds it as a browser source to its OBS scene and feeds it over the OBS connection: no port, no web server. Song titles are shown as text only, never run as HTML.
 - **Dashboard.** The start page counts redemptions, chat commands and song requests per stream (kept across restarts and updates; a new stream starts a new count) and in total, ranks the most redeemed sounds and most active viewers, and shows the state of your Twitch and Spotify logins (valid until, next automatic renewal, how long the login lasts) with a renew button, and whether Pear Desktop answers when you use YouTube Music.
 - **Starts with your computer** if you want (Windows, macOS, Linux; per user, no admin rights). On Windows it starts quietly in the tray.
 - **Lives in the Windows tray.** Closing the window keeps darkbot running next to the clock (can be switched off); click the icon to open it, the menu installs updates and quits. Starting darkbot a second time just shows the running one, so no sound plays twice.
@@ -107,6 +108,14 @@ Requirements and limits:
 - **Rights:** music you hold no rights to can get your VODs muted or your channel a DMCA strike on Twitch, and neither Spotify's nor YouTube's terms allow broadcasting. darkbot only manages your queue; what you play is your decision.
 - Song titles are named in chat answers by default. A title on Spotify or YouTube can be any text and darkbot posts from your own account, which AutoMod doesn't filter; switch off "Name song titles in chat" and darkbot answers without them.
 
+## Now Playing overlay
+
+1. Set up the darkbot scene in OBS once (Settings, OBS), if you haven't for alerts.
+2. Open the **Now Playing** tab, pick a design, tick **Show in OBS**. darkbot adds the browser source `[darkbot] now playing` to its scene, bottom left. Move and resize it in OBS like any source; darkbot never moves it back.
+3. Connect Spotify and/or YouTube Music (Song requests). The overlay shows whichever is playing; paused songs are hidden unless you switch that off.
+
+How it works: darkbot writes the overlay page into its settings folder and OBS shows it as a local-file browser source. Every few seconds darkbot asks Spotify (Get Currently Playing Track, a permission darkbot already has) or Pear Desktop for the song and sends it to the page with obs-browser's `emit_event` request over the existing OBS connection. The page counts the progress on by itself in between. Cover images load from Spotify's or YouTube's image servers inside OBS; darkbot's own previews show a copy darkbot downloaded, because darkbot's window loads nothing from the internet.
+
 ## How the Twitch login stays alive
 
 Docs: [device code flow](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#device-code-grant-flow), [refresh tokens](https://dev.twitch.tv/docs/authentication/refresh-tokens/), [validate tokens](https://dev.twitch.tv/docs/authentication/validate-tokens/).
@@ -169,6 +178,7 @@ internal/audio/        pure-Go decoding for validation and length
 internal/config/       settings file (atomic writes)
 internal/spotify/      Spotify PKCE login (paste flow, no port) and Web API client
 internal/ytmusic/      YouTube Music through Pear Desktop's API Server (client only)
+frontend/dist/overlay/ the Now Playing page (six designs), used by OBS and the previews
 internal/songs/        chat commands !sr !song !next !queue !skip
 internal/chatbot/      your own chat commands and timers
 internal/stats/        dashboard counts (session and total, kept on disk)

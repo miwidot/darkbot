@@ -212,7 +212,7 @@ func (o *Client) Remove(soundInput string) (from []string, err error) {
 			}
 		}
 	}
-	own := []string{imageInput, videoInput, textInput}
+	own := []string{imageInput, videoInput, textInput, NowPlayingInput}
 	if soundInput == config.DefaultOBSInputName {
 		own = append(own, soundInput)
 	}

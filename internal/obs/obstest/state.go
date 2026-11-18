@@ -40,6 +40,24 @@ type State struct {
 	Inputs   map[string]*Input
 	Requests []string
 	nextID   int
+	// Emitted holds the requestData of each obs-browser emit_event call.
+	Emitted []map[string]any
+	// NoBrowser: this OBS has no browser source (SetNoBrowser).
+	NoBrowser bool
+}
+
+// SetNoBrowser makes this OBS one without a browser source.
+func (s *State) SetNoBrowser() {
+	s.mu.Lock()
+	s.NoBrowser = true
+	s.mu.Unlock()
+}
+
+// EmittedEvents returns a copy of the emit_event calls.
+func (s *State) EmittedEvents() []map[string]any {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.Emitted)
 }
 
 // NewState has one scene, "Gameplay", with a camera.
@@ -180,7 +198,28 @@ func (s *State) handle(typ string, raw json.RawMessage) (map[string]any, int) {
 		}
 		return map[string]any{"inputs": list}, statusOK
 	case "GetInputKindList":
-		return map[string]any{"inputKinds": []string{"image_source", "ffmpeg_source", "text_gdiplus_v2", "text_gdiplus_v3", "color_source_v3"}}, statusOK
+		kinds := []string{"image_source", "ffmpeg_source", "text_gdiplus_v2", "text_gdiplus_v3", "color_source_v3"}
+		if !s.NoBrowser {
+			kinds = append(kinds, "browser_source")
+		}
+		return map[string]any{"inputKinds": kinds}, statusOK
+	case "CallVendorRequest":
+		var v struct {
+			VendorName  string         `json:"vendorName"`
+			RequestType string         `json:"requestType"`
+			RequestData map[string]any `json:"requestData"`
+		}
+		_ = json.Unmarshal(raw, &v)
+		if v.VendorName != "obs-browser" || v.RequestType != "emit_event" {
+			return nil, statusNotFound
+		}
+		s.Emitted = append(s.Emitted, v.RequestData)
+		return map[string]any{"vendorName": v.VendorName, "requestType": v.RequestType, "responseData": map[string]any{}}, statusOK
+	case "PressInputPropertiesButton":
+		if _, ok := s.Inputs[r.InputName]; !ok {
+			return nil, statusNotFound
+		}
+		return map[string]any{}, statusOK
 	case "CreateInput":
 		if _, ok := s.Inputs[r.InputName]; ok {
 			return nil, statusAlreadyExists

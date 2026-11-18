@@ -2,11 +2,17 @@ package songs
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/spotify"
 	"github.com/miwidot/darkbot/internal/ytmusic"
 )
+
+// coverMinWidth: the overlay shows covers at most about this wide, so the
+// smallest Spotify image at least this big is enough.
+const coverMinWidth = 200
 
 // Spotify queues on the device that is currently playing; Add to Queue and
 // Skip need Spotify Premium (Web API reference).
@@ -38,6 +44,23 @@ func (p Spotify) Add(ctx context.Context, t Track) error { return p.C.AddToQueue
 func (p Spotify) Skip(ctx context.Context) error         { return p.C.Next(ctx) }
 
 func (p Spotify) Playing(ctx context.Context) (bool, error) { return p.C.Playing(ctx) }
+
+func (p Spotify) Now(ctx context.Context) (*Now, error) {
+	pb, err := p.C.CurrentlyPlaying(ctx)
+	if err != nil || pb == nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(pb.Item.Artists))
+	for _, a := range pb.Item.Artists {
+		names = append(names, a.Name)
+	}
+	return &Now{
+		// The queue knows songs by URI, so requesters are found by it too.
+		ID: pb.Item.URI, Title: pb.Item.Name, Artist: strings.Join(names, ", "),
+		Cover: pb.Cover(coverMinWidth), Duration: pb.Item.Duration(),
+		Progress: time.Duration(pb.ProgressMS) * time.Millisecond, Playing: pb.IsPlaying,
+	}, nil
+}
 
 func (p Spotify) Queue(ctx context.Context) (*Queue, error) {
 	q, err := p.C.GetQueue(ctx)
@@ -96,6 +119,19 @@ func (p YTMusic) Add(ctx context.Context, t Track) error { return p.C.Add(ctx, t
 func (p YTMusic) Skip(ctx context.Context) error         { return p.C.Next(ctx) }
 
 func (p YTMusic) Playing(ctx context.Context) (bool, error) { return p.C.Playing(ctx) }
+
+func (p YTMusic) Now(ctx context.Context) (*Now, error) {
+	s, err := p.C.Song(ctx)
+	if err != nil || s == nil {
+		return nil, err
+	}
+	return &Now{
+		ID: s.VideoID, Title: s.Title, Artist: s.Artist, Cover: s.ImageSrc,
+		Duration: seconds(s.SongDuration), Progress: seconds(s.ElapsedSeconds), Playing: s.Playing(),
+	}, nil
+}
+
+func seconds(s float64) time.Duration { return time.Duration(s * float64(time.Second)) }
 
 func (p YTMusic) Queue(ctx context.Context) (*Queue, error) {
 	q, err := p.C.Queue(ctx)

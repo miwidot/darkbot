@@ -136,3 +136,18 @@ func TestCorruptConfigIsSetAside(t *testing.T) {
 		t.Fatalf("after saving, the config must load cleanly: %v %q", err, again.Recovered)
 	}
 }
+
+// Settings saved before the overlay existed get its defaults, not all
+// switches off; an unknown theme falls back to the first.
+func TestNowPlayingDefaults(t *testing.T) {
+	c := Config{}
+	c.normalize()
+	if c.NowPlaying != DefaultNowPlaying() || c.NowPlaying.Enabled {
+		t.Fatalf("got %+v", c.NowPlaying)
+	}
+	c.NowPlaying = NowPlaying{Theme: "neon", ShowCover: false}
+	c.normalize()
+	if c.NowPlaying.Theme != NowPlayingThemes[0] || c.NowPlaying.ShowCover {
+		t.Fatalf("theme fallback must keep the switches: %+v", c.NowPlaying)
+	}
+}

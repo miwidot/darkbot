@@ -578,3 +578,31 @@ details.more summary { cursor: pointer; color: var(--ink-2); }
 /* chat rows have no test button: one column less than event rows */
 .chat-block .event-row { grid-template-columns: 10px minmax(0, 1fr) auto auto; }
 @media (max-width: 900px) { .chat-block .event-row { grid-template-columns: 10px minmax(0, 1fr) auto; } }
+
+/* ---------- Now Playing ---------- */
+.np-panel { margin: 4px 0 22px; padding: 14px 16px; border: 1px solid var(--metal-2); border-radius: var(--r-pad); background: var(--metal-0); max-width: 760px; }
+.np-now { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; color: var(--ink-2); }
+.np-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--metal-3); flex: none; }
+.np-now.playing .np-dot { background: var(--live); box-shadow: 0 0 6px rgba(70, 209, 154, .55); }
+.np-now.paused .np-dot { background: var(--led); }
+.np-now.problem { color: var(--fault); }
+.np-now.problem .np-dot { background: var(--fault); }
+#npObs { margin: 2px 0 10px 26px; }
+#npObs.warn-text { color: var(--fault); }
+.np-options { display: flex; flex-wrap: wrap; gap: 4px 22px; padding-top: 10px; border-top: 1px solid var(--metal-2); }
+.np-designs { margin: 0 0 10px; font-size: var(--step-0); font-weight: 650; color: var(--ink-2); }
+.np-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; padding-bottom: 24px; }
+/* Buttons shrink to their content; the tile fills its grid cell. */
+.np-tile {
+  width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 8px; text-align: left; cursor: pointer;
+  border: 1px solid var(--metal-2); border-radius: var(--r-pad); background: var(--metal-0); color: var(--ink);
+}
+.np-tile:hover { border-color: var(--metal-3); }
+.np-tile[aria-pressed="true"] { border-color: var(--led); box-shadow: 0 0 0 1px var(--led) inset; }
+/* A stream-like backdrop so light and dark designs both read. */
+.np-frame { position: relative; width: 100%; overflow: hidden; aspect-ratio: 800 / 300; border-radius: 8px; background: #3b4250; }
+/* color-scheme normal: a frame whose page has a different color scheme
+   than darkbot's (dark) gets an opaque white canvas in Chromium. */
+.np-frame iframe { position: absolute; left: 0; top: 0; width: 800px; height: 300px; border: 0; transform-origin: 0 0; pointer-events: none; color-scheme: normal; }
+.np-caption { display: flex; align-items: center; gap: 8px; padding: 0 4px 2px; font-weight: 600; }
+.np-badge { margin-left: auto; font-size: var(--step--1); font-weight: 650; color: var(--led); }

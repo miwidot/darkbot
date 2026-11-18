@@ -281,3 +281,40 @@ func TestPlaying(t *testing.T) {
 		}
 	}
 }
+
+func TestCurrentlyPlaying(t *testing.T) {
+	var answer atomic.Value
+	apiServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/me/player/currently-playing" {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		a := answer.Load().(string)
+		if a == "" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		_, _ = w.Write([]byte(a))
+	})
+	c, _ := NewClient("cid", &memStore{tok: &Token{AccessToken: "A", ExpiresAt: time.Now().Add(time.Hour)}}, nopLog{})
+	ctx := context.Background()
+	answer.Store("")
+	if p, err := c.CurrentlyPlaying(ctx); p != nil || err != nil {
+		t.Fatalf("nothing playing: %+v %v", p, err)
+	}
+	answer.Store(`{"is_playing":true,"currently_playing_type":"ad","item":null}`)
+	if p, err := c.CurrentlyPlaying(ctx); p != nil || err != nil {
+		t.Fatalf("an ad is no song: %+v %v", p, err)
+	}
+	answer.Store(`{"is_playing":true,"progress_ms":61000,"currently_playing_type":"track","item":{"id":"x","uri":"spotify:track:x","name":"Around the World","duration_ms":429000,
+		"artists":[{"name":"Daft Punk"}],"album":{"images":[{"url":"big","width":640},{"url":"mid","width":300},{"url":"small","width":64}]}}}`)
+	p, err := c.CurrentlyPlaying(ctx)
+	if err != nil || p == nil {
+		t.Fatalf("got %+v %v", p, err)
+	}
+	if !p.IsPlaying || p.ProgressMS != 61000 || p.Item.Name != "Around the World" || p.Item.Title() != "Daft Punk – Around the World" || p.Item.DurationMS != 429000 {
+		t.Fatalf("parsed %+v", p.Item)
+	}
+	if p.Cover(200) != "mid" || p.Cover(1000) != "big" || p.Cover(0) != "small" {
+		t.Fatalf("covers %q %q %q", p.Cover(200), p.Cover(1000), p.Cover(0))
+	}
+}

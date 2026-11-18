@@ -80,6 +80,20 @@ type Queue struct {
 	Next    []Track
 }
 
+// Now is the song a service plays (or has paused) right now.
+type Now struct {
+	Service     string        `json:"service"`     // config.ServiceSpotify, config.ServiceYTMusic
+	ServiceName string        `json:"serviceName"` // "Spotify", "YouTube Music"
+	ID          string        `json:"id"`
+	Title       string        `json:"title"`  // the song's name only
+	Artist      string        `json:"artist"` // as the service writes it
+	Cover       string        `json:"cover"`  // image URL on the service, "" = none
+	Duration    time.Duration `json:"-"`
+	Progress    time.Duration `json:"-"`
+	Playing     bool          `json:"playing"`
+	RequestedBy string        `json:"requestedBy"` // viewer who asked for it, "" = nobody
+}
+
 // Player is one music service.
 type Player interface {
 	Service() string // config.ServiceSpotify, config.ServiceYTMusic
@@ -96,6 +110,8 @@ type Player interface {
 	Skip(ctx context.Context) error
 	Queue(ctx context.Context) (*Queue, error)
 	Playing(ctx context.Context) (bool, error)
+	// Now returns the current song, nil when there is none.
+	Now(ctx context.Context) (*Now, error)
 }
 
 // Logger is the minimal logging interface this package needs.
@@ -532,6 +548,39 @@ func (h *Handler) active(ctx context.Context, s config.SongRequests) Player {
 		}
 	}
 	return c[0]
+}
+
+// NowPlaying returns the song for the "Now Playing" overlay: the one that
+// plays (the search service first, if both play), else a paused one, nil
+// when nothing is loaded. It works whether or not song requests are on.
+// Errors of a service are returned only when no service has a song.
+func (h *Handler) NowPlaying(ctx context.Context) (*Now, error) {
+	var paused *Now
+	var firstErr error
+	for _, p := range h.connected(h.d.Settings()) {
+		n, err := p.Now(ctx)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("%s: %w", p.Name(), err)
+			}
+			continue
+		}
+		if n == nil {
+			continue
+		}
+		n.Service, n.ServiceName = p.Service(), p.Name()
+		n.RequestedBy = h.requester(key(p, n.ID)).user
+		if n.Playing {
+			return n, nil
+		}
+		if paused == nil {
+			paused = n
+		}
+	}
+	if paused != nil {
+		return paused, nil
+	}
+	return nil, firstErr
 }
 
 func (h *Handler) info(ctx context.Context, s config.SongRequests, m twitch.ChatMessage, cmd string) {

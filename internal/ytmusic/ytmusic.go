@@ -414,17 +414,40 @@ func (c *Client) Queue(ctx context.Context) (*Queue, error) {
 	return raw.queue(), nil
 }
 
+// Song is what Pear Desktop plays now (GET /api/v1/song, SongInfoSchema).
+type Song struct {
+	VideoID  string `json:"videoId"`
+	Title    string `json:"title"`
+	Artist   string `json:"artist"`
+	ImageSrc string `json:"imageSrc"`
+	// SongDuration and ElapsedSeconds are seconds.
+	SongDuration   float64 `json:"songDuration"`
+	ElapsedSeconds float64 `json:"elapsedSeconds"`
+	IsPaused       *bool   `json:"isPaused"`
+}
+
+// Playing reports whether the song plays (not paused).
+func (s *Song) Playing() bool { return s.IsPaused != nil && !*s.IsPaused }
+
+// Song reads the song playing now; nil when there is none (204).
+func (c *Client) Song(ctx context.Context) (*Song, error) {
+	var s Song
+	if err := c.call(ctx, http.MethodGet, "/song", nil, &s); err != nil {
+		return nil, err
+	}
+	if s.VideoID == "" { // 204 leaves s empty
+		return nil, nil
+	}
+	return &s, nil
+}
+
 // Playing reports whether a song plays right now (not paused).
 func (c *Client) Playing(ctx context.Context) (bool, error) {
-	var s struct {
-		VideoID  string `json:"videoId"`
-		IsPaused *bool  `json:"isPaused"`
-	}
-	if err := c.call(ctx, http.MethodGet, "/song", nil, &s); err != nil {
+	s, err := c.Song(ctx)
+	if err != nil || s == nil {
 		return false, err
 	}
-	// 204 (no song) leaves s empty.
-	return s.VideoID != "" && s.IsPaused != nil && !*s.IsPaused, nil
+	return s.Playing(), nil
 }
 
 // Add puts a song at the end of the queue and waits until it is there.

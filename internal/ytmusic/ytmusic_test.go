@@ -379,3 +379,19 @@ func TestParseDuration(t *testing.T) {
 		}
 	}
 }
+
+func TestSong(t *testing.T) {
+	f, c := newFake(t)
+	ctx := context.Background()
+	if s, err := c.Song(ctx); s != nil || err != nil {
+		t.Fatalf("no song: %+v %v", s, err)
+	}
+	f.song = []byte(`{"title":"Without Me","artist":"Eminem","imageSrc":"https://lh3.googleusercontent.com/x=w544-h544","isPaused":false,"songDuration":290,"elapsedSeconds":14,"videoId":"tqxRidAWER8","mediaType":"AUDIO"}`)
+	s, err := c.Song(ctx)
+	if err != nil || s == nil {
+		t.Fatalf("got %+v %v", s, err)
+	}
+	if s.Title != "Without Me" || s.Artist != "Eminem" || s.ImageSrc == "" || s.SongDuration != 290 || s.ElapsedSeconds != 14 || !s.Playing() {
+		t.Fatalf("parsed %+v", s)
+	}
+}

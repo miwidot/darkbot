@@ -29,6 +29,16 @@ type fakePlayer struct {
 	skipped int
 	queue   Queue
 	addErr  error
+	now     *Now
+	nowErr  error
+}
+
+func (f *fakePlayer) Now(context.Context) (*Now, error) {
+	if f.now == nil {
+		return nil, f.nowErr
+	}
+	n := *f.now
+	return &n, f.nowErr
 }
 
 func (f *fakePlayer) Service() string                          { return f.service }
@@ -500,5 +510,36 @@ func TestRequesterSkipIsPerService(t *testing.T) {
 	hs.say(viewer("!skip"))
 	if hs.p.skipped != 0 {
 		t.Fatal("a YouTube request must not allow skipping a Spotify song")
+	}
+}
+
+// The overlay shows the playing service's song, with who requested it.
+func TestNowPlaying(t *testing.T) {
+	hs := newHarness()
+	hs.y.conn = true
+	ctx := context.Background()
+	if n, err := hs.h.NowPlaying(ctx); n != nil || err != nil {
+		t.Fatalf("nothing loaded: %+v %v", n, err)
+	}
+	hs.p.now = &Now{ID: "spotify:track:a", Title: "Paused", Playing: false}
+	hs.y.now = &Now{ID: "4D7u5KF7SP8", Title: "Get Lucky", Artist: "Daft Punk", Playing: true}
+	hs.say(viewer("!sr https://music.youtube.com/watch?v=4D7u5KF7SP8"))
+	n, err := hs.h.NowPlaying(ctx)
+	if err != nil || n == nil || n.Title != "Get Lucky" || n.Service != config.ServiceYTMusic || n.ServiceName != "YouTube Music" || n.RequestedBy != "Viewer" {
+		t.Fatalf("the playing one with its requester: %+v %v", n, err)
+	}
+	hs.y.now = nil
+	if n, _ := hs.h.NowPlaying(ctx); n == nil || n.Title != "Paused" || n.RequestedBy != "" {
+		t.Fatalf("else the paused one: %+v", n)
+	}
+	// One service failing doesn't hide the other's song; with no song at
+	// all, the failure is reported.
+	hs.y.nowErr = errors.New("pear closed")
+	if n, err := hs.h.NowPlaying(ctx); n == nil || err != nil {
+		t.Fatalf("spotify's song despite pear: %+v %v", n, err)
+	}
+	hs.p.now = nil
+	if _, err := hs.h.NowPlaying(ctx); err == nil {
+		t.Fatal("no song and a failure: report it")
 	}
 }

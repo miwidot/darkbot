@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>darkbot now playing</title>
+<!--
+  darkbot's "Now Playing" overlay. One page, six designs.
+  In OBS it runs as a local-file browser source and gets the song through
+  obs-browser's "darkbot-nowplaying" event (emitted over obs-websocket).
+  In darkbot's Now Playing tab it runs in a preview frame (?preview=1&theme=…)
+  and gets the same data by postMessage from the app.
+  Song data is other people's text: it only ever goes in as textContent.
+-->
+<style>
+@font-face {
+  font-family: "Archivo";
+  src: url("../fonts/archivo-latin-wdth-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+}
+html, body { margin: 0; background: transparent; overflow: hidden; }
+body { width: 800px; height: 300px; position: relative; font-family: "Archivo", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+
+/* The widget sits in the bottom-left corner; room around it for shadows. */
+#np { position: absolute; left: 16px; bottom: 16px; opacity: 0; transform: translateY(10px); transition: opacity .45s ease, transform .45s ease; }
+#np.show { opacity: 1; transform: none; }
+.ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cover { display: block; object-fit: cover; flex: none; background: #2e3544; }
+.cover-blank { display: flex; align-items: center; justify-content: center; flex: none; background: #2e3544; color: #8c95a8; }
+.cover-blank svg { width: 40%; height: 40%; }
+.bar { position: relative; overflow: hidden; }
+.bar > i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; }
+.changed .text-block { animation: np-in .5s ease; }
+@keyframes np-in { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { #np, .changed .text-block { transition: none; animation: none; } }
+
+/* 1 console: darkbot's own look */
+.t-console { display: flex; gap: 18px; align-items: center; width: 560px; padding: 16px 20px 16px 16px; border-radius: 12px; background: #1a1e26; border: 1px solid #2e3544; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.t-console .cover, .t-console .cover-blank { width: 96px; height: 96px; border-radius: 8px; }
+.t-console .text-block { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.t-console .head { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; font-stretch: 125%; letter-spacing: .08em; color: #ffb23f; }
+.t-console .led { width: 8px; height: 8px; border-radius: 50%; background: #ffb23f; box-shadow: 0 0 8px #ffb23f; animation: np-led 1.6s ease-in-out infinite; }
+.t-console .paused .led, .paused .t-console .led { animation: none; opacity: .4; box-shadow: none; }
+@keyframes np-led { 50% { opacity: .35; } }
+.t-console .service { margin-left: auto; color: #8c95a8; font-weight: 600; letter-spacing: 0; font-stretch: 100%; }
+.t-console .title { font-size: 24px; font-weight: 750; font-stretch: 112%; color: #e8ebf0; }
+.t-console .artist { font-size: 15px; color: #b4bccb; }
+.t-console .progress { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 12px; color: #8c95a8; font-variant-numeric: tabular-nums; }
+.t-console .bar { flex: 1; height: 4px; border-radius: 2px; background: #2e3544; }
+.t-console .bar > i { background: #ffb23f; border-radius: 2px; }
+.t-console .req { font-size: 12px; color: #8c95a8; }
+.t-console .req b { color: #e8ebf0; }
+
+/* 2 glass: frosted card over the blurred cover */
+.t-glass { position: relative; width: 540px; height: 150px; border-radius: 22px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,.4); color: #fff; }
+.t-glass .backdrop { position: absolute; inset: -40px; background: #1f4f8f center / cover no-repeat; filter: blur(30px) saturate(1.3); }
+.t-glass .front { position: absolute; inset: 0; display: flex; align-items: center; gap: 20px; padding: 0 24px; background: rgba(10,14,22,.45); border: 1px solid rgba(255,255,255,.18); border-radius: 22px; }
+.t-glass .cover, .t-glass .cover-blank { width: 104px; height: 104px; border-radius: 14px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.t-glass .text-block { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.t-glass .head { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.78); }
+.t-glass .title { font-size: 26px; font-weight: 800; }
+.t-glass .artist { font-size: 16px; color: rgba(255,255,255,.88); }
+.t-glass .bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.25); margin-top: 10px; }
+.t-glass .bar > i { background: #fff; border-radius: 3px; }
+
+/* 3 band: a TV-style lower third */
+.t-band { display: flex; flex-direction: column; font-stretch: 75%; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.t-band .row { display: flex; align-items: stretch; height: 64px; }
+.t-band .tag { display: flex; align-items: center; padding: 0 18px; background: #ffb23f; color: #14171e; font-size: 20px; font-weight: 800; letter-spacing: .06em; }
+.t-band .cover, .t-band .cover-blank { width: 64px; height: 64px; }
+.t-band .text-block { display: flex; align-items: center; gap: 14px; padding: 0 22px; background: #14171e; color: #fff; max-width: 600px; }
+.t-band .title { font-size: 30px; font-weight: 700; }
+.t-band .artist { font-size: 26px; font-weight: 500; color: #b4bccb; }
+.t-band .req { flex: none; font-size: 18px; font-weight: 500; color: #14171e; background: #e8ebf0; padding: 2px 10px; border-radius: 4px; }
+.t-band .bar { height: 4px; background: #14171e; }
+.t-band .bar > i { background: #ffb23f; }
+
+/* 4 vinyl: a spinning record with the cover as its label */
+.t-vinyl { display: flex; align-items: center; }
+.t-vinyl .disc { position: relative; z-index: 1; width: 180px; height: 180px; flex: none; border-radius: 50%; background: repeating-radial-gradient(circle, #0d0f13 0 3px, #161a21 3px 4px); border: 2px solid #2a2f3a; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 30px rgba(0,0,0,.45); animation: np-spin 6s linear infinite; }
+.paused .t-vinyl .disc { animation-play-state: paused; }
+.t-vinyl .disc .cover, .t-vinyl .disc .cover-blank { width: 72px; height: 72px; border-radius: 50%; }
+.t-vinyl .disc::after { content: ""; position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #0d0f13; }
+@keyframes np-spin { to { transform: rotate(360deg); } }
+.t-vinyl .text-block { margin-left: -40px; padding: 18px 26px 18px 60px; border-radius: 0 16px 16px 0; background: #f5f1e8; color: #14171e; display: flex; flex-direction: column; gap: 2px; width: 360px; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
+.t-vinyl .head { font-size: 12px; font-weight: 650; color: #6b5126; }
+.t-vinyl .title { font-size: 26px; font-weight: 800; }
+.t-vinyl .artist { font-size: 16px; color: #3b4250; }
+.t-vinyl .req { font-size: 13px; color: #5d6474; margin-top: 4px; }
+.t-vinyl .bar { height: 3px; border-radius: 2px; background: rgba(20,23,30,.15); margin-top: 8px; }
+.t-vinyl .bar > i { background: #14171e; border-radius: 2px; }
+
+/* 5 minimal: text and an equalizer, no box */
+.t-minimal { display: flex; align-items: center; gap: 14px; }
+.t-minimal .eq { display: flex; align-items: flex-end; gap: 3px; height: 34px; flex: none; }
+.t-minimal .eq span { width: 5px; height: 34px; background: #fff; border-radius: 2px; transform-origin: bottom; animation: np-eq .9s ease-in-out infinite; box-shadow: 0 2px 6px rgba(0,0,0,.5); }
+.t-minimal .eq span:nth-child(2) { animation-delay: .2s; }
+.t-minimal .eq span:nth-child(3) { animation-delay: .45s; }
+.t-minimal .eq span:nth-child(4) { animation-delay: .1s; }
+.paused .t-minimal .eq span { animation-play-state: paused; }
+@keyframes np-eq { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+.t-minimal .text-block { display: flex; flex-direction: column; text-shadow: 0 2px 8px rgba(0,0,0,.7); max-width: 560px; }
+.t-minimal .title { font-size: 26px; font-weight: 750; font-stretch: 110%; color: #fff; }
+.t-minimal .artist { font-size: 17px; font-weight: 500; color: #e8ebf0; }
+.t-minimal .req { font-size: 13px; color: #e8ebf0; }
+
+/* 6 pill: small and quiet */
+.t-pill { display: flex; align-items: center; gap: 12px; max-width: 760px; padding: 6px 20px 6px 6px; border-radius: 999px; background: rgba(20,23,30,.88); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.t-pill .cover, .t-pill .cover-blank { width: 44px; height: 44px; border-radius: 50%; }
+.t-pill .note { width: 16px; height: 16px; flex: none; color: #46d19a; }
+.t-pill .text-block { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.t-pill .title { font-size: 16px; font-weight: 700; color: #fff; }
+.t-pill .artist { font-size: 15px; color: #b4bccb; }
+.t-pill .req { font-size: 13px; color: #8c95a8; }
+</style>
+</head>
+<body>
+<div id="np"></div>
+<script>
+(() => {
+  'use strict';
+  const THEMES = ['console', 'glass', 'band', 'vinyl', 'minimal', 'pill'];
+  const TICK_MS = 250; // progress bar update
+  const params = new URLSearchParams(location.search);
+  const preview = params.get('preview') === '1';
+  const fixedTheme = THEMES.includes(params.get('theme')) ? params.get('theme') : '';
+  const root = document.getElementById('np');
+
+  let data = null;       // last message from darkbot
+  let receivedAt = 0;    // when it arrived (performance.now)
+  let shownKey = '';     // what is drawn: theme + song + options
+  let shownSong = '';    // which song is drawn (a new one slides in)
+
+  const NOTE = 'M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm11-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z';
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text; // never HTML: titles are other people's text
+    return e;
+  }
+  function icon(cls) {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('viewBox', '0 0 24 24');
+    s.setAttribute('fill', 'none');
+    s.setAttribute('stroke', 'currentColor');
+    s.setAttribute('stroke-width', '2');
+    s.setAttribute('stroke-linecap', 'round');
+    s.setAttribute('stroke-linejoin', 'round');
+    if (cls) s.setAttribute('class', cls);
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', NOTE);
+    s.append(p);
+    return s;
+  }
+  // Only http(s) and darkbot's own paths may load as a cover.
+  function safeURL(u) {
+    if (typeof u !== 'string' || !u) return '';
+    if (u.startsWith('/')) return u;
+    try {
+      const p = new URL(u);
+      return p.protocol === 'https:' || p.protocol === 'http:' ? p.href : '';
+    } catch (e) { return ''; }
+  }
+  function cover(song) {
+    const url = safeURL(song.cover);
+    if (!url) {
+      const b = el('div', 'cover-blank');
+      b.append(icon());
+      return b;
+    }
+    const img = el('img', 'cover');
+    img.alt = '';
+    img.src = url;
+    img.addEventListener('error', () => {
+      const b = el('div', 'cover-blank');
+      b.append(icon());
+      img.replaceWith(b);
+    });
+    return img;
+  }
+  function fmt(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    const mm = h ? String(m).padStart(2, '0') : String(m);
+    return (h ? h + ':' : '') + mm + ':' + String(sec).padStart(2, '0');
+  }
+  function bar() {
+    const b = el('div', 'bar');
+    b.append(el('i', 'fill'));
+    return b;
+  }
+  function label(key, vars) {
+    let s = (data.labels && data.labels[key]) || '';
+    for (const [k, v] of Object.entries(vars || {})) s = s.split('{' + k + '}').join(v);
+    return s;
+  }
+  function requester(song, short) {
+    if (!data.showRequester || !song.requestedBy) return null;
+    if (short) return el('span', 'req', label('requestedShort', { user: song.requestedBy }));
+    const r = el('div', 'req');
+    const parts = label('requestedBy', { user: '\u0000' }).split('\u0000');
+    r.append(parts[0] || '', el('b', '', song.requestedBy), parts[1] || '');
+    return r;
+  }
+
+  const BUILD = {
+    console(song) {
+      const w = el('div', 't-console');
+      if (data.showCover) w.append(cover(song));
+      const t = el('div', 'text-block');
+      const head = el('div', 'head');
+      head.append(el('span', 'led'), el('span', '', label('nowPlaying')), el('span', 'service', song.serviceName));
+      t.append(head, el('div', 'title ellipsis', song.title), el('div', 'artist ellipsis', song.artist));
+      if (data.showProgress && song.durationMs > 0) {
+        const p = el('div', 'progress');
+        p.append(el('span', 'elapsed', ''), bar(), el('span', '', fmt(song.durationMs)));
+        t.append(p);
+      }
+      const r = requester(song);
+      if (r) t.append(r);
+      w.append(t);
+      return w;
+    },
+    glass(song) {
+      const w = el('div', 't-glass');
+      const back = el('div', 'backdrop');
+      const url = safeURL(song.cover);
+      if (url) back.style.backgroundImage = 'url("' + url.replace(/["\\\n]/g, '') + '")';
+      const front = el('div', 'front');
+      if (data.showCover) front.append(cover(song));
+      const t = el('div', 'text-block');
+      const r = data.showRequester && song.requestedBy ? ' · ' + label('requestedShort', { user: song.requestedBy }) : '';
+      t.append(el('div', 'head ellipsis', label('playingOn', { service: song.serviceName }) + r),
+        el('div', 'title ellipsis', song.title), el('div', 'artist ellipsis', song.artist));
+      if (data.showProgress && song.durationMs > 0) t.append(bar());
+      front.append(t);
+      w.append(back, front);
+      return w;
+    },
+    band(song) {
+      const w = el('div', 't-band');
+      const row = el('div', 'row');
+      row.append(el('div', 'tag', label('nowPlaying')));
+      if (data.showCover) row.append(cover(song));
+      const t = el('div', 'text-block');
+      t.append(el('span', 'title ellipsis', song.title), el('span', 'artist ellipsis', song.artist));
+      const r = requester(song, true);
+      if (r) t.append(r);
+      row.append(t);
+      w.append(row);
+      if (data.showProgress && song.durationMs > 0) w.append(bar());
+      return w;
+    },
+    vinyl(song) {
+      const w = el('div', 't-vinyl');
+      const disc = el('div', 'disc');
+      if (data.showCover) disc.append(cover(song));
+      const t = el('div', 'text-block');
+      t.append(el('div', 'head', song.serviceName), el('div', 'title ellipsis', song.title), el('div', 'artist ellipsis', song.artist));
+      const r = requester(song);
+      if (r) t.append(r);
+      if (data.showProgress && song.durationMs > 0) t.append(bar());
+      w.append(disc, t);
+      return w;
+    },
+    minimal(song) {
+      const w = el('div', 't-minimal');
+      const eq = el('div', 'eq');
+      for (let i = 0; i < 4; i++) eq.append(el('span'));
+      const t = el('div', 'text-block');
+      t.append(el('div', 'title ellipsis', song.title), el('div', 'artist ellipsis', song.artist));
+      const r = requester(song);
+      if (r) t.append(r);
+      w.append(eq, t);
+      return w;
+    },
+    pill(song) {
+      const w = el('div', 't-pill');
+      if (data.showCover) w.append(cover(song));
+      w.append(icon('note'));
+      const t = el('div', 'text-block');
+      t.append(el('span', 'title ellipsis', song.title), el('span', 'artist ellipsis', song.artist));
+      const r = requester(song, true);
+      if (r) t.append(r);
+      w.append(t);
+      return w;
+    },
+  };
+
+  function theme() {
+    if (fixedTheme) return fixedTheme;
+    return THEMES.includes(data && data.theme) ? data.theme : THEMES[0];
+  }
+
+  // progress: where the song is now, counted on from the last message.
+  function progress(song) {
+    let ms = song.progressMs || 0;
+    if (song.playing) ms += performance.now() - receivedAt;
+    return Math.min(ms, song.durationMs || ms);
+  }
+
+  function tick() {
+    if (!data || !data.song) return;
+    const song = data.song;
+    const ms = progress(song);
+    for (const f of root.querySelectorAll('.bar > i')) {
+      f.style.width = song.durationMs > 0 ? (100 * ms / song.durationMs).toFixed(2) + '%' : '0';
+    }
+    for (const e of root.querySelectorAll('.elapsed')) e.textContent = fmt(ms);
+  }
+
+  function render() {
+    const song = data && data.song;
+    const visible = !!song && (preview || song.playing || !data.hideWhenPaused);
+    root.classList.toggle('show', visible);
+    root.classList.toggle('paused', !!song && !song.playing);
+    if (!song) return;
+    const key = JSON.stringify([theme(), song.service, song.id, song.title, song.artist, song.cover, song.requestedBy, song.serviceName,
+      data.showCover, data.showProgress, data.showRequester, data.labels]);
+    if (key !== shownKey) {
+      const songKey = song.service + '|' + song.id;
+      const changed = shownSong !== '' && shownSong !== songKey;
+      shownKey = key;
+      shownSong = songKey;
+      root.replaceChildren(BUILD[theme()](song));
+      root.classList.toggle('changed', changed);
+    }
+    tick();
+  }
+
+  function receive(d) {
+    if (!d || typeof d !== 'object') return;
+    data = d;
+    receivedAt = performance.now();
+    render();
+  }
+
+  // OBS: obs-browser dispatches the event darkbot emits over obs-websocket.
+  window.addEventListener('darkbot-nowplaying', (e) => receive(e.detail));
+  // darkbot's preview frames: the app posts the same data.
+  window.addEventListener('message', (e) => {
+    if (e.origin !== location.origin || !e.data || e.data.type !== 'darkbot-nowplaying') return;
+    receive(e.data.data);
+  });
+  setInterval(tick, TICK_MS);
+  if (preview && window.parent !== window) window.parent.postMessage({ type: 'darkbot-nowplaying-ready', theme: fixedTheme }, location.origin);
+})();
+</script>
+</body>
+</html>
