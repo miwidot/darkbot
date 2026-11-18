@@ -1,3 +1,9 @@
+2026-11-18 18:53 +08 — Watch streaks as a channel event
+- channel.chat.notification v1 (scope user:read:chat, read as the broadcaster); only notice_type
+  watch_streak is used (streak_count -> {amount}, channel_points_awarded -> {points}); other notices
+  and Shared Chat notices from other channels are ignored. Minimum streak, sound, chat, alert like
+  every event; suggested message in both languages.
+
 2026-11-18 18:29 +08 — Release v0.2.8
 - Chat commands and timers, session kept across restarts, sound tests in the queue; macOS bundle version 0.2.8.
 

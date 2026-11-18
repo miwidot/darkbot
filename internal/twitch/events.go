@@ -36,10 +36,13 @@ const (
 	EvAdBreak   = "ad_break"
 	EvShoutout  = "shoutout"
 	EvSubEnd    = "sub_end"
+	// EvWatchStreak: a viewer shared their watch streak in chat (from
+	// channel.chat.notification, notice_type watch_streak).
+	EvWatchStreak = "watch_streak"
 )
 
 // EventKinds lists every kind in the order the UI shows them.
-var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvRaid, EvHypeBegin, EvHypeLevel, EvHypeEnd, EvShoutout, EvAdBreak, EvSubEnd, EvOnline, EvOffline}
+var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvRaid, EvWatchStreak, EvHypeBegin, EvHypeLevel, EvHypeEnd, EvShoutout, EvAdBreak, EvSubEnd, EvOnline, EvOffline}
 
 // Scopes for channel events.
 const (
@@ -62,8 +65,9 @@ type ChannelEvent struct {
 	Months    int    `json:"months"`  // resub: cumulative months
 	Message   string `json:"message"` // resub/cheer message
 	Anonymous bool   `json:"anonymous"`
-	Gift      bool   `json:"gift"` // sub/sub_end was a gifted sub
-	Top       string `json:"top"`  // hype_end: biggest contributor ("" if unknown)
+	Gift      bool   `json:"gift"`   // sub/sub_end was a gifted sub
+	Top       string `json:"top"`    // hype_end: biggest contributor ("" if unknown)
+	Points    int    `json:"points"` // watch_streak: channel points Twitch awarded
 	// TrainID identifies the hype train (begin/progress/end), for hypeTracker.
 	TrainID string `json:"-"`
 }
@@ -83,6 +87,16 @@ type eventSpec struct {
 }
 
 func byBroadcaster(id string) map[string]string { return map[string]string{"broadcaster_user_id": id} }
+
+// readChatAs: chat types read the broadcaster's chat as the broadcaster.
+func readChatAs(id string) map[string]string {
+	return map[string]string{"broadcaster_user_id": id, "user_id": id}
+}
+
+const (
+	chatNotificationType = "channel.chat.notification"
+	noticeWatchStreak    = "watch_streak"
+)
 
 // asModerator: types that need a moderator_user_id; the broadcaster counts.
 func asModerator(id string) map[string]string {
@@ -280,6 +294,34 @@ var eventSpecs = []eventSpec{
 				Seconds int `json:"duration_seconds"`
 			}](raw)
 			return ChannelEvent{Kind: EvAdBreak, Amount: v.Seconds}, err
+		}},
+	// Chat notices (https://dev.twitch.tv/docs/eventsub/reference/chat,
+	// checked 2026-11-18): Twitch added Watch Streaks on 2026-04-02;
+	// watch_streak carries streak_count ("consecutive broadcasts") and
+	// channel_points_awarded. The other notice types (subs, raids, ...) come
+	// through their own subscriptions above, so only watch_streak is used.
+	{Type: chatNotificationType, Version: "1", Scope: ScopeReadChat, condition: readChatAs,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				BroadcasterID string  `json:"broadcaster_user_id"`
+				ChatterID     string  `json:"chatter_user_id"`
+				ChatterName   string  `json:"chatter_user_name"`
+				Anonymous     bool    `json:"chatter_is_anonymous"`
+				NoticeType    string  `json:"notice_type"`
+				Source        *string `json:"source_broadcaster_user_id"`
+				WatchStreak   *struct {
+					Count  int `json:"streak_count"`
+					Points int `json:"channel_points_awarded"`
+				} `json:"watch_streak"`
+			}](raw)
+			if err != nil || v.NoticeType != noticeWatchStreak || v.WatchStreak == nil {
+				return ChannelEvent{}, err // not a watch streak: ignored
+			}
+			if v.Source != nil && *v.Source != "" && *v.Source != v.BroadcasterID {
+				return ChannelEvent{}, nil // another channel's chat (Shared Chat)
+			}
+			return ChannelEvent{Kind: EvWatchStreak, User: v.ChatterName, UserID: v.ChatterID,
+				Amount: v.WatchStreak.Count, Points: v.WatchStreak.Points, Anonymous: v.Anonymous}, nil
 		}},
 	{Type: "stream.online", Version: "1", Scope: "", condition: byBroadcaster,
 		parse: func(json.RawMessage) (ChannelEvent, error) { return ChannelEvent{Kind: EvOnline}, nil }},

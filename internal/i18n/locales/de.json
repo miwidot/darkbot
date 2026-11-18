@@ -429,7 +429,7 @@
   "evedit.clear": "Entfernen",
   "evedit.chat": "Chat-Nachricht",
   "evedit.chatPlaceholder": "z. B. Danke {user}!",
-  "evedit.chatHint": "Platzhalter: {user} Name, {amount} Menge (Bits, Zuschauer, Abos, Level), {tier} Abo-Stufe, {months} Monate, {top} größter Hype-Train-Unterstützer. Kommt von deinem Konto. Leer lassen für keine Nachricht.",
+  "evedit.chatHint": "Platzhalter: {user} Name, {amount} Menge (Bits, Zuschauer, Abos, Level, Streams der Watch-Streak), {tier} Abo-Stufe, {months} Monate, {top} größter Hype-Train-Unterstützer, {points} Kanalpunkte für die Watch-Streak. Kommt von deinem Konto. Leer lassen für keine Nachricht.",
   "evdefault.follow": "Danke fürs Folgen, {user}!",
   "evdefault.sub": "Danke für dein Abo, {user}! Willkommen in der Crew!",
   "evdefault.resub": "{user} ist seit {months} Monaten dabei, danke für die Treue!",
@@ -477,7 +477,7 @@
   "evedit.saved": "Aktion gespeichert.",
   "tip.evSound": "Läuft über dieselbe Ausgabe und Warteschlange wie deine Kanalpunkte-Sounds, damit sich nichts überlagert.",
   "tip.evChat": "darkbot schreibt das in deinen Chat, wenn das Ereignis passiert. Was Zuschauer geschrieben haben (Cheer- oder Resub-Nachrichten), wird nie übernommen, damit niemand darkbot seinen Text posten lassen kann.",
-  "tip.evMin": "Bei Bits die Anzahl Bits, bei Raids die Zuschauerzahl, bei Geschenken die Anzahl Abos.",
+  "tip.evMin": "Bei Bits die Anzahl Bits, bei Raids die Zuschauerzahl, bei Geschenken die Anzahl Abos, bei Watch-Streaks die Streams in Folge.",
   "dash.groupChannel": "Kanal",
   "dash.groupBot": "darkbot",
   "dash.follows": "Follows",
@@ -572,5 +572,9 @@
   "err.timerEmpty": "gib eine Nachricht ein",
   "err.timerInterval": "ein Timer kann alle {min} bis {max} Minuten kommen",
   "err.timerLines": "die Mindestzahl kann 0 bis {max} sein",
-  "err.tooManyTimers": "höchstens {max} Timer"
+  "err.tooManyTimers": "höchstens {max} Timer",
+  "event.watch_streak": "Watch-Streak",
+  "eventdesc.watch_streak": "Ein Zuschauer teilt im Chat, wie viele Streams in Folge er geschaut hat.",
+  "feed.ev.watch_streak": "{user} teilt eine Watch-Streak von {amount} Streams",
+  "evdefault.watch_streak": "Wow {user}, {amount} Streams in Folge dabei! Danke für die Treue!"
 }

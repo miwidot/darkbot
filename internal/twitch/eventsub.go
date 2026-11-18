@@ -389,6 +389,9 @@ func (e *EventSub) handleChannelEvent(msg *wsMessage) {
 		e.log.Warnf("ignore malformed %s event: %v", msg.Metadata.SubscriptionType, err)
 		return
 	}
+	if ev.Kind == "" {
+		return // a notification darkbot doesn't use (e.g. other chat notices)
+	}
 	ev.MessageID = msg.Metadata.MessageID
 	ev, report := e.hype.filter(ev)
 	if !report {

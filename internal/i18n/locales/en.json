@@ -429,7 +429,7 @@
   "evedit.clear": "Remove",
   "evedit.chat": "Chat message",
   "evedit.chatPlaceholder": "e.g. Thanks {user}!",
-  "evedit.chatHint": "Placeholders: {user} name, {amount} amount (Bits, viewers, subs, level), {tier} sub tier, {months} months, {top} biggest hype train contributor. Sent from your account. Leave empty for no message.",
+  "evedit.chatHint": "Placeholders: {user} name, {amount} amount (Bits, viewers, subs, level, streams of a watch streak), {tier} sub tier, {months} months, {top} biggest hype train contributor, {points} channel points for a watch streak. Sent from your account. Leave empty for no message.",
   "evdefault.follow": "Thanks for the follow, {user}!",
   "evdefault.sub": "Thanks for subscribing, {user}! Welcome to the crew!",
   "evdefault.resub": "{user} has been here for {months} months, thank you for sticking around!",
@@ -477,7 +477,7 @@
   "evedit.saved": "Action saved.",
   "tip.evSound": "Plays through the same output and queue as your channel point sounds, so nothing talks over each other.",
   "tip.evChat": "darkbot writes this into your chat when the event happens. What viewers typed (cheer or resub messages) is never copied, so nobody can make darkbot post their text.",
-  "tip.evMin": "For Bits the number of Bits, for raids the number of viewers, for gifts the number of subs.",
+  "tip.evMin": "For Bits the number of Bits, for raids the number of viewers, for gifts the number of subs, for watch streaks the streams in a row.",
   "dash.groupChannel": "Channel",
   "dash.groupBot": "darkbot",
   "dash.follows": "Follows",
@@ -572,5 +572,9 @@
   "err.timerEmpty": "enter a message",
   "err.timerInterval": "a timer can come every {min} to {max} minutes",
   "err.timerLines": "the minimum can be 0 to {max}",
-  "err.tooManyTimers": "at most {max} timers"
+  "err.tooManyTimers": "at most {max} timers",
+  "event.watch_streak": "Watch streak",
+  "eventdesc.watch_streak": "A viewer shares in chat how many streams in a row they watched.",
+  "feed.ev.watch_streak": "{user} shares a watch streak of {amount} streams",
+  "evdefault.watch_streak": "Wow {user}, {amount} streams in a row! Thanks for sticking around!"
 }

@@ -394,6 +394,12 @@ func TestParseChannelEvents(t *testing.T) {
 		{"channel.shoutout.receive", `{"from_broadcaster_user_id":"6","from_broadcaster_user_name":"Friend","viewer_count":300}`,
 			ChannelEvent{Kind: EvShoutout, User: "Friend", UserID: "6", Amount: 300}},
 		{"stream.online", `{"id":"1","type":"live"}`, ChannelEvent{Kind: EvOnline}},
+		{"channel.chat.notification", `{"broadcaster_user_id":"9","chatter_user_id":"7","chatter_user_name":"Eva","chatter_is_anonymous":false,"notice_type":"watch_streak","source_broadcaster_user_id":null,"watch_streak":{"streak_count":5,"channel_points_awarded":450}}`,
+			ChannelEvent{Kind: EvWatchStreak, User: "Eva", UserID: "7", Amount: 5, Points: 450}},
+		// Other notices come through their own subscriptions: ignored.
+		{"channel.chat.notification", `{"broadcaster_user_id":"9","chatter_user_id":"7","notice_type":"resub","watch_streak":null}`, ChannelEvent{}},
+		// From another channel in Shared Chat: ignored.
+		{"channel.chat.notification", `{"broadcaster_user_id":"9","chatter_user_id":"7","notice_type":"watch_streak","source_broadcaster_user_id":"5","watch_streak":{"streak_count":3,"channel_points_awarded":0}}`, ChannelEvent{}},
 	}
 	for _, c := range cases {
 		got, err := parseChannelEvent(c.subType, json.RawMessage(c.raw))

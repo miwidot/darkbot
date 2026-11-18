@@ -28,7 +28,7 @@ const eventSoundPrefix = "ev-"
 
 // amountKinds have a number worth a threshold (bits, raid viewers, gifted
 // subs, hype train level).
-var amountKinds = []string{twitch.EvCheer, twitch.EvRaid, twitch.EvGift, twitch.EvHypeLevel}
+var amountKinds = []string{twitch.EvCheer, twitch.EvRaid, twitch.EvGift, twitch.EvHypeLevel, twitch.EvWatchStreak}
 
 // noChatKinds never post in chat: naming people who unfollowed would put
 // them on the spot in front of the whole chat.
@@ -157,6 +157,7 @@ func renderTemplate(tpl string, ev twitch.ChannelEvent, lang string) string {
 		"{amount}", strconv.Itoa(ev.Amount),
 		"{tier}", ev.Tier,
 		"{months}", strconv.Itoa(ev.Months),
+		"{points}", strconv.Itoa(ev.Points),
 	).Replace(tpl)
 }
 
@@ -216,6 +217,7 @@ func (a *App) SaveEventAction(kind string, act config.EventAction) error {
 func (a *App) sampleEvent(kind string) twitch.ChannelEvent {
 	ev := twitch.ChannelEvent{Kind: kind, User: "darkbot", Tier: "1"}
 	const sampleBits, sampleViewers, sampleGifts, sampleMonths, sampleLevel, sampleAdSeconds = 100, 25, 5, 12, 3, 90
+	const sampleStreak, sampleStreakPoints = 5, 450
 	switch kind {
 	case twitch.EvCheer:
 		ev.Amount = sampleBits
@@ -231,6 +233,8 @@ func (a *App) sampleEvent(kind string) twitch.ChannelEvent {
 		ev.Amount, ev.User, ev.Top = sampleLevel, "", "darkbot"
 	case twitch.EvAdBreak:
 		ev.Amount, ev.User = sampleAdSeconds, ""
+	case twitch.EvWatchStreak:
+		ev.Amount, ev.Points = sampleStreak, sampleStreakPoints
 	case twitch.EvOnline, twitch.EvOffline:
 		ev.User = ""
 	}
