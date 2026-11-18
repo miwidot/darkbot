@@ -1,3 +1,8 @@
+2026-11-19 02:11 +08 — Release v0.5.0
+- Chat commands triggered by a word (e.g. greetings) with random answers from a text file and
+  once-per-stream; dashboard status colors with YouTube Music in Logins; CI apt retries;
+  macOS bundle 0.5.0.
+
 2026-11-19 02:08 +08 — Dashboard: status colors, YouTube Music always in Logins
 - Logins cards have a state with LED, word and (when it needs you) a tinted frame: green Running,
   amber Attention (Spotify login ends within 14 days, Twitch needs a reconnect for new
