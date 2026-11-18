@@ -132,6 +132,11 @@ type SongRequests struct {
 	BlockExplicit bool `json:"block_explicit"`
 	// ChatReplies answers commands in chat.
 	ChatReplies bool `json:"chat_replies"`
+	// HideTitles leaves song titles out of chat answers: a title on
+	// Spotify can be any text, and darkbot answers as the streamer's own
+	// account, which AutoMod doesn't filter. Off = titles are named (the
+	// default, like common chat bots).
+	HideTitles bool `json:"hide_titles"`
 	// RequesterCanSkip lets the viewer who requested the current song skip
 	// it (moderators and the broadcaster can always skip).
 	RequesterCanSkip bool `json:"requester_can_skip"`

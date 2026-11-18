@@ -331,7 +331,11 @@ func (h *Handler) request(ctx context.Context, s config.SongRequests, m twitch.C
 	h.remember(track.URI, m)
 	h.d.Log.Infof("%s requested %q", m.ChatterName, title)
 	h.d.OnActivity(Activity{Kind: ActAdded, User: m.ChatterName, Title: title, At: h.d.Now()})
-	h.reply(ctx, s, m, h.t("chat.added", "title", title))
+	if s.HideTitles {
+		h.reply(ctx, s, m, h.t("chat.addedNoTitle"))
+	} else {
+		h.reply(ctx, s, m, h.t("chat.added", "title", title))
+	}
 }
 
 func (h *Handler) find(ctx context.Context, arg string) (*spotify.Track, error) {
@@ -456,6 +460,11 @@ func (h *Handler) info(ctx context.Context, s config.SongRequests, m twitch.Chat
 		h.reply(ctx, s, m, h.errText(err))
 		return
 	}
+	if s.HideTitles {
+		// These commands only exist to name titles.
+		h.reply(ctx, s, m, h.t("chat.titlesHidden"))
+		return
+	}
 	switch cmd {
 	case cmdSong:
 		if q.Current == nil {
@@ -511,5 +520,9 @@ func (h *Handler) skip(ctx context.Context, s config.SongRequests, m twitch.Chat
 	title := q.Current.Title()
 	h.d.Log.Infof("%s skipped %q", m.ChatterName, title)
 	h.d.OnActivity(Activity{Kind: ActSkipped, User: m.ChatterName, Title: title, At: h.d.Now()})
-	h.reply(ctx, s, m, h.t("chat.skipped", "title", title))
+	if s.HideTitles {
+		h.reply(ctx, s, m, h.t("chat.skippedNoTitle"))
+	} else {
+		h.reply(ctx, s, m, h.t("chat.skipped", "title", title))
+	}
 }

@@ -81,6 +81,7 @@ Requirements and limits:
 - The Spotify login lasts 6 months, then you connect once more.
 - **Rights:** music you hold no rights to can get your VODs muted or your channel a DMCA strike on Twitch, and Spotify's developer terms don't allow broadcasting. darkbot only manages your queue; what you play is your decision.
 - YouTube links are refused with a hint; only Spotify links and song names work.
+- Song titles are named in chat answers by default. A title on Spotify can be any text and darkbot posts from your own account, which AutoMod doesn't filter; switch off "Name song titles in chat" and darkbot answers without them.
 
 ## How the Twitch login stays alive
 

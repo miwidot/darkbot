@@ -1,3 +1,9 @@
+2026-11-18 21:55 +08 — Song titles in chat can be switched off
+- Settings, Song requests: "Name song titles in chat" (on by default). Off: requests and skips
+  are answered without the title, !song/!next/!queue only say that titles aren't posted. Spotify
+  titles can be any text and darkbot posts as the streamer, unfiltered by AutoMod. The feed still
+  shows titles to the streamer.
+
 2026-11-18 21:45 +08 — Review before v0.3.0: security, correctness, performance
 - Dependencies: Go 1.27.4 (stdlib fixes incl. crypto/x509, net/http), Wails 2.17.1 (origin
   check, Linux frame bridge, memory leak), x/net 0.63, x/crypto 0.59, x/sys 0.50, x/text 0.44.

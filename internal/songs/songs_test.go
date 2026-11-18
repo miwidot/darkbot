@@ -369,3 +369,28 @@ func TestChannelRequestLimit(t *testing.T) {
 		t.Fatal("the limit must end after the window")
 	}
 }
+
+// With titles hidden, no Spotify title reaches chat (it is posted as the
+// streamer, unfiltered); the feed still shows it to the streamer.
+func TestHideTitles(t *testing.T) {
+	hs := newHarness()
+	hs.s.HideTitles = true
+	hs.say(viewer("!sr https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"))
+	if hs.last() != "Added your song to the queue." {
+		t.Fatalf("reply %q", hs.last())
+	}
+	if len(hs.acts) != 1 || hs.acts[0].Title != "Artist – Song" {
+		t.Fatalf("the feed must keep the title: %+v", hs.acts)
+	}
+	for _, cmd := range []string{"!song", "!next", "!queue"} {
+		hs.say(viewer(cmd))
+		if strings.Contains(hs.last(), "Song") && hs.last() != "Song titles aren’t posted in chat here." {
+			t.Fatalf("%s posted a title: %q", cmd, hs.last())
+		}
+	}
+	for _, r := range hs.replies {
+		if strings.Contains(r, "Artist") {
+			t.Fatalf("a title reached chat: %q", r)
+		}
+	}
+}

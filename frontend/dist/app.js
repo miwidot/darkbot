@@ -1212,6 +1212,7 @@ function renderSongs() {
   $('songsExplicit').checked = c.block_explicit;
   $('songsRequesterSkip').checked = c.requester_can_skip;
   $('songsReplies').checked = c.chat_replies;
+  $('songsTitles').checked = !c.hide_titles;
 }
 for (const id of ['spotifyClientId', 'songsEnabled', 'songsCooldown', 'songsMax', 'songsExplicit', 'songsRequesterSkip', 'songsReplies']) {
   $(id).addEventListener('input', () => { $('sec-songs').dataset.touched = '1'; });
@@ -1225,6 +1226,7 @@ function songSettings() {
     max_minutes: Math.max(0, parseInt($('songsMax').value, 10) || 0),
     block_explicit: $('songsExplicit').checked,
     chat_replies: $('songsReplies').checked,
+    hide_titles: !$('songsTitles').checked,
     requester_can_skip: $('songsRequesterSkip').checked,
   };
 }

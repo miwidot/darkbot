@@ -583,5 +583,10 @@
   "feed.missed": "während aus",
   "feed.missedTitle": "Passiert, als darkbot nicht lief; beim Vergleich der Follower-Liste gefunden. Es wurde kein Sound und keine Chat-Nachricht ausgelöst.",
   "chat.busy": "Gerade kommen zu viele Songwünsche, bitte versuch es in einer Minute nochmal.",
-  "err.soundTooBig": "Die Sound-Datei ist größer als {mb} MB. Nimm eine kürzere oder komprimierte Datei (MP3, OGG)."
+  "err.soundTooBig": "Die Sound-Datei ist größer als {mb} MB. Nimm eine kürzere oder komprimierte Datei (MP3, OGG).",
+  "chat.addedNoTitle": "Dein Song ist in der Warteschlange.",
+  "chat.skippedNoTitle": "Song übersprungen.",
+  "chat.titlesHidden": "Songtitel werden hier nicht im Chat genannt.",
+  "songs.titles": "Songtitel im Chat nennen",
+  "tip.songsTitles": "darkbot nennt den Song in seinen Antworten, z. B. „Zur Warteschlange hinzugefügt: Interpret – Titel“. Titel auf Spotify können beliebiger Text sein und werden von deinem eigenen Account gepostet, den AutoMod nicht filtert. Schaltest du das aus, antwortet darkbot ohne Titel; !song, !next und !queue sagen dann nur, dass hier keine Titel genannt werden."
 }

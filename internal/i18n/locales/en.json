@@ -583,5 +583,10 @@
   "feed.missed": "while off",
   "feed.missedTitle": "Happened while darkbot was not running; found when it compared the follower list. No sound or chat message was sent.",
   "chat.busy": "Too many song requests right now, please try again in a minute.",
-  "err.soundTooBig": "The sound file is larger than {mb} MB. Use a shorter or compressed file (MP3, OGG)."
+  "err.soundTooBig": "The sound file is larger than {mb} MB. Use a shorter or compressed file (MP3, OGG).",
+  "chat.addedNoTitle": "Added your song to the queue.",
+  "chat.skippedNoTitle": "Skipped the song.",
+  "chat.titlesHidden": "Song titles aren’t posted in chat here.",
+  "songs.titles": "Name song titles in chat",
+  "tip.songsTitles": "darkbot names the song in its answers, e.g. “Added to the queue: Artist – Title”. Titles on Spotify can be any text and are posted from your own account, which AutoMod doesn’t filter. Turn this off and darkbot answers without titles; !song, !next and !queue then only say that titles aren’t posted."
 }
