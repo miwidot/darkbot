@@ -1,3 +1,7 @@
+2026-11-19 01:10 +08 — Release v0.4.0
+- YouTube Music song requests through Pear Desktop (links routed by service, search service
+  setting, dashboard card); macOS bundle 0.4.0.
+
 2026-11-19 01:07 +08 — YouTube Music song requests (Pear Desktop)
 - !sr now also takes YouTube Music: through Pear Desktop (free open-source YouTube Music app,
   formerly th-ch/youtube-music) and its API Server plugin, the same way Streamer.bot extensions
