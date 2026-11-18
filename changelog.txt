@@ -1,3 +1,9 @@
+2026-11-19 01:57 +08 — CI: Linux package install no longer hangs the build
+- Ubuntu's mirrors stalled the "Linux GUI dependencies" step for 15+ minutes twice today
+  (v0.4.0 release and the next build). Each apt run is now time-boxed (update 5 min, install
+  10 min, 30 s network timeout, apt's own retries) and retried up to 3 times; the step gives up
+  after 20 minutes instead of blocking the release.
+
 2026-11-19 01:44 +08 — Chat commands: word triggers and random answers from a text file
 - A chat command can now be triggered by a word at the start of a message instead of !name
   ("hi" catches "Hi!", "hi everyone"; case and punctuation ignored; aliases e.g. hallo, moin).
