@@ -450,14 +450,14 @@
   "evedit.noVisual": "No picture",
   "evedit.overlayText": "Text on screen",
   "evedit.overlayPlaceholder": "e.g. {user} is following!",
-  "tip.evOverlayText": "Shown under the picture in OBS. Same placeholders as the chat message. Change font and colour on the source darkbot-text in OBS.",
+  "tip.evOverlayText": "Shown under the picture in OBS. Same placeholders as the chat message. Change font and colour on the source \"[darkbot] text\" in OBS.",
   "evedit.seconds": "Seconds",
   "tip.evSeconds": "How long the alert stays. 0 = automatic: the video’s length, or 5 seconds for a picture. The sound always plays to the end.",
   "evedit.alertNoObs": "OBS is not connected: the alert is skipped until it is.",
   "evedit.alertNoScene": "The darkbot scene is not in all your OBS scenes yet: set it up in Settings, OBS.",
   "evedit.alertReady": "Ready: OBS is connected and the darkbot scene is in all your scenes.",
   "obs.sceneTitle": "Alerts and sounds in OBS",
-  "tip.obsScene": "darkbot keeps everything it shows or plays in its own scene \"darkbot\" and adds that scene on top of each of your scenes. Nothing else in your scenes is changed. Move or restyle the alert sources inside the darkbot scene as you like.",
+  "tip.obsScene": "darkbot keeps everything it shows or plays in its own scene \"[darkbot]\" and adds that scene on top of each of your scenes. Nothing else in your scenes is changed. Move or restyle the alert sources inside the [darkbot] scene as you like. \"Remove from OBS\" takes it all out again.",
   "obs.sceneChecking": "Checking your OBS scenes…",
   "obs.sceneMissing": "The darkbot scene doesn’t exist yet. One click creates it and adds it to all your scenes.",
   "obs.sceneMissingIn": "The darkbot scene is missing in: {scenes}",
@@ -496,5 +496,8 @@
   "tip.dashBits": "All Bits cheered in your chat this session. Twitch offers no all-time Bits total, so \"Total\" is what darkbot counted.",
   "tip.dashRaids": "Incoming raids this session and how many viewers they brought. Twitch offers no raid history, so \"Total\" is what darkbot counted.",
   "err.eventKind": "unknown event “{kind}”",
-  "err.chatTooLong": "the chat message can be at most {max} characters"
+  "err.chatTooLong": "the chat message can be at most {max} characters",
+  "obs.remove": "Remove from OBS",
+  "obs.removeConfirm": "Really remove? Click again",
+  "obs.removed": "darkbot is removed from OBS: the [darkbot] scene, its sources and every place it was added to."
 }

@@ -81,3 +81,26 @@ func TestLanguageNormalized(t *testing.T) {
 		}
 	}
 }
+
+// Configs from v0.2.6 and older carry the old default sound source name;
+// they move to the new one (OBS's source is renamed by internal/obs). A
+// name the streamer chose stays.
+func TestLegacyOBSInputNameMoves(t *testing.T) {
+	for _, tc := range []struct{ stored, want string }{
+		{LegacyOBSInputName, DefaultOBSInputName},
+		{"My Alerts", "My Alerts"},
+	} {
+		dir := t.TempDir()
+		data := []byte(`{"obs":{"input_name":"` + tc.stored + `"}}`)
+		if err := os.WriteFile(filepath.Join(dir, configFileName), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		s, err := Open(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := s.Get().OBS.InputName; got != tc.want {
+			t.Errorf("stored %q: got %q, want %q", tc.stored, got, tc.want)
+		}
+	}
+}

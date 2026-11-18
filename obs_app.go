@@ -149,7 +149,7 @@ func (a *App) refreshOBSScene() {
 	if !a.obs.Connected() {
 		return
 	}
-	st, err := a.obs.Status()
+	st, err := a.obs.Status(a.cfg.Get().OBS.InputName)
 	if err != nil {
 		a.log.Warnf("Could not read the OBS scenes: %v", err)
 		return
@@ -175,6 +175,24 @@ func (a *App) SetupOBSScene() (int, error) {
 	}
 	a.refreshOBSScene()
 	return len(added), nil
+}
+
+// RemoveOBSScene takes darkbot out of OBS again: its scene out of every
+// scene of the streamer, its sources, and its scene (Settings → OBS).
+func (a *App) RemoveOBSScene() (int, error) {
+	from, err := a.obs.Remove(a.cfg.Get().OBS.InputName)
+	if err != nil {
+		a.log.Errorf("Removing darkbot from OBS: %v", err)
+		a.refreshOBSScene()
+		return len(from), a.uiErr(err)
+	}
+	if len(from) > 0 {
+		a.log.Infof("Removed darkbot from OBS (taken out of %s)", strings.Join(from, ", "))
+	} else {
+		a.log.Infof("Removed darkbot from OBS")
+	}
+	a.refreshOBSScene()
+	return len(from), nil
 }
 
 // overlay is where event alerts appear: OBS, while connected.

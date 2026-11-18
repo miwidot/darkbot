@@ -1,3 +1,13 @@
+2026-11-18 16:45 +08 — Remove from OBS, [darkbot] names in OBS
+- Settings, OBS: "Remove from OBS" (two-step) takes the darkbot scene out of every scene, removes
+  darkbot's sources (the sound source only under its default name) and the scene itself.
+- OBS names now carry brackets: scene [darkbot], sources [darkbot] sound/image/video/text. Setups
+  from v0.2.6 are renamed on the next contact (nesting and styles stay); a streamer's own scene
+  called darkbot is left alone. Configs with the old default sound name move to the new one.
+- Alerts no longer recreate a removed darkbot scene; they are skipped with a log line instead.
+- Fake OBS: SetSceneName, SetInputName, RemoveSceneItem, RemoveInput, RemoveScene; tests for
+  remove, custom sound source, legacy rename, foreign darkbot scene, config migration.
+
 2026-11-18 15:57 +08 — Release v0.2.6
 - Alerts in OBS (pictures, GIFs, videos, text) through the nested darkbot scene; macOS bundle version 0.2.6.
 

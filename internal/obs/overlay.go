@@ -1,6 +1,6 @@
 package obs
 
-// Alerts in OBS without a port: darkbot owns one scene, "darkbot", that
+// Alerts in OBS without a port: darkbot owns one scene, "[darkbot]", that
 // holds everything it shows or plays (sound, image/GIF, video, text). The
 // streamer's scenes get that scene as a single nested item, so darkbot
 // never touches anything else in them and new alert types show up
@@ -12,34 +12,53 @@ package obs
 // SetSceneItemIndex ("An index of 0 is at the bottom of the source list"),
 // SetSceneItemEnabled, Get/SetSceneItemTransform, GetInputList,
 // GetInputKindList, CreateInput, SetInputSettings, GetVideoSettings,
-// GetMediaInputStatus, TriggerMediaInputAction.
+// GetMediaInputStatus, TriggerMediaInputAction; for removing and renaming:
+// RemoveSceneItem, RemoveInput ("Will immediately remove all associated
+// scene items"), RemoveScene, SetSceneName, SetInputName.
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/andreykaipov/goobs"
-	"github.com/andreykaipov/goobs/api/requests/config"
+	obsconfig "github.com/andreykaipov/goobs/api/requests/config"
 	"github.com/andreykaipov/goobs/api/requests/inputs"
 	"github.com/andreykaipov/goobs/api/requests/mediainputs"
 	"github.com/andreykaipov/goobs/api/requests/sceneitems"
 	"github.com/andreykaipov/goobs/api/requests/scenes"
 	"github.com/andreykaipov/goobs/api/typedefs"
+
+	"github.com/miwidot/darkbot/internal/config"
 )
 
-// Names in OBS. The streamer may move and style the sources inside the
-// darkbot scene; darkbot finds them by name.
+// Names in OBS. The brackets set darkbot's parts apart from the
+// streamer's own in OBS's lists. The streamer may move and style the
+// sources inside the darkbot scene; darkbot finds them by name.
 const (
-	SceneName  = "darkbot"
-	imageInput = "darkbot-image"
-	videoInput = "darkbot-video"
-	textInput  = "darkbot-text"
+	SceneName  = "[darkbot]"
+	imageInput = "[darkbot] image"
+	videoInput = "[darkbot] video"
+	textInput  = "[darkbot] text"
 )
+
+// Names darkbot 0.2.6 used. They are renamed on the next contact with OBS,
+// so an existing setup keeps its positions and styles.
+const legacySceneName = "darkbot"
+
+var legacyInputs = map[string]string{
+	"darkbot-image": imageInput,
+	"darkbot-video": videoInput,
+	"darkbot-text":  textInput,
+}
+
+// ErrNotSetUp: an alert needs the darkbot scene, and it isn't in OBS.
+var ErrNotSetUp = errors.New("the darkbot scene is not set up in OBS (Settings, OBS)")
 
 const (
 	imageKind = "image_source" // plays GIFs animated
@@ -84,11 +103,15 @@ type SceneStatus struct {
 	Scenes  int      `json:"scenes"` // the streamer's scenes (without darkbot's)
 }
 
-// Status reads where the darkbot scene is nested.
-func (o *Client) Status() (SceneStatus, error) {
+// Status reads where the darkbot scene is nested. It first renames parts
+// left by older darkbot versions (see renameLegacy).
+func (o *Client) Status(soundInput string) (SceneStatus, error) {
 	c, err := o.client()
 	if err != nil {
 		return SceneStatus{}, err
+	}
+	if err := renameLegacy(c, soundInput); err != nil {
+		return SceneStatus{}, o.fail(c, err)
 	}
 	list, err := c.Scenes.GetSceneList(&scenes.GetSceneListParams{})
 	if err != nil {
@@ -120,6 +143,9 @@ func (o *Client) Setup(soundInput string) (added []string, err error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := renameLegacy(c, soundInput); err != nil {
+		return nil, o.fail(c, err)
+	}
 	if err := ensureScene(c, soundInput); err != nil {
 		return nil, o.fail(c, err)
 	}
@@ -144,6 +170,132 @@ func (o *Client) Setup(soundInput string) (added []string, err error) {
 		added = append(added, s.SceneName)
 	}
 	return added, nil
+}
+
+// Remove takes darkbot out of OBS: the darkbot scene out of each of the
+// streamer's scenes, darkbot's sources and the darkbot scene itself. The
+// sound source goes only under its default name; a custom name may be one
+// of the streamer's own sources. It returns the scenes darkbot was taken
+// out of.
+func (o *Client) Remove(soundInput string) (from []string, err error) {
+	c, err := o.client()
+	if err != nil {
+		return nil, err
+	}
+	if err := renameLegacy(c, soundInput); err != nil {
+		return nil, o.fail(c, err)
+	}
+	list, err := c.Scenes.GetSceneList(&scenes.GetSceneListParams{})
+	if err != nil {
+		return nil, o.fail(c, fmt.Errorf("list OBS scenes: %w", err))
+	}
+	exists := false
+	for _, s := range list.Scenes {
+		if s.SceneName == SceneName {
+			exists = true
+			continue
+		}
+		its, err := items(c, s.SceneName)
+		if err != nil {
+			return from, o.fail(c, err)
+		}
+		for _, it := range its {
+			if it.SourceName != SceneName {
+				continue
+			}
+			if _, err := c.SceneItems.RemoveSceneItem(sceneitems.NewRemoveSceneItemParams().
+				WithSceneName(s.SceneName).WithSceneItemId(it.SceneItemID)); err != nil {
+				return from, o.fail(c, fmt.Errorf("take the darkbot scene out of %q: %w", s.SceneName, err))
+			}
+			if !slices.Contains(from, s.SceneName) {
+				from = append(from, s.SceneName)
+			}
+		}
+	}
+	own := []string{imageInput, videoInput, textInput}
+	if soundInput == config.DefaultOBSInputName {
+		own = append(own, soundInput)
+	}
+	have, err := inputNames(c)
+	if err != nil {
+		return from, o.fail(c, err)
+	}
+	for _, name := range own {
+		if !have[name] {
+			continue
+		}
+		if _, err := c.Inputs.RemoveInput(inputs.NewRemoveInputParams().WithInputName(name)); err != nil {
+			return from, o.fail(c, fmt.Errorf("remove OBS source %q: %w", name, err))
+		}
+	}
+	if exists {
+		if _, err := c.Scenes.RemoveScene(scenes.NewRemoveSceneParams().WithSceneName(SceneName)); err != nil {
+			return from, o.fail(c, fmt.Errorf("remove the OBS scene %q: %w", SceneName, err))
+		}
+	}
+	return from, nil
+}
+
+// renameLegacy gives parts made by older darkbot versions today's names:
+// the scene "darkbot" (only if it holds darkbot's sources, so a scene the
+// streamer happened to call so stays), its sources, and the sound source
+// under its old default name when the default is in use. Renaming keeps
+// the parts where they are nested and how they are styled.
+func renameLegacy(c *goobs.Client, soundInput string) error {
+	have, err := inputNames(c)
+	if err != nil {
+		return err
+	}
+	renames := maps.Clone(legacyInputs)
+	if soundInput == config.DefaultOBSInputName {
+		renames[config.LegacyOBSInputName] = soundInput
+	}
+	for old, name := range renames {
+		if !have[old] || have[name] {
+			continue
+		}
+		if _, err := c.Inputs.SetInputName(inputs.NewSetInputNameParams().
+			WithInputName(old).WithNewInputName(name)); err != nil {
+			return fmt.Errorf("rename OBS source %q to %q: %w", old, name, err)
+		}
+	}
+	list, err := c.Scenes.GetSceneList(&scenes.GetSceneListParams{})
+	if err != nil {
+		return fmt.Errorf("list OBS scenes: %w", err)
+	}
+	names := map[string]bool{}
+	for _, s := range list.Scenes {
+		names[s.SceneName] = true
+	}
+	if !names[legacySceneName] || names[SceneName] {
+		return nil
+	}
+	ours := false
+	for _, n := range []string{imageInput, videoInput, textInput} {
+		if ours, err = hasItem(c, legacySceneName, n); err != nil || ours {
+			break
+		}
+	}
+	if err != nil || !ours {
+		return err
+	}
+	if _, err := c.Scenes.SetSceneName(scenes.NewSetSceneNameParams().
+		WithSceneName(legacySceneName).WithNewSceneName(SceneName)); err != nil {
+		return fmt.Errorf("rename the OBS scene %q to %q: %w", legacySceneName, SceneName, err)
+	}
+	return nil
+}
+
+func inputNames(c *goobs.Client) (map[string]bool, error) {
+	list, err := c.Inputs.GetInputList(&inputs.GetInputListParams{})
+	if err != nil {
+		return nil, fmt.Errorf("list OBS sources: %w", err)
+	}
+	have := map[string]bool{}
+	for _, in := range list.Inputs {
+		have[in.InputName] = true
+	}
+	return have, nil
 }
 
 func items(c *goobs.Client, scene string) ([]*typedefs.SceneItem, error) {
@@ -198,13 +350,9 @@ func ensureScene(c *goobs.Client, soundInput string) error {
 			return fmt.Errorf("create the OBS scene %q: %w", SceneName, err)
 		}
 	}
-	existing, err := c.Inputs.GetInputList(&inputs.GetInputListParams{})
+	have, err := inputNames(c)
 	if err != nil {
-		return fmt.Errorf("list OBS sources: %w", err)
-	}
-	have := map[string]bool{}
-	for _, in := range existing.Inputs {
-		have[in.InputName] = true
+		return err
 	}
 	inScene, err := items(c, SceneName)
 	if err != nil {
@@ -243,7 +391,7 @@ func ensureScene(c *goobs.Client, soundInput string) error {
 				}
 			}
 		case !placed[w.name]:
-			// e.g. darkbot-sound from older versions, in one of the
+			// e.g. the sound source from older versions, in one of the
 			// streamer's scenes: also put it in darkbot's scene.
 			if _, err := c.SceneItems.CreateSceneItem(sceneitems.NewCreateSceneItemParams().
 				WithSceneName(SceneName).WithSourceName(w.name).WithSceneItemEnabled(w.name == soundInput)); err != nil {
@@ -282,7 +430,7 @@ func textInputKind(c *goobs.Client) (string, error) {
 // center puts a new source in the middle of the canvas (text below it).
 // The streamer can move it in OBS afterwards; darkbot never resets it.
 func center(c *goobs.Client, itemID int, below bool) error {
-	v, err := c.Config.GetVideoSettings(&config.GetVideoSettingsParams{})
+	v, err := c.Config.GetVideoSettings(&obsconfig.GetVideoSettingsParams{})
 	if err != nil {
 		return fmt.Errorf("read the OBS canvas size: %w", err)
 	}
@@ -320,7 +468,15 @@ func (o *Client) Show(ctx context.Context, a Alert, soundInput string) (hide fun
 	if err != nil {
 		return nil, 0, err
 	}
-	if err := ensureScene(c, soundInput); err != nil {
+	// After Remove, alerts must not quietly bring the scene back.
+	list, err := c.Scenes.GetSceneList(&scenes.GetSceneListParams{})
+	if err != nil {
+		return nil, 0, o.fail(c, fmt.Errorf("list OBS scenes: %w", err))
+	}
+	if !slices.ContainsFunc(list.Scenes, func(s *typedefs.Scene) bool { return s.SceneName == SceneName }) {
+		return nil, 0, ErrNotSetUp
+	}
+	if err := ensureScene(c, soundInput); err != nil { // repairs deleted sources
 		return nil, 0, o.fail(c, err)
 	}
 	var show []string

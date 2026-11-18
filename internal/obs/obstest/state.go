@@ -106,6 +106,8 @@ type req struct {
 	SceneItemID        int            `json:"sceneItemId"`
 	SceneItemIndex     int            `json:"sceneItemIndex"`
 	SceneItemTransform map[string]any `json:"sceneItemTransform"`
+	NewSceneName       string         `json:"newSceneName"`
+	NewInputName       string         `json:"newInputName"`
 }
 
 func (s *State) handle(typ string, raw json.RawMessage) (map[string]any, int) {
@@ -199,6 +201,55 @@ func (s *State) handle(typ string, raw json.RawMessage) (map[string]any, int) {
 			in.Settings[k] = v
 		}
 		return map[string]any{}, statusOK
+	case "SetSceneName":
+		if !slices.Contains(s.Scenes, r.SceneName) {
+			return nil, statusNotFound
+		}
+		if s.sourceExists(r.NewSceneName) {
+			return nil, statusAlreadyExists
+		}
+		s.Scenes[slices.Index(s.Scenes, r.SceneName)] = r.NewSceneName
+		s.Items[r.NewSceneName] = s.Items[r.SceneName]
+		delete(s.Items, r.SceneName)
+		s.renameSource(r.SceneName, r.NewSceneName)
+		return map[string]any{}, statusOK
+	case "SetInputName":
+		in, ok := s.Inputs[r.InputName]
+		if !ok {
+			return nil, statusNotFound
+		}
+		if s.sourceExists(r.NewInputName) {
+			return nil, statusAlreadyExists
+		}
+		s.Inputs[r.NewInputName] = in
+		delete(s.Inputs, r.InputName)
+		s.renameSource(r.InputName, r.NewInputName)
+		return map[string]any{}, statusOK
+	case "RemoveSceneItem":
+		list := s.Items[r.SceneName]
+		i := slices.IndexFunc(list, func(it Item) bool { return it.ID == r.SceneItemID })
+		if i < 0 {
+			return nil, statusNotFound
+		}
+		s.Items[r.SceneName] = slices.Delete(list, i, i+1)
+		return map[string]any{}, statusOK
+	case "RemoveInput":
+		// "Will immediately remove all associated scene items."
+		if _, ok := s.Inputs[r.InputName]; !ok {
+			return nil, statusNotFound
+		}
+		delete(s.Inputs, r.InputName)
+		s.dropSource(r.InputName)
+		return map[string]any{}, statusOK
+	case "RemoveScene":
+		i := slices.Index(s.Scenes, r.SceneName)
+		if i < 0 {
+			return nil, statusNotFound
+		}
+		s.Scenes = slices.Delete(s.Scenes, i, i+1)
+		delete(s.Items, r.SceneName)
+		s.dropSource(r.SceneName) // where it was nested
+		return map[string]any{}, statusOK
 	case "GetVideoSettings":
 		return map[string]any{"baseWidth": canvasWidth, "baseHeight": canvasHeight, "outputWidth": canvasWidth, "outputHeight": canvasHeight}, statusOK
 	case "TriggerMediaInputAction":
@@ -218,4 +269,29 @@ func (s *State) editItem(r req, fn func(*Item)) (map[string]any, int) {
 		}
 	}
 	return nil, statusNotFound
+}
+
+// Scene and input names share one namespace in OBS (both are sources).
+func (s *State) sourceExists(name string) bool {
+	_, isInput := s.Inputs[name]
+	return isInput || slices.Contains(s.Scenes, name)
+}
+
+// renameSource updates every item showing the source; OBS items refer to
+// the source itself, so a rename shows everywhere.
+func (s *State) renameSource(old, name string) {
+	for _, list := range s.Items {
+		for i := range list {
+			if list[i].Source == old {
+				list[i].Source = name
+			}
+		}
+	}
+}
+
+// dropSource removes every item showing the source.
+func (s *State) dropSource(name string) {
+	for scene, list := range s.Items {
+		s.Items[scene] = slices.DeleteFunc(list, func(it Item) bool { return it.Source == name })
+	}
 }

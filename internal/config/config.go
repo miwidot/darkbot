@@ -51,9 +51,12 @@ const OBSTrackCount = 6
 
 // Default values for a fresh config.
 const (
-	DefaultOBSHost        = "localhost"
-	DefaultOBSPort        = 4455 // obs-websocket v5 default port
-	DefaultOBSInputName   = "darkbot-sound"
+	DefaultOBSHost      = "localhost"
+	DefaultOBSPort      = 4455 // obs-websocket v5 default port
+	DefaultOBSInputName = "[darkbot] sound"
+	// LegacyOBSInputName: the default up to v0.2.6; such configs move to
+	// DefaultOBSInputName and OBS's source is renamed (internal/obs).
+	LegacyOBSInputName    = "darkbot-sound"
 	DefaultSoundVolume    = 1.0
 	DefaultMasterVolume   = 1.0
 	MaxVolume             = 1.0 // 100 %: HTML audio elements cannot amplify
@@ -232,7 +235,7 @@ func (c *Config) normalize() {
 	if c.OBS.Port <= 0 || c.OBS.Port > 65535 {
 		c.OBS.Port = DefaultOBSPort
 	}
-	if c.OBS.InputName == "" {
+	if c.OBS.InputName == "" || c.OBS.InputName == LegacyOBSInputName {
 		c.OBS.InputName = DefaultOBSInputName
 	}
 	for i := range c.Sounds {

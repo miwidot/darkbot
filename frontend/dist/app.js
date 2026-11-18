@@ -848,6 +848,7 @@ function renderOBSScene() {
   else text = t('obs.sceneReady', { n: num(sc.scenes) });
   $('obsSceneState').textContent = text;
   $('obsSetup').classList.toggle('hidden', sc.exists && !sc.missing.length);
+  $('obsRemove').classList.toggle('hidden', !sc.exists);
 }
 $('obsSetup').addEventListener('click', async () => {
   $('obsSetup').disabled = true;
@@ -856,6 +857,27 @@ $('obsSetup').addEventListener('click', async () => {
     toast(added ? t('obs.setupAdded', { n: num(added) }) : t('obs.setupDone'));
   } catch (e) { toast(errText(e), true); }
   $('obsSetup').disabled = false;
+  refresh();
+});
+// Two-step like deleting a sound: the first click asks, a second one
+// within CONFIRM_MS removes.
+let obsRemoveArmed = 0;
+$('obsRemove').addEventListener('click', async () => {
+  const btn = $('obsRemove');
+  if (Date.now() - obsRemoveArmed > CONFIRM_MS) {
+    obsRemoveArmed = Date.now();
+    btn.textContent = t('obs.removeConfirm');
+    setTimeout(() => { if (Date.now() - obsRemoveArmed >= CONFIRM_MS) btn.textContent = t('obs.remove'); }, CONFIRM_MS);
+    return;
+  }
+  obsRemoveArmed = 0;
+  btn.textContent = t('obs.remove');
+  btn.disabled = true;
+  try {
+    await App().RemoveOBSScene();
+    toast(t('obs.removed'));
+  } catch (e) { toast(errText(e), true); }
+  btn.disabled = false;
   refresh();
 });
 $('obsPass').addEventListener('input', () => { obsPassDirty = true; });

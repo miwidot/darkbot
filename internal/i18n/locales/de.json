@@ -450,14 +450,14 @@
   "evedit.noVisual": "Kein Bild",
   "evedit.overlayText": "Text im Bild",
   "evedit.overlayPlaceholder": "z. B. {user} folgt jetzt!",
-  "tip.evOverlayText": "Steht in OBS unter dem Bild. Gleiche Platzhalter wie bei der Chat-Nachricht. Schrift und Farbe änderst du in OBS an der Quelle darkbot-text.",
+  "tip.evOverlayText": "Steht in OBS unter dem Bild. Gleiche Platzhalter wie bei der Chat-Nachricht. Schrift und Farbe änderst du in OBS an der Quelle „[darkbot] text“.",
   "evedit.seconds": "Sekunden",
   "tip.evSeconds": "Wie lange der Alert zu sehen ist. 0 = automatisch: so lang wie das Video, bei einem Bild 5 Sekunden. Der Sound läuft immer zu Ende.",
   "evedit.alertNoObs": "OBS ist nicht verbunden: Der Alert wird übersprungen, bis es verbunden ist.",
   "evedit.alertNoScene": "Die darkbot-Szene ist noch nicht in allen deinen OBS-Szenen: richte sie unter Einstellungen, OBS ein.",
   "evedit.alertReady": "Bereit: OBS ist verbunden und die darkbot-Szene ist in allen deinen Szenen.",
   "obs.sceneTitle": "Alerts und Sounds in OBS",
-  "tip.obsScene": "darkbot legt alles, was es zeigt oder abspielt, in eine eigene Szene „darkbot“ und fügt diese Szene oben in jede deiner Szenen ein. Sonst wird an deinen Szenen nichts geändert. Die Alert-Quellen in der darkbot-Szene kannst du verschieben und gestalten, wie du willst.",
+  "tip.obsScene": "darkbot legt alles, was es zeigt oder abspielt, in eine eigene Szene „[darkbot]“ und fügt diese Szene oben in jede deiner Szenen ein. Sonst wird an deinen Szenen nichts geändert. Die Alert-Quellen in der Szene [darkbot] kannst du verschieben und gestalten, wie du willst. „Aus OBS entfernen“ nimmt alles wieder heraus.",
   "obs.sceneChecking": "Prüfe deine OBS-Szenen…",
   "obs.sceneMissing": "Die darkbot-Szene gibt es noch nicht. Ein Klick legt sie an und fügt sie in alle deine Szenen ein.",
   "obs.sceneMissingIn": "Die darkbot-Szene fehlt in: {scenes}",
@@ -496,5 +496,8 @@
   "tip.dashBits": "Alle Bits, die in dieser Sitzung in deinem Chat gecheert wurden. Twitch bietet keine Gesamtsumme aller Bits, daher ist „Gesamt“ das, was darkbot gezählt hat.",
   "tip.dashRaids": "Eingehende Raids in dieser Sitzung und wie viele Zuschauer sie mitgebracht haben. Twitch bietet keine Raid-Historie, daher ist „Gesamt“ das, was darkbot gezählt hat.",
   "err.eventKind": "unbekanntes Ereignis „{kind}“",
-  "err.chatTooLong": "die Chat-Nachricht darf höchstens {max} Zeichen lang sein"
+  "err.chatTooLong": "die Chat-Nachricht darf höchstens {max} Zeichen lang sein",
+  "obs.remove": "Aus OBS entfernen",
+  "obs.removeConfirm": "Wirklich entfernen? Nochmal klicken",
+  "obs.removed": "darkbot ist aus OBS entfernt: die Szene [darkbot], ihre Quellen und alle Stellen, an denen sie eingefügt war."
 }

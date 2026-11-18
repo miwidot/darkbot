@@ -2,7 +2,7 @@
 // Protocol: https://github.com/obsproject/obs-websocket/blob/master/docs/generated/protocol.md
 //
 // In OBS-output mode darkbot plays sounds through ONE media source
-// (default name "darkbot-sound"). For every sound it sets the file, volume
+// (default name "[darkbot] sound"). For every sound it sets the file, volume
 // and the audio tracks (1–6), then restarts the source.
 //
 // OBS only outputs audio of sources that are in the active scene. darkbot
@@ -271,15 +271,26 @@ func (p *Output) Play(ctx context.Context, s config.Sound, master float64) error
 }
 
 // ensureInput creates the media source in the current scene if missing.
+// The source under its pre-0.2.7 default name is renamed instead, should a
+// sound come before the scene check after connecting has renamed it.
 func ensureInput(c *goobs.Client, name string) error {
 	list, err := c.Inputs.GetInputList(inputs.NewGetInputListParams().WithInputKind(mediaSourceKind))
 	if err != nil {
 		return fmt.Errorf("list OBS inputs: %w", err)
 	}
+	legacy := false
 	for _, in := range list.Inputs {
 		if in.InputName == name {
 			return nil
 		}
+		legacy = legacy || (name == config.DefaultOBSInputName && in.InputName == config.LegacyOBSInputName)
+	}
+	if legacy {
+		if _, err := c.Inputs.SetInputName(inputs.NewSetInputNameParams().
+			WithInputName(config.LegacyOBSInputName).WithNewInputName(name)); err != nil {
+			return fmt.Errorf("rename OBS source %q to %q: %w", config.LegacyOBSInputName, name, err)
+		}
+		return nil
 	}
 	scene, err := c.Scenes.GetCurrentProgramScene(&scenes.GetCurrentProgramSceneParams{})
 	if err != nil {
