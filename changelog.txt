@@ -1,3 +1,6 @@
+2026-11-18 18:29 +08 — Release v0.2.8
+- Chat commands and timers, session kept across restarts, sound tests in the queue; macOS bundle version 0.2.8.
+
 2026-11-18 18:20 +08 — Chat commands and timers (off by default); the dashboard session survives restarts
 - New Chat view: own commands (!name, other names, answer with {user}/{target}, permission
   everyone/subscribers/VIPs/moderators/only you, cooldown for all and per viewer, optional sound in
