@@ -1,3 +1,7 @@
+2026-11-19 02:50 +08 — Release v0.6.0
+- Now Playing overlay for OBS (six designs, own tab with live previews); OBS keep-alive test
+  fix; macOS bundle 0.6.0.
+
 2026-11-19 02:47 +08 — Test fix: OBS keep-alive test was flaky under load
 - TestOBSKeepAlive "crashed" the fake OBS right after reconnecting, while darkbot's after-connect
   requests (scene check, hiding old alerts) were still queued. goobs sends requests one at a
