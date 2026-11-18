@@ -22,6 +22,7 @@ import (
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/i18n"
 	"github.com/miwidot/darkbot/internal/obs"
+	"github.com/miwidot/darkbot/internal/secret"
 	"github.com/miwidot/darkbot/internal/selfupdate"
 	"github.com/miwidot/darkbot/internal/songs"
 	"github.com/miwidot/darkbot/internal/spotify"
@@ -66,6 +67,9 @@ const (
 	spotifyLoginTimeout = 30 * time.Second
 	// chatSendTimeout bounds one chat reply.
 	chatSendTimeout = 10 * time.Second
+	// shutdownWait bounds stopping on exit: refunding the redemptions still
+	// queued (one Twitch request each, in parallel).
+	shutdownWait = 5 * time.Second
 )
 
 // App is bound to the frontend: every exported method is callable from JS.
@@ -75,21 +79,27 @@ type App struct {
 	// OBS keep-alive, guarded by mu (see obs_app.go).
 	obsWant, obsAuthFailed, obsWaitLogged bool
 	obsScene                              *obs.SceneStatus
-	ctx                                   context.Context
-	log                                   *applog.Log
-	cfg                                   *config.Store
-	tok                                   *twitch.TokenManager
-	hx                                    *twitch.Helix
-	obs                                   *obs.Client
-	bot                                   *bot.Bot
-	cb                                    *chatbot.Bot
-	live                                  atomic.Bool // the stream is live (chat_app.go)
-	web                                   *webOutput
-	obsO                                  *obs.Output
-	sp                                    *spotify.Client
-	sr                                    *songs.Handler
-	st                                    *stats.Stats
-	act                                   *activity.Log // the activity feed, kept on disk
+	// ctx is the run context: Wails' context with a cancel that shutdown
+	// calls (Wails v2 never cancels the context it passes to OnStartup).
+	ctx      context.Context
+	stopRun  context.CancelFunc
+	stopOnce sync.Once
+	life     sync.Mutex    // start/stop of EventSub and the follower watcher
+	obsPass  *secret.Store // the OBS password (OS keyring, file fallback)
+	log      *applog.Log
+	cfg      *config.Store
+	tok      *twitch.TokenManager
+	hx       *twitch.Helix
+	obs      *obs.Client
+	bot      *bot.Bot
+	cb       *chatbot.Bot
+	live     atomic.Bool // the stream is live (chat_app.go)
+	web      *webOutput
+	obsO     *obs.Output
+	sp       *spotify.Client
+	sr       *songs.Handler
+	st       *stats.Stats
+	act      *activity.Log // the activity feed, kept on disk
 
 	mu          sync.Mutex
 	esCancel    context.CancelFunc
@@ -116,6 +126,9 @@ func NewApp(log *applog.Log) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cfg.Recovered != "" {
+		log.Errorf("Settings reset: %s", cfg.Recovered)
+	}
 	if cfg.Get().TwitchClientID == "" && defaultClientID != "" {
 		if err := cfg.Update(func(c *config.Config) { c.TwitchClientID = defaultClientID }); err != nil {
 			return nil, err
@@ -134,6 +147,8 @@ func NewApp(log *applog.Log) (*App, error) {
 			runtime.EventsEmit(a.ctx, "stats")
 		}
 	})
+	a.obsPass = &secret.Store{Key: obsPasswordKey, FallbackPath: cfg.OBSPasswordPath(), Log: log}
+	a.moveOBSPassword()
 	a.obs = obs.New(a.onOBSDrop)
 	a.obs.OnScenesChanged(a.refreshOBSScene)
 	a.web = &webOutput{app: a, pending: map[string]chan string{}}
@@ -186,8 +201,11 @@ func (a *App) currentOutput() bot.Output {
 	return a.web
 }
 
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
+func (a *App) startup(wailsCtx context.Context) {
+	// Wails' runtime only reads values from its context, so the derived
+	// one works for runtime calls and stops every loop on shutdown.
+	ctx, stop := context.WithCancel(wailsCtx)
+	a.ctx, a.stopRun = ctx, stop
 	selfupdate.CleanupPrevious()
 	a.log.Infof("darkbot %s", version.Version)
 	a.log.OnChange(func() { runtime.EventsEmit(ctx, "log") })
@@ -256,8 +274,12 @@ func (a *App) checkUpdate() *selfupdate.Info {
 		return nil
 	}
 	a.mu.Lock()
+	prev := a.update
 	a.update = info
 	a.mu.Unlock()
+	if prev != nil && prev.Available == info.Available && prev.Latest == info.Latest {
+		return info // nothing new: no log line, no re-render every 30 minutes
+	}
 	if info.Available {
 		a.log.Infof("Update available: v%s (you have %s)", info.Latest, version.Version)
 	}
@@ -303,11 +325,8 @@ func (a *App) installUpdate() error {
 		return err
 	}
 	a.log.Infof("Update %s installed, restarting", tag)
-	// Restart exits without the normal shutdown: save what shutdown saves.
-	a.st.Flush()
-	a.act.Flush()
-	a.obs.Disconnect()
-	tray.Stop()
+	// Restart exits without the normal shutdown: do what shutdown does.
+	a.stopAll()
 	var args []string
 	if startedInTray {
 		args = append(args, autostart.TrayArg)
@@ -320,11 +339,27 @@ func (a *App) SetAutoUpdate(on bool) error {
 	return a.uiErr(a.cfg.Update(func(c *config.Config) { c.AutoUpdate = on }))
 }
 
-func (a *App) shutdown(context.Context) {
-	a.st.Flush()
-	a.act.Flush()
-	a.obs.Disconnect()
-	tray.Stop()
+func (a *App) shutdown(context.Context) { a.stopAll() }
+
+// stopAll ends every loop, refunds the redemptions still queued and saves
+// what is pending. Runs once (shutdown or a restart for an update).
+func (a *App) stopAll() {
+	a.stopOnce.Do(func() {
+		if a.stopRun != nil {
+			a.stopRun()
+			a.bot.Stop(shutdownWait)
+		}
+		a.mu.Lock()
+		fw := a.fw
+		a.mu.Unlock()
+		if fw != nil {
+			fw.Flush()
+		}
+		a.st.Flush()
+		a.act.Flush()
+		a.obs.Disconnect()
+		tray.Stop()
+	})
 }
 
 // ---------- state ----------
@@ -556,14 +591,22 @@ func (a *App) Logout() error {
 	return a.uiErr(err)
 }
 
+// startEventSub (re)starts listening to Twitch. Start and stop of EventSub
+// and the follower watcher hold a.life, so a login finishing while unfollow
+// detection is toggled can't leave two of them running (every sound twice).
 func (a *App) startEventSub() {
-	a.stopEventSub()
+	a.life.Lock()
+	defer a.life.Unlock()
+	a.stopEventSubLocked()
 	ctx, cancel := context.WithCancel(a.ctx)
 	a.mu.Lock()
 	a.esCancel = cancel
 	a.mu.Unlock()
 
 	es := twitch.NewEventSub(a.hx, a.tok, a.log, a.bot.HandleRedemption, func(up bool) {
+		if ctx.Err() != nil {
+			return // a stopped session must not report itself connected
+		}
 		a.mu.Lock()
 		a.esConnected = up
 		a.mu.Unlock()
@@ -581,11 +624,17 @@ func (a *App) startEventSub() {
 		go a.cb.Handle(ctx, m)
 	})
 	go es.Run(ctx)
-	a.startFollowerWatcher()
+	a.startFollowerWatcherLocked()
 }
 
 func (a *App) stopEventSub() {
-	a.stopFollowerWatcher()
+	a.life.Lock()
+	defer a.life.Unlock()
+	a.stopEventSubLocked()
+}
+
+func (a *App) stopEventSubLocked() {
+	a.stopFollowerWatcherLocked()
 	a.mu.Lock()
 	cancel := a.esCancel
 	a.esCancel, a.esConnected = nil, false
@@ -624,12 +673,14 @@ type OBSSettings struct {
 
 // SaveOBS stores OBS settings.
 func (a *App) SaveOBS(s OBSSettings) error {
+	if s.PasswordChanged {
+		if err := a.setOBSPassword(s.Password); err != nil {
+			return a.uiErr(err)
+		}
+	}
 	return a.uiErr(a.cfg.Update(func(c *config.Config) {
 		c.OBS.Host = strings.TrimSpace(s.Host)
 		c.OBS.Port = s.Port
-		if s.PasswordChanged {
-			c.OBS.Password = s.Password
-		}
 		c.OBS.AutoConnect = s.AutoConnect
 		c.OBS.InputName = strings.TrimSpace(s.InputName)
 		for i := range c.OBS.Tracks {
@@ -684,8 +735,8 @@ func (a *App) saveSound(s config.Sound) (config.Sound, error) {
 	if !filepath.IsAbs(s.File) {
 		return s, i18n.E("err.pathAbsolute")
 	}
-	if _, err := audio.Duration(s.File); err != nil {
-		return s, i18n.Wrap(err, "err.readFile")
+	if _, err := audio.Check(s.File); err != nil {
+		return s, readErr(err)
 	}
 	if s.ID == "" {
 		s.ID = config.NewID()
@@ -846,7 +897,8 @@ func (a *App) resolveRedemption(r twitch.Redemption, fulfill bool) {
 	if fulfill {
 		status = twitch.StatusFulfilled
 	}
-	ctx, cancel := context.WithTimeout(a.ctx, rewardsTimeout)
+	// Not cancelled on shutdown: refunding the queue happens right then.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(a.ctx), rewardsTimeout)
 	defer cancel()
 	if err := a.hx.UpdateRedemptionStatus(ctx, t.UserID, r.RewardID, r.ID, status); err != nil {
 		a.log.Warnf("Could not mark redemption of %q by %s as %s: %v", r.RewardTitle, r.UserName, strings.ToLower(status), err)
@@ -875,7 +927,11 @@ func (a *App) serveSound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := strings.TrimPrefix(r.URL.Path, soundURLPrefix)
-	if file, ok := a.eventSoundFile(id); ok {
+	file, ok := a.eventSoundFile(id)
+	if !ok {
+		file, ok = a.commandSoundFile(id)
+	}
+	if ok {
 		w.Header().Set("Content-Type", audio.MIMEType(file))
 		w.Header().Set("Cache-Control", "no-store")
 		http.ServeFile(w, r, file)
@@ -958,8 +1014,20 @@ func (o *webOutput) done(token, errMsg string) {
 
 // ---------- song requests (Spotify) ----------
 
-// sendChat answers a chat command as the broadcaster.
+// sendChat posts text as the broadcaster (song replies, event messages)
+// and tells the chat bot it is darkbot's own.
 func (a *App) sendChat(ctx context.Context, text, replyTo string) {
+	a.postChat(ctx, a.cb.Remember(text), replyTo)
+}
+
+// postChat posts a message darkbot already remembered.
+func (a *App) postChat(ctx context.Context, text, replyTo string) {
+	if ok, first := chatBudget.Allow(time.Now()); !ok {
+		if first {
+			a.log.Warnf("Chat messages paused: darkbot sent %d in the last %s (Twitch mutes accounts that send 100)", chatBudgetMax, chatBudgetWindow)
+		}
+		return
+	}
 	t := a.tok.Current()
 	if t == nil || !t.HasScope(twitch.ScopeWriteChat) {
 		a.log.Warnf("Can't answer in chat: reconnect Twitch once to allow sending chat messages")

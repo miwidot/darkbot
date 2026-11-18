@@ -180,13 +180,30 @@ func (m *TokenManager) Login(ctx context.Context, tok *Token) error {
 	return m.set(tok)
 }
 
-// Logout deletes the token. It waits for a running refresh, so a refresh
-// can't write a fresh token back after the user logged out.
+// Logout deletes the token and revokes it at Twitch, so a copy left
+// anywhere (a backup of the config dir, the old keyring entry) is useless.
+// It waits for a running refresh, so a refresh can't write a fresh token
+// back after the user logged out. A failed revoke is only logged: the local
+// logout counts.
 func (m *TokenManager) Logout() error {
 	m.refreshMu.Lock()
 	defer m.refreshMu.Unlock()
-	return m.logoutLocked()
+	m.mu.RLock()
+	tok := m.tok
+	m.mu.RUnlock()
+	err := m.logoutLocked()
+	if tok != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), revokeTimeout)
+		defer cancel()
+		if rerr := RevokeToken(ctx, m.clientID, tok.AccessToken); rerr != nil {
+			m.log.Warnf("Logged out, but Twitch could not be told to invalidate the login: %v", rerr)
+		}
+	}
+	return err
 }
+
+// revokeTimeout bounds telling Twitch about a logout.
+const revokeTimeout = 10 * time.Second
 
 // logoutLocked must be called with refreshMu held.
 func (m *TokenManager) logoutLocked() error {

@@ -44,6 +44,11 @@ jobs:
       - name: App tests
         if: matrix.target == 'mac'
         run: go vet . && go test -race .
+      # Known vulnerabilities in Go or a dependency that darkbot's code
+      # actually reaches fail the build (pinned version, no install).
+      - name: Vulnerability check
+        if: matrix.target == 'mac'
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 -tags desktop,production ./...
       - name: Build
         run: make ${{ matrix.target }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

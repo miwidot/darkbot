@@ -1,3 +1,42 @@
+2026-11-18 21:45 +08 — Review before v0.3.0: security, correctness, performance
+- Dependencies: Go 1.27.4 (stdlib fixes incl. crypto/x509, net/http), Wails 2.17.1 (origin
+  check, Linux frame bridge, memory leak), x/net 0.63, x/crypto 0.59, x/sys 0.50, x/text 0.44.
+  govulncheck: 23 reachable vulnerabilities before, none after; CI now runs govulncheck.
+- Chat: one budget for everything darkbot posts (60 per 30 s; Twitch mutes at 100) and one for
+  event thank-yous (15 per 30 s), so a follow-bot wave can't make the streamer's account spam.
+  Song requests: at most 10 per minute for the whole channel (mods excepted), reply "too many".
+  All of darkbot's own messages are recognised in chat (event thanks no longer count as chat
+  lines for timers).
+- Fixed: chat command sounds got a 404 in device output mode (only OBS mode played them).
+- Shutdown: Wails never cancels its context, so darkbot now has its own run context; on exit
+  every loop stops, redemptions still waiting in the queue are refunded, and pending files
+  (stats, feed, follower list) are saved. Same on restart after an update.
+- EventSub: a revocation of one event type no longer stops everything (only a revoked login
+  does; lost redemptions reconnect). Channels without channel points (not Affiliate) keep chat,
+  songs and events instead of retrying forever. Start/stop of EventSub and the follower watcher
+  is serialised (no double listeners); a stopped session can't report itself connected.
+- Sound queue: a redemption refused because the queue is full no longer starts its cooldown.
+- OBS: a request OBS rejects no longer drops the connection (the ping watcher handles dead
+  ones); alerts hide through the current connection after a reconnect, and old alerts are hidden
+  on connect; slow connection attempts (something on the port that isn't OBS) back off to 1 min.
+- Follower list: follows that arrived live are saved with it, so a restart doesn't repeat them
+  as "while off"; the list is only rewritten when it changed.
+- Files: atomic writes now fsync before the rename; an unreadable config.json is set aside as
+  config.json.corrupt-<time> and darkbot starts with defaults instead of not starting.
+- Secrets: the OBS password moves from config.json to the OS keyring (file fallback like the
+  logins); a newer fallback token file wins over an older keyring entry; logout revokes the
+  Twitch token at Twitch.
+- Live detection tolerates a local clock up to 10 minutes off Twitch's.
+- Activity feed: clearing can't be undone by a save in flight; very old found entries go to the
+  end, several are rendered in one pass.
+- Sound files over 25 MB are refused (they were read into memory on every play).
+- Performance: cooldown ring at most 10 updates/s instead of every frame; bursts of state events
+  render twice at most; no state event every minute from unfollow detection, none every 5 min or
+  30 min when nothing changed; EventSub dedupe pruned every 30 s instead of per message; song
+  request cooldowns are forgotten when over.
+- Frontend: failed backend calls refresh the UI and leave no unhandled promise rejections.
+- README: what darkbot deliberately doesn't do, updated for commands, alerts and the limits.
+
 2026-11-18 21:07 +08 — The activity feed is kept, and finds what happened while darkbot was off
 - The feed (redemptions, song requests, channel events) is saved to activity.json and shown again
   after a restart or update; the last 200 lines, newest first, earlier days with their date. Tests

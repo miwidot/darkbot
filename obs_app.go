@@ -11,6 +11,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/miwidot/darkbot/internal/bot"
+	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/i18n"
 	"github.com/miwidot/darkbot/internal/obs"
 )
@@ -24,6 +25,16 @@ import (
 // connected. Connecting to localhost is cheap; OBS shows nothing for it.
 const obsRetryEvery = 5 * time.Second
 
+// A connection attempt that takes obsSlowAttempt or longer met something
+// that accepts connections but doesn't answer like OBS (e.g. a hung OBS or
+// another program on the port). Each such attempt costs a socket the OBS
+// library doesn't release, so those retries slow down, doubling up to
+// obsRetryMax. A closed OBS refuses at once and keeps the fast retry.
+const (
+	obsSlowAttempt = 4 * time.Second
+	obsRetryMax    = time.Minute
+)
+
 func (a *App) startOBS(ctx context.Context) {
 	if a.cfg.Get().OBS.AutoConnect {
 		a.mu.Lock()
@@ -35,29 +46,35 @@ func (a *App) startOBS(ctx context.Context) {
 }
 
 func (a *App) obsLoop(ctx context.Context) {
-	t := time.NewTicker(obsRetryEvery)
-	defer t.Stop()
+	wait := obsRetryEvery
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-t.C:
-			a.mu.Lock()
-			retry := a.obsWant && !a.obsAuthFailed
-			a.mu.Unlock()
-			if retry && !a.obs.Connected() {
-				a.tryOBS()
-			}
+		case <-time.After(wait):
+		}
+		a.mu.Lock()
+		retry := a.obsWant && !a.obsAuthFailed
+		a.mu.Unlock()
+		if !retry || a.obs.Connected() {
+			wait = obsRetryEvery
+			continue
+		}
+		start := time.Now()
+		if err := a.tryOBS(); err != nil && time.Since(start) >= obsSlowAttempt {
+			wait = min(wait*2, obsRetryMax)
+		} else {
+			wait = obsRetryEvery
 		}
 	}
 }
 
 // tryOBS is one quiet connection attempt of the keep-alive. Only changes
 // are logged: the first miss, a rejected password, the connect.
-func (a *App) tryOBS() {
+func (a *App) tryOBS() error {
 	_, err := a.connectOBS()
 	if err == nil || errors.Is(err, obs.ErrAuth) {
-		return // logged by connectOBS
+		return err // logged by connectOBS
 	}
 	a.mu.Lock()
 	first := !a.obsWaitLogged
@@ -68,12 +85,13 @@ func (a *App) tryOBS() {
 		a.log.Infof("Waiting for OBS at %s, trying every %s (%v)", net.JoinHostPort(c.Host, strconv.Itoa(c.Port)), obsRetryEvery, err)
 		a.emitState()
 	}
+	return err
 }
 
 // connectOBS connects with the stored settings and records the outcome.
 func (a *App) connectOBS() (string, error) {
 	c := a.cfg.Get().OBS
-	v, err := a.obs.Connect(c.Host, c.Port, c.Password)
+	v, err := a.obs.Connect(c.Host, c.Port, a.obsPassword())
 	switch {
 	case err == nil:
 		a.mu.Lock()
@@ -82,6 +100,12 @@ func (a *App) connectOBS() (string, error) {
 		a.log.Infof("Connected to %s", v)
 		a.emitState()
 		go a.refreshOBSScene()
+		go func() {
+			// An alert of a dropped connection may still be on screen.
+			if err := a.obs.HideAlerts(); err != nil {
+				a.log.Warnf("Could not hide old alerts in OBS: %v", err)
+			}
+		}()
 	case errors.Is(err, obs.ErrAuth):
 		a.mu.Lock()
 		a.obsAuthFailed = true
@@ -206,7 +230,15 @@ func (a *App) overlay() bot.Overlay {
 type obsOverlay struct{ a *App }
 
 func (o obsOverlay) ShowAlert(ctx context.Context, al bot.Alert) (func(), time.Duration, error) {
-	return o.a.obs.Show(ctx, obs.Alert{File: al.File, Text: al.Text}, o.a.cfg.Get().OBS.InputName)
+	hide, length, err := o.a.obs.Show(ctx, obs.Alert{File: al.File, Text: al.Text}, o.a.cfg.Get().OBS.InputName)
+	if err != nil {
+		return nil, 0, err
+	}
+	return func() {
+		if err := hide(); err != nil {
+			o.a.log.Warnf("Could not hide the alert in OBS (it is hidden on the next connect): %v", err)
+		}
+	}, length, nil
 }
 
 // PickVisualFile asks for an alert picture, GIF or video.
@@ -221,4 +253,48 @@ func (a *App) PickVisualFile() (string, error) {
 		}},
 	})
 	return path, a.uiErr(err)
+}
+
+// ---------- OBS password ----------
+
+// obsPasswordKey names the OBS password in the OS keyring.
+const obsPasswordKey = "obs-password"
+
+// obsPassword returns the stored OBS password ("" = none, or unreadable:
+// OBS then rejects the connection and the UI says so).
+func (a *App) obsPassword() string {
+	if a.obsPass == nil {
+		return ""
+	}
+	var pw string
+	if _, err := a.obsPass.Load(&pw); err != nil {
+		a.log.Warnf("Could not read the OBS password: %v", err)
+	}
+	return pw
+}
+
+// setOBSPassword stores a new OBS password; "" removes it.
+func (a *App) setOBSPassword(pw string) error {
+	if pw == "" {
+		return a.obsPass.Delete()
+	}
+	return a.obsPass.Save(pw)
+}
+
+// moveOBSPassword moves a password from config.json (v0.2.x) into the OS
+// keyring, like the Twitch and Spotify logins. Called in NewApp.
+func (a *App) moveOBSPassword() {
+	pw := a.cfg.Get().OBS.Password
+	if pw == "" {
+		return
+	}
+	if err := a.setOBSPassword(pw); err != nil {
+		a.log.Warnf("Could not move the OBS password out of the settings file: %v", err)
+		return
+	}
+	if err := a.cfg.Update(func(c *config.Config) { c.OBS.Password = "" }); err != nil {
+		a.log.Warnf("The OBS password is stored safely now, but could not be removed from the settings file: %v", err)
+		return
+	}
+	a.log.Infof("Moved the OBS password from the settings file to the system's secure storage")
 }

@@ -108,12 +108,21 @@ func (a *App) setChannelTotals(t ChannelTotals, err error) {
 	a.ch.mu.Lock()
 	logFail := err != nil && !a.ch.failing
 	a.ch.failing = err != nil
+	changed := !sameTotals(a.ch.totals, t)
 	a.ch.totals = t
 	a.ch.mu.Unlock()
 	if logFail {
 		a.log.Warnf("Could not read the stream state or follower/sub totals from Twitch: %v", err)
 	}
-	a.emitState()
+	if changed {
+		a.emitState() // the UI re-renders on every state event
+	}
+}
+
+// sameTotals compares the numbers (not when they were read).
+func sameTotals(x, y ChannelTotals) bool {
+	eq := func(p, q *int) bool { return (p == nil) == (q == nil) && (p == nil || *p == *q) }
+	return eq(x.Followers, y.Followers) && eq(x.Subs, y.Subs) && eq(x.SubPoints, y.SubPoints)
 }
 
 func (a *App) channelTotals() ChannelTotals {

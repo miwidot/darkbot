@@ -129,8 +129,10 @@ func TestCooldowns(t *testing.T) {
 		t.Fatal("Ben may use it after the global cooldown")
 	}
 	streamer := twitch.ChatMessage{ChatterID: "s", ChatterName: "Streamer", Text: "!discord", IsBroadcaster: true}
-	if len(r.say(streamer)) != 1 || len(r.say(streamer)) != 1 {
-		t.Fatal("the broadcaster skips cooldowns")
+	for range 2 { // twice in a row, inside every cooldown
+		if len(r.say(streamer)) != 1 {
+			t.Fatal("the broadcaster skips cooldowns")
+		}
 	}
 }
 
@@ -325,5 +327,24 @@ func TestNormalizeTimer(t *testing.T) {
 		if _, err := NormalizeTimer(tm); err == nil {
 			t.Errorf("%+v must be refused", tm)
 		}
+	}
+}
+
+// Messages darkbot posts outside the chat bot (event thanks, song replies)
+// are remembered too: their echo is no chat line for a timer's minimum.
+func TestRememberedMessagesAreNoChatLines(t *testing.T) {
+	r := newRig(config.Chat{TimersEnabled: true, Timers: []config.ChatTimer{{ID: "t", Message: "Follow!", IntervalMinutes: 5, MinLines: 1, Enabled: true}}})
+	if _, ok := r.dueTimer(); ok {
+		t.Fatal("first tick only starts the wait")
+	}
+	r.advance(6 * time.Minute)
+	thanks := r.Remember("Danke für den Follow, Anna!")
+	r.say(twitch.ChatMessage{ChatterID: "s", ChatterName: "S", Text: thanks, IsBroadcaster: true})
+	if _, ok := r.dueTimer(); ok {
+		t.Fatal("darkbot's own thank-you counted as a chat line")
+	}
+	r.say(viewer("hi"))
+	if _, ok := r.dueTimer(); !ok {
+		t.Fatal("a viewer line must count")
 	}
 }

@@ -30,8 +30,9 @@ darkbot does the sound part of tools like Streamer.bot, and nothing else: one wi
 ## What it deliberately doesn't do
 
 - No open network ports, no local web server, no browser source. It's a desktop app; the window *is* the app. Alerts reach OBS through OBS's own websocket, which darkbot connects to.
-- No general chat bot: the only chat commands are the song requests, and event messages are short thank-yous you write yourself. No overlays.
-- No cloud, no telemetry, no account. Your settings stay on your computer; the Twitch login lives in the OS keychain.
+- No moderation bot: no timeouts, bans, filters or loyalty points. Chat commands answer with text you wrote, and viewers can never make your account post their own words (only their name, or a valid Twitch login for `{target}`).
+- No chat spam: everything darkbot posts counts against one budget (60 messages per 30 s, Twitch mutes accounts at 100), thank-you messages for events against their own (15 per 30 s, so a follow-bot wave can't flood your chat), and song requests are capped at 10 per minute for the whole channel.
+- No cloud, no telemetry, no account. Your settings stay on your computer; the Twitch and Spotify logins and the OBS password live in the OS keychain (a 0600 file only where no keychain is available). Logging out also invalidates the Twitch login at Twitch.
 
 ## Install
 
@@ -124,7 +125,7 @@ Using your own Twitch app (forks): create one at [dev.twitch.tv/console](https:/
 
 
 Local builds report version `dev` and never update themselves.
-`wails build` isn't used because the Wails v2.11 binding generator crashes on Go 1.27; the frontend calls `window.go.main.App` directly.
+`wails build` isn't used because the Wails v2 binding generator crashed on Go 1.27; the frontend calls `window.go.main.App` directly. CI also runs `govulncheck`, so a known vulnerability in Go or a dependency that darkbot's code reaches fails the build.
 
 ### Releases
 

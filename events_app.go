@@ -107,6 +107,12 @@ func (a *App) countEvent(ev twitch.ChannelEvent) {
 		a.setLive(false, time.Time{})
 	case twitch.EvFollow:
 		a.st.Follow(ev.User)
+		a.mu.Lock()
+		fw := a.fw
+		a.mu.Unlock()
+		if fw != nil {
+			fw.Observe(ev.UserID, ev.User)
+		}
 	case twitch.EvUnfollow:
 		a.st.Unfollow()
 	case twitch.EvSub:
@@ -146,7 +152,11 @@ func (a *App) runAction(ev twitch.ChannelEvent) {
 		}, alert, ev.User)
 	}
 	if act.Chat != "" && !slices.Contains(noChatKinds, ev.Kind) {
-		go a.sendChat(a.ctx, renderTemplate(act.Chat, ev, lang), "")
+		if ok, first := eventChatBudget.Allow(time.Now()); ok {
+			go a.sendChat(a.ctx, renderTemplate(act.Chat, ev, lang), "")
+		} else if first {
+			a.log.Warnf("Event chat messages skipped: more than %d events in %s (e.g. a follow-bot wave)", eventChatMax, chatBudgetWindow)
+		}
 	}
 }
 
@@ -183,8 +193,8 @@ func (a *App) SaveEventAction(kind string, act config.EventAction) error {
 		if !filepath.IsAbs(act.Sound) {
 			return a.uiErr(i18n.E("err.pathAbsolute"))
 		}
-		if _, err := audio.Duration(act.Sound); err != nil {
-			return a.uiErr(i18n.Wrap(err, "err.readFile"))
+		if _, err := audio.Check(act.Sound); err != nil {
+			return a.uiErr(readErr(err))
 		}
 	}
 	// One chat line: line breaks and runs of spaces become single spaces.
@@ -269,43 +279,34 @@ func (a *App) SetUnfollowDetection(on bool) error {
 	if err := a.cfg.Update(func(c *config.Config) { c.UnfollowDetection = on }); err != nil {
 		return a.uiErr(err)
 	}
-	a.stopFollowerWatcher()
+	a.life.Lock()
+	a.stopFollowerWatcherLocked()
 	if on {
-		a.startFollowerWatcher()
+		a.startFollowerWatcherLocked()
 	}
+	a.life.Unlock()
 	a.emitState()
 	return nil
 }
 
-func (a *App) startFollowerWatcher() {
+// startFollowerWatcherLocked starts unfollow detection if it is on; call
+// with a.life held.
+func (a *App) startFollowerWatcherLocked() {
 	if !a.cfg.Get().UnfollowDetection || a.tok.Current() == nil {
 		return
 	}
-	a.stopFollowerWatcher()
+	a.stopFollowerWatcherLocked()
 	ctx, cancel := context.WithCancel(a.ctx)
 	w := twitch.NewFollowerWatcher(a.hx, a.tok, a.log, a.cfg.FollowersPath(), a.onChannelEvent)
 	a.mu.Lock()
 	a.fwCancel, a.fw = cancel, w
 	a.mu.Unlock()
+	w.OnChecked(a.emitState) // the status line shows the last check
 	go w.Run(ctx)
-	go a.emitFollowerStatus(ctx)
 }
 
-// emitFollowerStatus refreshes the UI after each check.
-func (a *App) emitFollowerStatus(ctx context.Context) {
-	t := time.NewTicker(time.Minute)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			a.emitState()
-		}
-	}
-}
-
-func (a *App) stopFollowerWatcher() {
+// stopFollowerWatcherLocked stops unfollow detection; call with a.life held.
+func (a *App) stopFollowerWatcherLocked() {
 	a.mu.Lock()
 	cancel := a.fwCancel
 	a.fwCancel, a.fw = nil, nil

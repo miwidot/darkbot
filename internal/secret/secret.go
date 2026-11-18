@@ -33,7 +33,15 @@ type Store struct {
 // Load decodes the stored value into v and reports whether one was found.
 // An unreadable value is treated as "nothing stored" with a warning, so a
 // damaged token never stops darkbot from starting; the next login replaces it.
+//
+// The fallback file only exists while the keyring failed at the last save
+// (a working keyring save deletes it), so if it exists it is the newest
+// value and wins over an older one still in the keyring. That matters for
+// tokens: Twitch refresh tokens work once, so the older one is dead.
 func (s *Store) Load(v any) (bool, error) {
+	if _, err := os.Stat(s.FallbackPath); err == nil {
+		return s.loadFile(v)
+	}
 	raw, err := keyring.Get(keyringService, s.Key)
 	switch {
 	case err == nil:
@@ -62,7 +70,11 @@ func (s *Store) Save(v any) error {
 		return nil
 	}
 	s.Log.Warnf("OS keyring unavailable (%v), saving %s to %s", err, s.Key, s.FallbackPath)
-	return WriteFileAtomic(s.FallbackPath, data)
+	if err := WriteFileAtomic(s.FallbackPath, data); err != nil {
+		return err
+	}
+	_ = keyring.Delete(keyringService, s.Key) // best effort: an older copy must not linger
+	return nil
 }
 
 // Delete removes the value from keyring and file.
@@ -93,7 +105,9 @@ func (s *Store) loadFile(v any) (bool, error) {
 }
 
 // WriteFileAtomic writes via temp file + rename so a crash never leaves a
-// half-written file, and enforces 0600 even if the file existed.
+// half-written file, and enforces 0600 even if the file existed. The data
+// is flushed to disk before the rename: otherwise a power cut right after
+// a save can leave an empty file under the real name.
 func WriteFileAtomic(path string, data []byte) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
 	if err != nil {
@@ -111,6 +125,9 @@ func WriteFileAtomic(path string, data []byte) error {
 	if _, err := tmp.Write(data); err != nil {
 		return fail(err)
 	}
+	if err := tmp.Sync(); err != nil {
+		return fail(err)
+	}
 	if err := tmp.Close(); err != nil {
 		os.Remove(name)
 		return err
@@ -119,5 +136,18 @@ func WriteFileAtomic(path string, data []byte) error {
 		os.Remove(name)
 		return err
 	}
+	syncDir(filepath.Dir(path))
 	return nil
+}
+
+// syncDir makes the rename itself durable where the system supports it
+// (not on Windows, where opening a directory for sync fails; NTFS
+// journals the rename). Best effort: the file's data is already synced.
+func syncDir(dir string) {
+	d, err := os.Open(dir)
+	if err != nil {
+		return
+	}
+	_ = d.Sync()
+	_ = d.Close()
 }

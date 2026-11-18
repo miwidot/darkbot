@@ -581,5 +581,7 @@
   "feed.clearConfirm": "Really clear?",
   "feed.clearTitle": "Removes every line from the activity list. darkbot keeps the last 200 lines, also across restarts and updates.",
   "feed.missed": "while off",
-  "feed.missedTitle": "Happened while darkbot was not running; found when it compared the follower list. No sound or chat message was sent."
+  "feed.missedTitle": "Happened while darkbot was not running; found when it compared the follower list. No sound or chat message was sent.",
+  "chat.busy": "Too many song requests right now, please try again in a minute.",
+  "err.soundTooBig": "The sound file is larger than {mb} MB. Use a shorter or compressed file (MP3, OGG)."
 }

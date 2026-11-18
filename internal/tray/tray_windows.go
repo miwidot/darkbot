@@ -3,11 +3,17 @@
 package tray
 
 import (
+	_ "embed"
 	"runtime"
 	"sync"
 
 	"fyne.io/systray"
 )
+
+// icon is only embedded in Windows builds, the only ones with a tray.
+//
+//go:embed icon.ico
+var icon []byte
 
 // Supported reports whether this system shows darkbot in the tray.
 func Supported() bool { return true }

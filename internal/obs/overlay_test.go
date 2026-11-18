@@ -146,9 +146,58 @@ func TestShowPictureAndText(t *testing.T) {
 	if s := shown(); !s[imageInput] || !s[textInput] || s[videoInput] {
 		t.Fatalf("visible %v", s)
 	}
-	hide()
+	if err := hide(); err != nil {
+		t.Fatal(err)
+	}
 	if s := shown(); s[imageInput] || s[textInput] {
 		t.Fatalf("still visible after hide: %v", s)
+	}
+}
+
+// OBS reconnects while an alert shows: hiding goes through the new
+// connection, and a connect hides alerts a lost connection left visible.
+func TestHideAfterReconnect(t *testing.T) {
+	o, f := connected(t)
+	if _, err := o.Setup(testSound); err != nil {
+		t.Fatal(err)
+	}
+	enabled := func(src string) bool {
+		for _, it := range f.State.Snapshot(SceneName) {
+			if it.Source == src {
+				return it.Enabled
+			}
+		}
+		return false
+	}
+	reconnect := func() {
+		host, port := f.HostPort(t)
+		if _, err := o.Connect(host, port, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hide, _, err := o.Show(context.Background(), Alert{Text: "Anna folgt!"}, testSound)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reconnect()
+	if err := hide(); err != nil || enabled(textInput) {
+		t.Fatalf("hide after reconnect: %v, visible %v", err, enabled(textInput))
+	}
+
+	if _, _, err := o.Show(context.Background(), Alert{Text: "Ben folgt!"}, testSound); err != nil {
+		t.Fatal(err)
+	}
+	reconnect() // the old hide is lost with the connection
+	if err := o.HideAlerts(); err != nil || enabled(textInput) {
+		t.Fatalf("HideAlerts: %v, visible %v", err, enabled(textInput))
+	}
+}
+
+// Without the darkbot scene there is nothing to hide.
+func TestHideAlertsWithoutScene(t *testing.T) {
+	o, _ := connected(t)
+	if err := o.HideAlerts(); err != nil {
+		t.Fatal(err)
 	}
 }
 

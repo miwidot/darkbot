@@ -21,8 +21,10 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/miwidot/darkbot/internal/i18n"
+	"github.com/miwidot/darkbot/internal/secret"
 )
 
 const (
@@ -35,8 +37,9 @@ const (
 	activityFileName     = "activity.json"
 	// followersFileName: the follower list unfollow detection compares with.
 	followersFileName = "followers.json"
-	filePerm          = 0o600
-	dirPerm           = 0o700
+	// obsPasswordFileName is only used when the OS keyring is unavailable.
+	obsPasswordFileName = "obs-password.json"
+	dirPerm             = 0o700
 )
 
 // OutputMode decides where sounds are played.
@@ -100,9 +103,12 @@ type Sound struct {
 
 // OBS holds the obs-websocket connection and the media-source output settings.
 type OBS struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Password string `json:"password"`
+	Host string `json:"host"`
+	Port int    `json:"port"`
+	// Password is only read from configs of v0.2.x and older: darkbot
+	// moves it to the OS keyring on start (see obs_app.go) and never
+	// writes it here again.
+	Password string `json:"password,omitempty"`
 	// AutoConnect connects to OBS on app start.
 	AutoConnect bool `json:"auto_connect"`
 	// InputName is the media source darkbot creates/uses in OBS-output mode.
@@ -387,7 +393,13 @@ type Store struct {
 	dir  string
 	cfg  Config
 	subs []func(Config)
+	// Recovered is set when Open had to set an unreadable config aside
+	// (for the log); "" normally.
+	Recovered string
 }
+
+// corruptStamp names a set-aside unreadable config file.
+const corruptStamp = "20060102-150405"
 
 // Dir returns the darkbot config directory, creating it if needed.
 func Dir() (string, error) {
@@ -402,10 +414,14 @@ func Dir() (string, error) {
 	return dir, nil
 }
 
-// Open loads the config from dir (missing file = defaults).
+// Open loads the config from dir (missing file = defaults). An unreadable
+// file (e.g. cut off by a crash) is set aside as config.json.corrupt-<time>
+// and darkbot starts with defaults instead of not starting at all; Recovered
+// then says what happened.
 func Open(dir string) (*Store, error) {
 	s := &Store{dir: dir, cfg: Default()}
-	data, err := os.ReadFile(filepath.Join(dir, configFileName))
+	path := filepath.Join(dir, configFileName)
+	data, err := os.ReadFile(path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		// first start: keep defaults
@@ -413,8 +429,13 @@ func Open(dir string) (*Store, error) {
 		return nil, fmt.Errorf("read config: %w", err)
 	default:
 		cfg := Default()
-		if err := json.Unmarshal(data, &cfg); err != nil {
-			return nil, fmt.Errorf("parse config %s: %w", filepath.Join(dir, configFileName), err)
+		if perr := json.Unmarshal(data, &cfg); perr != nil {
+			backup := path + ".corrupt-" + time.Now().Format(corruptStamp)
+			if err := os.Rename(path, backup); err != nil {
+				return nil, fmt.Errorf("parse config %s: %w (and could not set it aside: %v)", path, perr, err)
+			}
+			s.Recovered = fmt.Sprintf("the settings file could not be read (%v); it was kept as %s and darkbot started with default settings", perr, backup)
+			break
 		}
 		s.cfg = cfg
 	}
@@ -465,6 +486,10 @@ func (s *Store) StatsPath() string { return filepath.Join(s.dir, statsFileName) 
 // ActivityPath is the kept activity feed.
 func (s *Store) ActivityPath() string { return filepath.Join(s.dir, activityFileName) }
 
+// OBSPasswordPath holds the OBS password only when the OS keyring is
+// unavailable.
+func (s *Store) OBSPasswordPath() string { return filepath.Join(s.dir, obsPasswordFileName) }
+
 // FollowersPath is the follower list of the unfollow detection.
 func (s *Store) FollowersPath() string { return filepath.Join(s.dir, followersFileName) }
 
@@ -488,31 +513,8 @@ func writeJSON(path string, v any) error {
 	if err != nil {
 		return fmt.Errorf("encode %s: %w", filepath.Base(path), err)
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
-	if err != nil {
-		return fmt.Errorf("create temp file: %w", err)
-	}
-	tmpName := tmp.Name()
-	cleanup := func() { _ = os.Remove(tmpName) }
-
-	if err := tmp.Chmod(filePerm); err != nil && !errors.Is(err, errors.ErrUnsupported) {
-		// Chmod is a no-op/unsupported on Windows; ignore only that case.
-		_ = tmp.Close()
-		cleanup()
-		return fmt.Errorf("chmod temp file: %w", err)
-	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		cleanup()
+	if err := secret.WriteFileAtomic(path, data); err != nil {
 		return fmt.Errorf("write %s: %w", filepath.Base(path), err)
-	}
-	if err := tmp.Close(); err != nil {
-		cleanup()
-		return fmt.Errorf("close temp file: %w", err)
-	}
-	if err := os.Rename(tmpName, path); err != nil {
-		cleanup()
-		return fmt.Errorf("replace %s: %w", filepath.Base(path), err)
 	}
 	return nil
 }

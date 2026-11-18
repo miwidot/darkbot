@@ -49,10 +49,12 @@ func fakeTwitch(t *testing.T, h http.HandlerFunc) {
 	t.Helper()
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	oldD, oldT, oldV, oldH, oldP := deviceURL, tokenURL, validateURL, helixBase, pollUnit
-	deviceURL, tokenURL, validateURL, helixBase = srv.URL+"/device", srv.URL+"/token", srv.URL+"/validate", srv.URL+"/helix"
+	oldD, oldT, oldV, oldR, oldH, oldP := deviceURL, tokenURL, validateURL, revokeURL, helixBase, pollUnit
+	deviceURL, tokenURL, validateURL, revokeURL, helixBase = srv.URL+"/device", srv.URL+"/token", srv.URL+"/validate", srv.URL+"/revoke", srv.URL+"/helix"
 	pollUnit = time.Millisecond
-	t.Cleanup(func() { deviceURL, tokenURL, validateURL, helixBase, pollUnit = oldD, oldT, oldV, oldH, oldP })
+	t.Cleanup(func() {
+		deviceURL, tokenURL, validateURL, revokeURL, helixBase, pollUnit = oldD, oldT, oldV, oldR, oldH, oldP
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -742,5 +744,69 @@ func TestLiveSince(t *testing.T) {
 	live = false // offline: Twitch returns an empty list
 	if on, _, err := h.LiveSince(context.Background(), "42"); err != nil || on {
 		t.Fatalf("offline: %v %v", on, err)
+	}
+}
+
+func TestRevocation(t *testing.T) {
+	e := &EventSub{log: nopLog{}}
+	msg := func(typ, status string) json.RawMessage {
+		return json.RawMessage(`{"subscription":{"type":"` + typ + `","status":"` + status + `"}}`)
+	}
+	if err := e.revoked(msg("channel.follow", "version_removed")); err != nil {
+		t.Fatalf("one event type ending must not stop EventSub: %v", err)
+	}
+	if err := e.revoked(msg(redemptionAddType, "version_removed")); err == nil || errors.Is(err, ErrTokenRejected) {
+		t.Fatalf("lost redemptions must reconnect, not log out: %v", err)
+	}
+	if err := e.revoked(msg("channel.follow", revokedAuthorization)); !errors.Is(err, ErrTokenRejected) {
+		t.Fatalf("a revoked login must stop EventSub: %v", err)
+	}
+}
+
+// A follow that arrived live just before darkbot closed is saved with the
+// list, so the next start doesn't report it again as missed.
+func TestFollowerWatcherKeepsLiveFollows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "followers.json")
+	f := newFakeFollowers(t, 5, time.Now().Add(-time.Hour))
+	var got []ChannelEvent
+	w := followerWatcher(t, path, &got)
+	w.check(context.Background())
+
+	// Live follow (EventSub) after the last check; darkbot closes before
+	// the next check (Run's exit flushes the same way).
+	when := time.Now()
+	w.Observe("late", "Late")
+	w.Flush()
+	f.change(func(f *fakeFollowers) {
+		f.list = append([]map[string]any{{"user_id": "late", "user_name": "Late", "followed_at": when}}, f.list...)
+	})
+
+	next := followerWatcher(t, path, &got)
+	next.started = when.Add(time.Minute) // the next start is later
+	next.check(context.Background())
+	if len(got) != 0 {
+		t.Fatalf("the live follow was reported again: %+v", got)
+	}
+}
+
+func TestLogoutRevokes(t *testing.T) {
+	var revoked atomic.Value
+	fakeTwitch(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/revoke" {
+			_ = r.ParseForm()
+			revoked.Store(r.Form.Get("client_id") + "|" + r.Form.Get("token"))
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	store := &memStore{tok: &Token{AccessToken: "A", RefreshToken: "R", UserID: "9", Scopes: Scopes, ExpiresAt: time.Now().Add(time.Hour)}}
+	m, _ := NewTokenManager("cid", store, nopLog{})
+	if err := m.Logout(); err != nil {
+		t.Fatal(err)
+	}
+	if m.Current() != nil || !store.deleted {
+		t.Fatal("not logged out locally")
+	}
+	if got, _ := revoked.Load().(string); got != "cid|A" {
+		t.Fatalf("revoked %q", got)
 	}
 }

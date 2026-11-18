@@ -65,24 +65,51 @@ function toast(msg, bad = false) {
   toastTimer = setTimeout(() => t.classList.add('hidden'), TOAST_MS);
 }
 
+// call runs a backend method. A failure is shown as a toast, the UI is
+// re-read (the change may have half happened), and the error is rethrown
+// for callers that want to react; nobody has to catch it just to keep the
+// console clean (see the unhandledrejection handler at boot).
+const shownErrors = new WeakSet();
 async function call(fn, ...args) {
   try {
     return await App()[fn](...args);
   } catch (e) {
     toast(errText(e), true);
-    throw e;
+    refresh();
+    const err = e instanceof Error ? e : new Error(errText(e));
+    shownErrors.add(err);
+    throw err;
   }
 }
 
 // ---------- state ----------
 
-async function refresh() {
-  state = await App().GetState();
-  if (state.language !== I18N.lang) {
-    await loadLanguage(state.language);
-    renderFeed();
+// refresh fetches the state and renders it. Calls while one runs share it
+// and cause one more pass at its end, so a burst of "state" events renders
+// twice at most instead of once per event.
+let refreshing = null;
+let refreshAgain = false;
+function refresh() {
+  if (refreshing) {
+    refreshAgain = true;
+    return refreshing;
   }
-  render();
+  refreshing = (async () => {
+    do {
+      refreshAgain = false;
+      try {
+        state = await App().GetState();
+        if (state.language !== I18N.lang) {
+          await loadLanguage(state.language);
+          renderFeed();
+        }
+        render();
+      } catch (e) {
+        console.error('refresh failed', e); // the next state event retries
+      }
+    } while (refreshAgain);
+  })().finally(() => { refreshing = null; });
+  return refreshing;
 }
 
 function render() {
@@ -179,16 +206,23 @@ function renderPads() {
   tickCooldowns();
 }
 
-// Cooldown sweep: animate only while at least one pad is cooling down.
-let rafId = 0;
+// Cooldown sweep: runs only while a pad is cooling down, and at most
+// RING_STEPS steps per cooldown (between RING_MIN_MS and RING_MAX_MS apart)
+// instead of every frame: darkbot runs next to OBS and a game for hours.
+const RING_STEPS = 360;
+const RING_MIN_MS = 100;
+const RING_MAX_MS = 1000;
+let ringTimer = 0;
 function tickCooldowns() {
-  cancelAnimationFrame(rafId);
+  clearTimeout(ringTimer);
   const now = Date.now();
   let active = false;
+  let step = RING_MAX_MS;
   for (const pad of document.querySelectorAll('.pad')) {
     const cd = cooldowns.get(pad.dataset.id);
     if (cd && cd.until > now) {
       active = true;
+      step = Math.min(step, Math.max(RING_MIN_MS, cd.total / RING_STEPS));
       pad.classList.add('cooling');
       pad.style.setProperty('--cd', ((cd.until - now) / cd.total).toFixed(4));
     } else {
@@ -196,7 +230,7 @@ function tickCooldowns() {
       if (cd) cooldowns.delete(pad.dataset.id);
     }
   }
-  if (active) rafId = requestAnimationFrame(tickCooldowns);
+  if (active) ringTimer = setTimeout(tickCooldowns, step);
 }
 
 // ---------- views ----------
@@ -795,10 +829,15 @@ function addFeed(a) {
   // goes where its time belongs.
   const at = Date.parse(a.at);
   const pos = activities.findIndex((o) => Date.parse(o.at) <= at);
-  if (pos > 0) {
-    activities.splice(pos, 0, a);
-    if (activities.length > FEED_MAX) activities.length = FEED_MAX;
-    renderFeed();
+  if (pos !== 0 && activities.length > 0) {
+    if (pos < 0) {
+      if (activities.length >= FEED_MAX) return; // older than everything kept
+      activities.push(a);
+    } else {
+      activities.splice(pos, 0, a);
+      if (activities.length > FEED_MAX) activities.length = FEED_MAX;
+    }
+    renderFeedSoon();
     return;
   }
   activities.unshift(a);
@@ -837,6 +876,15 @@ function feedItem(a) {
     feedTime(a.at),
     el('span', { class: 'what' }, el('b', {}, who), verb, el('b', {}, what)),
     why ? el('span', { class: 'why' }, why) : null);
+}
+
+// renderFeedSoon batches rebuilds: several follows found after darkbot was
+// off arrive at once and are one rebuild.
+let feedQueued = false;
+function renderFeedSoon() {
+  if (feedQueued) return;
+  feedQueued = true;
+  requestAnimationFrame(() => { feedQueued = false; renderFeed(); });
 }
 
 // Rebuilds the feed, e.g. after the language changed.
@@ -1467,6 +1515,13 @@ async function playSound(req) {
 }
 
 // ---------- boot ----------
+
+// Errors from call() were shown already; anything else is a bug worth a
+// console line instead of disappearing.
+window.addEventListener('unhandledrejection', (ev) => {
+  if (ev.reason && typeof ev.reason === 'object' && shownErrors.has(ev.reason)) ev.preventDefault();
+  else console.error('unhandled', ev.reason);
+});
 
 window.addEventListener('DOMContentLoaded', async () => {
   window.runtime.EventsOn('state', refresh);

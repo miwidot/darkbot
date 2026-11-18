@@ -199,12 +199,6 @@ func (o *Client) client() (*goobs.Client, error) {
 	return o.c, nil
 }
 
-// fail drops the connection after a request error so the UI shows the truth.
-func (o *Client) fail(c *goobs.Client, err error) error {
-	o.dropIf(c, err)
-	return err
-}
-
 // Output plays sounds through the OBS media source.
 type Output struct {
 	OBS *Client
@@ -223,7 +217,7 @@ func (p *Output) Play(ctx context.Context, s config.Sound, master float64) error
 	}
 	cfg := p.Cfg.Get().OBS
 	if err := ensureInput(c, cfg.InputName); err != nil {
-		return p.OBS.fail(c, err)
+		return err
 	}
 
 	tracks := typedefs.InputAudioTracks{}
@@ -257,7 +251,7 @@ func (p *Output) Play(ctx context.Context, s config.Sound, master float64) error
 	}
 	for _, step := range steps {
 		if err := step(); err != nil {
-			return p.OBS.fail(c, fmt.Errorf("OBS request: %w", err))
+			return fmt.Errorf("OBS request: %w", err)
 		}
 	}
 

@@ -60,7 +60,8 @@ type Logger interface {
 // Deps connects the bot to the app.
 type Deps struct {
 	Settings func() config.Chat
-	// Send posts a message in the streamer's chat.
+	// Send posts a message in the streamer's chat (already remembered as
+	// darkbot's own, see Remember).
 	Send func(ctx context.Context, text string)
 	// Play queues a command's sound with the other sounds.
 	Play func(cmd config.ChatCommand, user string)
@@ -240,11 +241,21 @@ func (b *Bot) forgetOld(now time.Time) {
 
 // send posts text and remembers it to recognise its echo.
 func (b *Bot) send(ctx context.Context, text string) {
+	b.d.Send(ctx, b.Remember(text))
+}
+
+// Remember notes a message darkbot is about to post as the broadcaster
+// (also song replies and event messages), so its echo in chat counts
+// neither as a command nor as a chat line for the timers. It returns the
+// text as it will be posted (cut to Twitch's limit).
+func (b *Bot) Remember(text string) string {
 	text = twitch.TruncateChat(text)
+	now := b.d.Now()
 	b.mu.Lock()
-	b.sent = append(b.sent, sentMsg{text: text, at: b.d.Now()})
-	b.mu.Unlock()
-	b.d.Send(ctx, text)
+	defer b.mu.Unlock()
+	b.sent = slices.DeleteFunc(b.sent, func(s sentMsg) bool { return now.Sub(s.at) >= echoWindow })
+	b.sent = append(b.sent, sentMsg{text: text, at: now})
+	return text
 }
 
 // ownEcho reports (and forgets) a message darkbot sent itself.

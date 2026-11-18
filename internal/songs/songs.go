@@ -16,12 +16,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/i18n"
+	"github.com/miwidot/darkbot/internal/ratelimit"
 	"github.com/miwidot/darkbot/internal/spotify"
 	"github.com/miwidot/darkbot/internal/twitch"
 )
@@ -48,6 +50,11 @@ const (
 	// viewer may try again this soon, not after the full cooldown, but not
 	// instantly either, so nobody can hammer Spotify's search.
 	failCooldown = 10 * time.Second
+	// maxChannelRequests per channelRequestWindow for the whole channel
+	// (mods and the broadcaster excepted): far more than a real chat sends,
+	// few enough that a bot wave can't flood the Spotify queue.
+	maxChannelRequests   = 10
+	channelRequestWindow = time.Minute
 	// commandGap: a viewer (not mod/broadcaster) can trigger one command per
 	// this time; anything faster is ignored without a reply.
 	commandGap = 3 * time.Second
@@ -115,6 +122,7 @@ type Handler struct {
 
 	mu        sync.Mutex
 	lastSR    map[string]time.Time // chatter ID -> when the request cooldown started
+	channel   *ratelimit.Window    // requests of the whole channel
 	lastCmd   map[string]time.Time // chatter ID -> last command (spam gate)
 	lastInfo  map[string]time.Time // command -> last answer
 	requested map[string]request   // track URI -> who requested it
@@ -132,7 +140,7 @@ func New(d Deps) *Handler {
 	if d.OnCommand == nil {
 		d.OnCommand = func() {}
 	}
-	return &Handler{d: d, lastSR: map[string]time.Time{}, lastCmd: map[string]time.Time{}, lastInfo: map[string]time.Time{}, requested: map[string]request{}}
+	return &Handler{d: d, channel: ratelimit.New(maxChannelRequests, channelRequestWindow), lastSR: map[string]time.Time{}, lastCmd: map[string]time.Time{}, lastInfo: map[string]time.Time{}, requested: map[string]request{}}
 }
 
 // IsCommand reports whether text starts with one of our commands, so the
@@ -275,6 +283,15 @@ func (h *Handler) request(ctx context.Context, s config.SongRequests, m twitch.C
 		h.reply(ctx, s, m, h.t("chat.cooldown", "seconds", int(wait.Round(time.Second).Seconds())))
 		return
 	}
+	// Per-viewer cooldowns don't stop many accounts at once (bots):
+	// the whole channel gets maxChannelRequests per channelRequestWindow.
+	if ok, first := h.channel.Allow(h.d.Now()); !ok && !privileged(m) {
+		if first {
+			h.d.Log.Warnf("Song requests paused: %d in the last %s", maxChannelRequests, channelRequestWindow)
+		}
+		h.reply(ctx, s, m, h.t("chat.busy"))
+		return
+	}
 	ok := false
 	defer func() {
 		if !ok {
@@ -348,8 +365,12 @@ func (h *Handler) reserve(s config.SongRequests, m twitch.ChatMessage) time.Dura
 		return 0
 	}
 	now := h.d.Now()
+	full := time.Duration(s.UserCooldownSeconds) * time.Second
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	// Forget viewers whose cooldown is over, so the map doesn't grow with
+	// every viewer who ever requested a song.
+	maps.DeleteFunc(h.lastSR, func(_ string, t time.Time) bool { return now.Sub(t) >= full })
 	if last, ok := h.lastSR[m.ChatterID]; ok {
 		if wait := last.Add(time.Duration(s.UserCooldownSeconds) * time.Second).Sub(now); wait > 0 {
 			return wait

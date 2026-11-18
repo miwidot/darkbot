@@ -99,4 +99,13 @@ func TestLiveStartsSessionOfMissedStream(t *testing.T) {
 	if a.live.Load() {
 		t.Fatal("offline")
 	}
+
+	// stream.online started a session by the local clock, which runs a few
+	// minutes behind Twitch's: the same stream must not reset it again.
+	a.st.ResetSessionAt(streamStart.Add(2 * time.Hour))
+	a.st.Follow("Cem")
+	a.setLive(true, streamStart.Add(2*time.Hour+3*time.Minute))
+	if snap := a.st.Snapshot(); snap.Session.Follows != 1 {
+		t.Fatalf("clock skew wiped the session: %+v", snap.Session)
+	}
 }

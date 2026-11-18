@@ -25,6 +25,7 @@ var (
 	deviceURL   = "https://id.twitch.tv/oauth2/device"
 	tokenURL    = "https://id.twitch.tv/oauth2/token"
 	validateURL = "https://id.twitch.tv/oauth2/validate"
+	revokeURL   = "https://id.twitch.tv/oauth2/revoke"
 	// pollUnit is the unit of the "interval" field Twitch returns (seconds).
 	pollUnit = time.Second
 )
@@ -158,6 +159,24 @@ func postForm(ctx context.Context, endpoint string, form url.Values) (*http.Resp
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	return authHTTP.Do(req)
+}
+
+// RevokeToken invalidates an access token at Twitch (verified 2026-11-18:
+// https://dev.twitch.tv/docs/authentication/revoke-tokens/, POST form
+// client_id + token, 200 with no body; 400 "Invalid token" means it was
+// already invalid, which is the goal too).
+func RevokeToken(ctx context.Context, clientID, accessToken string) error {
+	resp, err := postForm(ctx, revokeURL, url.Values{"client_id": {clientID}, "token": {accessToken}})
+	if err != nil {
+		return fmt.Errorf("revoke token: %w", err)
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusBadRequest:
+		return nil
+	}
+	return fmt.Errorf("revoke token: status %d", resp.StatusCode)
 }
 
 // DeviceCode is what the user needs to authorize darkbot.

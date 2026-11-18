@@ -26,6 +26,8 @@ func TestServeSoundOnlyServesConfiguredFiles(t *testing.T) {
 	}
 	if err := cfg.Update(func(c *config.Config) {
 		c.Sounds = []config.Sound{{ID: "abc", RewardTitle: "Airhorn", File: snd}}
+		c.Events = map[string]config.EventAction{"follow": {Sound: snd}}
+		c.Chat.Commands = []config.ChatCommand{{ID: "c1", Name: "horn", Sound: snd}, {ID: "c2", Name: "quiet"}}
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -37,6 +39,10 @@ func TestServeSoundOnlyServesConfiguredFiles(t *testing.T) {
 		body         string
 	}{
 		{http.MethodGet, "/sound/abc", http.StatusOK, "ID3fake"},
+		{http.MethodGet, "/sound/ev-follow", http.StatusOK, "ID3fake"},
+		{http.MethodGet, "/sound/ev-raid", http.StatusNotFound, ""},
+		{http.MethodGet, "/sound/cmd-c1", http.StatusOK, "ID3fake"},
+		{http.MethodGet, "/sound/cmd-c2", http.StatusNotFound, ""},
 		{http.MethodGet, "/sound/nope", http.StatusNotFound, ""},
 		{http.MethodGet, "/sound/../secret.txt", http.StatusNotFound, ""},
 		{http.MethodGet, "/sound/" + secret, http.StatusNotFound, ""},

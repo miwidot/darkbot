@@ -2,10 +2,13 @@ package audio
 
 import (
 	"encoding/binary"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/miwidot/darkbot/internal/i18n"
 )
 
 // writeWAV writes a silent 16-bit mono PCM WAV of the given length.
@@ -58,5 +61,22 @@ func TestDurationRejectsUnsupported(t *testing.T) {
 	}
 	if Supported(p) || !Supported("A.MP3") {
 		t.Fatal("Supported() wrong")
+	}
+}
+
+func TestCheckRefusesHugeFiles(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "long.wav")
+	f, err := os.Create(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(MaxFileMB<<20 + 1); err != nil { // sparse, no real disk use
+		t.Fatal(err)
+	}
+	f.Close()
+	_, err = Check(p)
+	var e *i18n.Error
+	if !errors.As(err, &e) || e.Key != "err.soundTooBig" {
+		t.Fatalf("want err.soundTooBig, got %v", err)
 	}
 }

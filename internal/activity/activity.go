@@ -44,6 +44,11 @@ type Log struct {
 	mu        sync.Mutex
 	entries   []entry // newest first
 	saveTimer *time.Timer
+
+	// writeMu orders the disk writes: each takes its snapshot while
+	// holding it, so a save can't write an older list over a newer one
+	// (e.g. bring back a feed that was just cleared).
+	writeMu sync.Mutex
 }
 
 // stamped reads the "at" field every feed entry has.
@@ -110,6 +115,8 @@ func (l *Log) List() []json.RawMessage {
 
 // Clear empties the feed and saves that right away.
 func (l *Log) Clear() error {
+	l.writeMu.Lock()
+	defer l.writeMu.Unlock()
 	l.mu.Lock()
 	l.entries = nil
 	if l.saveTimer != nil {
@@ -138,6 +145,8 @@ func (l *Log) scheduleSave() {
 }
 
 func (l *Log) saveNow() {
+	l.writeMu.Lock()
+	defer l.writeMu.Unlock()
 	l.mu.Lock()
 	l.saveTimer = nil
 	l.mu.Unlock()

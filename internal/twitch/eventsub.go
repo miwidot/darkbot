@@ -37,6 +37,8 @@ const (
 	stableSession = time.Minute
 	// dedupeWindow: Twitch may resend a message; ignore duplicate message_ids.
 	dedupeWindow = 10 * time.Minute
+	// dedupePrune: how often expired ids are dropped from the dedupe set.
+	dedupePrune = 30 * time.Second
 
 	redemptionAddType = "channel.channel_points_custom_reward_redemption.add"
 )
@@ -102,6 +104,7 @@ type EventSub struct {
 	seenMu sync.Mutex
 	hype   hypeTracker
 	seen   map[string]time.Time
+	pruned time.Time // last walk over seen
 }
 
 // NewEventSub creates the listener. onEvent/onStatus may be called from any goroutine.
@@ -157,10 +160,16 @@ func (e *EventSub) session(ctx context.Context) error {
 	if tok == nil {
 		return ErrNotLoggedIn
 	}
-	if err := e.helix.SubscribeRedemptions(ctx, welcome.Session.ID, tok.UserID); err != nil {
-		return fmt.Errorf("subscribe to redemptions: %w", err)
+	switch err := e.helix.SubscribeRedemptions(ctx, welcome.Session.ID, tok.UserID); {
+	case errors.Is(err, ErrNotAffiliate):
+		// Lasting: channel points need Affiliate/Partner. Chat commands,
+		// song requests and events still work, so carry on without them.
+		e.log.Warnf("Connected to Twitch EventSub without channel point redemptions: %v", err)
+	case err != nil:
+		return fmt.Errorf("subscribe to redemptions: %w", err) // retried with backoff
+	default:
+		e.log.Infof("Connected to Twitch EventSub, listening for channel point redemptions of %s", tok.Login)
 	}
-	e.log.Infof("Connected to Twitch EventSub, listening for channel point redemptions of %s", tok.Login)
 	e.subscribeChat(ctx, welcome.Session.ID, tok)
 	e.subscribeEvents(ctx, welcome.Session.ID, tok)
 	e.onStatus(true)
@@ -176,8 +185,9 @@ func (e *EventSub) session(ctx context.Context) error {
 		case "notification":
 			e.handleNotification(msg)
 		case "revocation":
-			e.log.Errorf("Twitch revoked the redemption subscription (%s). Please log in again.", string(msg.Payload))
-			return ErrTokenRejected
+			if err := e.revoked(msg.Payload); err != nil {
+				return err
+			}
 		case "session_reconnect":
 			var sp sessionPayload
 			if err := json.Unmarshal(msg.Payload, &sp); err != nil || sp.Session.ReconnectURL == nil {
@@ -195,6 +205,41 @@ func (e *EventSub) session(ctx context.Context) error {
 			e.log.Infof("EventSub moved to a new server (requested by Twitch)")
 		}
 	}
+}
+
+// revocationPayload is the part of a revocation message darkbot reads
+// (https://dev.twitch.tv/docs/eventsub/handling-websocket-events/#revocation-message).
+type revocationPayload struct {
+	Subscription struct {
+		Type   string `json:"type"`
+		Status string `json:"status"`
+	} `json:"subscription"`
+}
+
+// Revocation statuses that mean the login itself is gone.
+const (
+	revokedAuthorization = "authorization_revoked"
+	revokedUserRemoved   = "user_removed"
+)
+
+// revoked handles a revocation: a withdrawn login stops EventSub (the user
+// has to log in again); a lost redemption subscription reconnects to
+// subscribe anew; any other type only costs that one event type.
+func (e *EventSub) revoked(payload json.RawMessage) error {
+	var p revocationPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("bad revocation message: %w", err)
+	}
+	s := p.Subscription
+	switch {
+	case s.Status == revokedAuthorization || s.Status == revokedUserRemoved:
+		e.log.Errorf("Twitch revoked darkbot's access (%s). Please log in again.", s.Status)
+		return ErrTokenRejected
+	case s.Type == redemptionAddType:
+		return fmt.Errorf("twitch ended the redemption subscription (%s)", s.Status)
+	}
+	e.log.Warnf("Twitch ended the %s subscription (%s); the others keep running", s.Type, s.Status)
+	return nil
 }
 
 // subscribeChat adds the chat subscription. Failing here must not cost the
@@ -222,6 +267,9 @@ func (e *EventSub) subscribeEvents(ctx context.Context, sessionID string, tok *T
 	}
 	var ok, missing []string
 	for _, s := range eventSpecs {
+		if ctx.Err() != nil {
+			return // stopped (logout, restart): no warning per remaining type
+		}
 		if s.Scope != "" && !tok.HasScope(s.Scope) {
 			missing = append(missing, s.Type)
 			continue
@@ -404,9 +452,14 @@ func (e *EventSub) isDuplicate(id string) bool {
 	now := time.Now()
 	e.seenMu.Lock()
 	defer e.seenMu.Unlock()
-	for k, t := range e.seen {
-		if now.Sub(t) > dedupeWindow {
-			delete(e.seen, k)
+	// Pruning walks every id of the window; once per dedupePrune is
+	// enough (a busy chat sends thousands of messages per window).
+	if now.Sub(e.pruned) >= dedupePrune {
+		e.pruned = now
+		for k, t := range e.seen {
+			if now.Sub(t) > dedupeWindow {
+				delete(e.seen, k)
+			}
 		}
 	}
 	if _, ok := e.seen[id]; ok {

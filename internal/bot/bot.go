@@ -94,6 +94,9 @@ type Bot struct {
 	// overlay returns where alerts are shown, nil while unavailable (OBS
 	// not connected).
 	overlay func() Overlay
+
+	running   chan struct{}  // closed when Run returns
+	resolving sync.WaitGroup // fulfill/reject calls in flight
 }
 
 type job struct {
@@ -127,7 +130,11 @@ func (b *Bot) finish(s config.Sound, r *twitch.Redemption, fulfill bool) {
 	if r == nil || !s.Managed || b.resolve == nil {
 		return
 	}
-	go b.resolve(*r, fulfill)
+	b.resolving.Add(1)
+	go func() {
+		defer b.resolving.Done()
+		b.resolve(*r, fulfill)
+	}()
 }
 
 // New creates a bot. outputFor returns the Output for the current mode;
@@ -143,6 +150,7 @@ func New(cfg *config.Store, log Logger, outputFor func() Output, onActivity func
 		queue:      make(chan job, MaxQueue),
 		cd:         NewCooldowns(),
 		onActivity: onActivity,
+		running:    make(chan struct{}),
 	}
 }
 
@@ -162,13 +170,56 @@ func (b *Bot) emitJob(kind string, j job, msg string) {
 
 // Run plays queued sounds until ctx is cancelled.
 func (b *Bot) Run(ctx context.Context) {
+	defer close(b.running)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case j := <-b.queue:
+			if ctx.Err() != nil {
+				// select picks at random: shutting down, don't start a sound.
+				b.finish(j.sound, j.red, false)
+				return
+			}
 			b.play(ctx, j)
 		}
+	}
+}
+
+// Stop is called on shutdown after Run's ctx was cancelled. It waits up to
+// timeout for Run to end, rejects (refunds) the redemptions still waiting
+// in the queue, and waits for those Twitch calls, so viewers get their
+// points back instead of redemptions hanging unfulfilled.
+func (b *Bot) Stop(timeout time.Duration) {
+	deadline := time.After(timeout)
+	select {
+	case <-b.running:
+	case <-deadline:
+		b.log.Warnf("Sound queue did not stop in %s", timeout)
+		return
+	}
+	refunded := 0
+	for {
+		select {
+		case j := <-b.queue:
+			if j.red != nil && j.sound.Managed {
+				refunded++
+			}
+			b.finish(j.sound, j.red, false)
+			continue
+		default:
+		}
+		break
+	}
+	if refunded > 0 {
+		b.log.Infof("Refunding %d redemptions that were still waiting", refunded)
+	}
+	done := make(chan struct{})
+	go func() { b.resolving.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-deadline:
+		b.log.Warnf("Not all redemptions could be refunded in %s", timeout)
 	}
 }
 
@@ -247,7 +298,8 @@ func (b *Bot) HandleRedemption(r twitch.Redemption) {
 		b.finish(s, &r, false)
 		return
 	}
-	if wait, blocked := b.cd.Try(s, r.UserID, time.Now()); blocked {
+	now := time.Now()
+	if wait, blocked := b.cd.Try(s, r.UserID, now); blocked {
 		b.log.Infof("%s redeemed %q, still on cooldown (%s left)", r.UserName, r.RewardTitle, wait.Round(time.Second))
 		b.emit(ActCooldown, s, r.UserName, false, wait.Round(time.Second).String())
 		b.finish(s, &r, false)
@@ -259,6 +311,7 @@ func (b *Bot) HandleRedemption(r twitch.Redemption) {
 		b.emit(ActQueued, s, r.UserName, false, "")
 	default:
 		b.log.Warnf("%s redeemed %q, but %d sounds are already waiting, skipped", r.UserName, r.RewardTitle, MaxQueue)
+		b.cd.Release(s, r.UserID, now) // nothing played: no cooldown
 		b.emit(ActQueueFull, s, r.UserName, false, "")
 		b.finish(s, &r, false)
 	}
@@ -343,6 +396,20 @@ func (c *Cooldowns) Try(s config.Sound, userID string, now time.Time) (time.Dura
 	}
 	c.pruneLocked(now)
 	return 0, false
+}
+
+// Release undoes the cooldowns a successful Try at now started, e.g. when
+// the sound could not be queued after all. Later Trys are left alone.
+func (c *Cooldowns) Release(s config.Sound, userID string, now time.Time) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if t, ok := c.global[s.ID]; ok && t.Equal(now.Add(time.Duration(s.CooldownSeconds)*time.Second)) {
+		delete(c.global, s.ID)
+	}
+	userKey := s.ID + "|" + userID
+	if t, ok := c.user[userKey]; ok && t.Equal(now.Add(time.Duration(s.UserCooldownSeconds)*time.Second)) {
+		delete(c.user, userKey)
+	}
 }
 
 // GlobalReadyAt returns when the sound's global cooldown ends (zero = free).

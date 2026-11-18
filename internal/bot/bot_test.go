@@ -386,3 +386,56 @@ func TestSoundsNeverOverlap(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+// On shutdown the redemptions still waiting are rejected (points back).
+func TestStopRefundsQueued(t *testing.T) {
+	store, err := config.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = store.Update(func(c *config.Config) {
+		c.Sounds = []config.Sound{{ID: "m", RewardID: "rm", RewardTitle: "Managed", File: "/m.mp3", Managed: true, Enabled: true}}
+	})
+	b := New(store, nopLogger{}, func() Output { return slowOutput{d: time.Minute} }, nil)
+	var mu sync.Mutex
+	got := map[string]bool{}
+	b.SetResolver(func(r twitch.Redemption, fulfill bool) {
+		time.Sleep(50 * time.Millisecond) // a Twitch request
+		mu.Lock()
+		got[r.ID] = fulfill
+		mu.Unlock()
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	go b.Run(ctx)
+	for _, id := range []string{"1", "2", "3"} {
+		b.HandleRedemption(twitch.Redemption{ID: id, RewardID: "rm", UserID: "u" + id})
+	}
+	time.Sleep(100 * time.Millisecond) // "1" is playing, "2" and "3" wait
+	cancel()
+	b.Stop(2 * time.Second)
+
+	mu.Lock()
+	defer mu.Unlock()
+	for _, id := range []string{"2", "3"} {
+		if f, ok := got[id]; !ok || f {
+			t.Errorf("queued redemption %s: resolved %v fulfill %v, want rejected", id, ok, f)
+		}
+	}
+}
+
+func TestCooldownRelease(t *testing.T) {
+	now := time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)
+	s := config.Sound{ID: "s", CooldownSeconds: 10, UserCooldownSeconds: 60}
+	c := NewCooldowns()
+	if _, blocked := c.Try(s, "u1", now); blocked {
+		t.Fatal("first must pass")
+	}
+	c.Release(s, "u1", now) // could not be queued
+	if _, blocked := c.Try(s, "u1", now.Add(time.Second)); blocked {
+		t.Fatal("a released try must not leave a cooldown")
+	}
+	c.Release(s, "u1", now) // stale release: must not undo the newer try
+	if _, blocked := c.Try(s, "u2", now.Add(2*time.Second)); !blocked {
+		t.Fatal("a release must only undo its own try")
+	}
+}

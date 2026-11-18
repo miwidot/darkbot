@@ -3,6 +3,7 @@ package songs
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -340,5 +341,31 @@ func TestIsCommand(t *testing.T) {
 		if IsCommand(text) != want {
 			t.Errorf("IsCommand(%q) != %v", text, want)
 		}
+	}
+}
+
+// Many accounts at once (a bot wave) can't flood the Spotify queue: the
+// whole channel gets maxChannelRequests per window; mods are not limited.
+func TestChannelRequestLimit(t *testing.T) {
+	hs := newHarness()
+	hs.s.UserCooldownSeconds = 0
+	for i := range maxChannelRequests + 2 {
+		m := viewer("!sr https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC")
+		m.ChatterID = "bot" + strconv.Itoa(i)
+		hs.h.Handle(context.Background(), m)
+	}
+	if hs.last() != "Too many song requests right now, please try again in a minute." {
+		t.Fatalf("reply %q", hs.last())
+	}
+	mod := viewer("!sr https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC")
+	mod.ChatterID, mod.IsModerator = "mod", true
+	hs.h.Handle(context.Background(), mod)
+	if strings.HasPrefix(hs.last(), "Too many") {
+		t.Fatal("mods are not limited")
+	}
+	hs.now = hs.now.Add(channelRequestWindow)
+	hs.say(viewer("!sr https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"))
+	if strings.HasPrefix(hs.last(), "Too many") {
+		t.Fatal("the limit must end after the window")
 	}
 }

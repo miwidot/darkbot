@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -42,6 +43,9 @@ const (
 	// vanished accounts the rest are real and reported without a check.
 	followerVerifyMax = 20
 	followerTimeout   = 2 * time.Minute
+	// followerSaveDelay batches saving follows that arrived live: a raid of
+	// new followers is one write.
+	followerSaveDelay = 30 * time.Second
 )
 
 // follower is one entry of Get Channel Followers.
@@ -104,6 +108,8 @@ type FollowerWatcher struct {
 	path   string // saved list; "" = keep it in memory only
 	emit   func(ChannelEvent)
 	now    func() time.Time
+	// checked runs after every check (set before Run; may be nil).
+	checked func()
 
 	mu      sync.Mutex
 	started time.Time         // follows before this were missed, after it EventSub had them
@@ -111,6 +117,10 @@ type FollowerWatcher struct {
 	known   map[string]string // user ID -> display name
 	saved   bool              // known came from the file and wasn't compared yet
 	status  FollowerStatus
+	owner   string      // broadcaster ID the list belongs to
+	pending *time.Timer // a save of live follows is scheduled
+
+	saveMu sync.Mutex
 }
 
 // NewFollowerWatcher creates a watcher that saves the list at path ("" =
@@ -118,6 +128,10 @@ type FollowerWatcher struct {
 func NewFollowerWatcher(h *Helix, t *TokenManager, log Logger, path string, emit func(ChannelEvent)) *FollowerWatcher {
 	return &FollowerWatcher{helix: h, tokens: t, log: log, path: path, emit: emit, now: time.Now, started: time.Now()}
 }
+
+// OnChecked sets fn to run after every check, e.g. to show the new status.
+// Call before Run.
+func (w *FollowerWatcher) OnChecked(fn func()) { w.checked = fn }
 
 // Status returns the last check result.
 func (w *FollowerWatcher) Status() FollowerStatus {
@@ -132,11 +146,49 @@ func (w *FollowerWatcher) Run(ctx context.Context) {
 	defer ticker.Stop()
 	for {
 		w.check(ctx)
+		if w.checked != nil && ctx.Err() == nil {
+			w.checked()
+		}
 		select {
 		case <-ctx.Done():
+			w.Flush()
 			return
 		case <-ticker.C:
 		}
+	}
+}
+
+// Observe adds a follow that arrived live (EventSub) to the list, so the
+// next start doesn't report it again as one that happened while darkbot
+// was off.
+func (w *FollowerWatcher) Observe(userID, name string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.known == nil || userID == "" {
+		return // no list yet: the first read will contain it
+	}
+	if _, ok := w.known[userID]; ok {
+		return
+	}
+	w.known[userID] = name
+	if w.pending == nil && w.path != "" {
+		w.pending = time.AfterFunc(followerSaveDelay, w.Flush)
+	}
+}
+
+// Flush saves the list now if live follows are waiting to be saved.
+func (w *FollowerWatcher) Flush() {
+	w.mu.Lock()
+	if w.pending == nil {
+		w.mu.Unlock()
+		return
+	}
+	w.pending.Stop()
+	w.pending = nil
+	owner, names := w.owner, maps.Clone(w.known)
+	w.mu.Unlock()
+	if owner != "" && names != nil {
+		w.save(owner, names)
 	}
 }
 
@@ -175,10 +227,17 @@ func (w *FollowerWatcher) check(ctx context.Context) {
 	}
 
 	w.mu.Lock()
-	w.known, w.saved = names, false
+	w.known, w.saved, w.owner = names, false, tok.UserID
 	w.status = FollowerStatus{Tracking: len(names), Total: len(names), LastCheck: w.now()}
+	livePending := w.pending != nil
+	if livePending { // the save below includes them
+		w.pending.Stop()
+		w.pending = nil
+	}
 	w.mu.Unlock()
-	w.save(tok.UserID, names)
+	if prev == nil || missed || livePending || !maps.Equal(prev, names) {
+		w.save(tok.UserID, names) // up to ~160 KB: only when something changed
+	}
 
 	if prev == nil {
 		w.log.Infof("Unfollow detection: watching %d followers", len(names))
@@ -284,7 +343,7 @@ func (w *FollowerWatcher) loadOnce(broadcasterID string) {
 	case s.BroadcasterID != broadcasterID:
 		// Another Twitch account was logged in; its list says nothing here.
 	case s.Followers != nil:
-		w.known, w.saved = s.Followers, true
+		w.known, w.saved, w.owner = s.Followers, true, broadcasterID
 	}
 }
 
@@ -292,6 +351,8 @@ func (w *FollowerWatcher) save(broadcasterID string, names map[string]string) {
 	if w.path == "" {
 		return
 	}
+	w.saveMu.Lock() // the check and a live-follow save may overlap
+	defer w.saveMu.Unlock()
 	data, err := json.Marshal(savedFollowers{BroadcasterID: broadcasterID, CheckedAt: w.now(), Followers: names})
 	if err == nil {
 		err = secret.WriteFileAtomic(w.path, data)

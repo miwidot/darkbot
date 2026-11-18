@@ -2,18 +2,22 @@ package main
 
 import (
 	"net"
+	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/zalando/go-keyring"
 
 	"github.com/miwidot/darkbot/internal/activity"
 	"github.com/miwidot/darkbot/internal/applog"
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/obs"
 	"github.com/miwidot/darkbot/internal/obs/obstest"
+	"github.com/miwidot/darkbot/internal/secret"
 	"github.com/miwidot/darkbot/internal/stats"
 )
 
@@ -119,5 +123,34 @@ func TestOBSWrongPasswordStopsRetrying(t *testing.T) {
 	}
 	if waiting, authFailed := a.obsStatus(); !authFailed || waiting {
 		t.Fatalf("rejected password: no retries, say so (waiting=%v authFailed=%v)", waiting, authFailed)
+	}
+}
+
+// A password in config.json (v0.2.x) moves to the keyring and out of the file.
+func TestOBSPasswordMovesToKeyring(t *testing.T) {
+	keyring.MockInit()
+	dir := t.TempDir()
+	cfg, err := config.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Update(func(c *config.Config) { c.OBS.Password = "hunter2" }); err != nil {
+		t.Fatal(err)
+	}
+	log := applog.New()
+	a := &App{cfg: cfg, log: log, obsPass: &secret.Store{Key: obsPasswordKey, FallbackPath: cfg.OBSPasswordPath(), Log: log}}
+	a.moveOBSPassword()
+	if got := a.obsPassword(); got != "hunter2" {
+		t.Fatalf("password after the move: %q", got)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "hunter2") {
+		t.Fatal("the password is still in config.json")
+	}
+	if err := a.setOBSPassword(""); err != nil || a.obsPassword() != "" {
+		t.Fatalf("clearing the password: %v", err)
 	}
 }

@@ -111,7 +111,7 @@ func (o *Client) Status(soundInput string) (SceneStatus, error) {
 		return SceneStatus{}, err
 	}
 	if err := renameLegacy(c, soundInput); err != nil {
-		return SceneStatus{}, o.fail(c, err)
+		return SceneStatus{}, err
 	}
 	list, err := c.Scenes.GetSceneList(&scenes.GetSceneListParams{})
 	if err != nil {
@@ -144,14 +144,14 @@ func (o *Client) Setup(soundInput string) (added []string, err error) {
 		return nil, err
 	}
 	if err := renameLegacy(c, soundInput); err != nil {
-		return nil, o.fail(c, err)
+		return nil, err
 	}
 	if err := ensureScene(c, soundInput); err != nil {
-		return nil, o.fail(c, err)
+		return nil, err
 	}
 	list, err := c.Scenes.GetSceneList(&scenes.GetSceneListParams{})
 	if err != nil {
-		return nil, o.fail(c, fmt.Errorf("list OBS scenes: %w", err))
+		return nil, fmt.Errorf("list OBS scenes: %w", err)
 	}
 	for _, s := range list.Scenes {
 		if s.SceneName == SceneName {
@@ -183,11 +183,11 @@ func (o *Client) Remove(soundInput string) (from []string, err error) {
 		return nil, err
 	}
 	if err := renameLegacy(c, soundInput); err != nil {
-		return nil, o.fail(c, err)
+		return nil, err
 	}
 	list, err := c.Scenes.GetSceneList(&scenes.GetSceneListParams{})
 	if err != nil {
-		return nil, o.fail(c, fmt.Errorf("list OBS scenes: %w", err))
+		return nil, fmt.Errorf("list OBS scenes: %w", err)
 	}
 	exists := false
 	for _, s := range list.Scenes {
@@ -197,7 +197,7 @@ func (o *Client) Remove(soundInput string) (from []string, err error) {
 		}
 		its, err := items(c, s.SceneName)
 		if err != nil {
-			return from, o.fail(c, err)
+			return from, err
 		}
 		for _, it := range its {
 			if it.SourceName != SceneName {
@@ -205,7 +205,7 @@ func (o *Client) Remove(soundInput string) (from []string, err error) {
 			}
 			if _, err := c.SceneItems.RemoveSceneItem(sceneitems.NewRemoveSceneItemParams().
 				WithSceneName(s.SceneName).WithSceneItemId(it.SceneItemID)); err != nil {
-				return from, o.fail(c, fmt.Errorf("take the darkbot scene out of %q: %w", s.SceneName, err))
+				return from, fmt.Errorf("take the darkbot scene out of %q: %w", s.SceneName, err)
 			}
 			if !slices.Contains(from, s.SceneName) {
 				from = append(from, s.SceneName)
@@ -218,19 +218,19 @@ func (o *Client) Remove(soundInput string) (from []string, err error) {
 	}
 	have, err := inputNames(c)
 	if err != nil {
-		return from, o.fail(c, err)
+		return from, err
 	}
 	for _, name := range own {
 		if !have[name] {
 			continue
 		}
 		if _, err := c.Inputs.RemoveInput(inputs.NewRemoveInputParams().WithInputName(name)); err != nil {
-			return from, o.fail(c, fmt.Errorf("remove OBS source %q: %w", name, err))
+			return from, fmt.Errorf("remove OBS source %q: %w", name, err)
 		}
 	}
 	if exists {
 		if _, err := c.Scenes.RemoveScene(scenes.NewRemoveSceneParams().WithSceneName(SceneName)); err != nil {
-			return from, o.fail(c, fmt.Errorf("remove the OBS scene %q: %w", SceneName, err))
+			return from, fmt.Errorf("remove the OBS scene %q: %w", SceneName, err)
 		}
 	}
 	return from, nil
@@ -463,7 +463,7 @@ type Alert struct {
 
 // Show displays an alert in the darkbot scene and returns how to hide it
 // and, for a video, how long it plays (0 = unknown or a picture).
-func (o *Client) Show(ctx context.Context, a Alert, soundInput string) (hide func(), length time.Duration, err error) {
+func (o *Client) Show(ctx context.Context, a Alert, soundInput string) (hide func() error, length time.Duration, err error) {
 	c, err := o.client()
 	if err != nil {
 		return nil, 0, err
@@ -471,56 +471,93 @@ func (o *Client) Show(ctx context.Context, a Alert, soundInput string) (hide fun
 	// After Remove, alerts must not quietly bring the scene back.
 	list, err := c.Scenes.GetSceneList(&scenes.GetSceneListParams{})
 	if err != nil {
-		return nil, 0, o.fail(c, fmt.Errorf("list OBS scenes: %w", err))
+		return nil, 0, fmt.Errorf("list OBS scenes: %w", err)
 	}
 	if !slices.ContainsFunc(list.Scenes, func(s *typedefs.Scene) bool { return s.SceneName == SceneName }) {
 		return nil, 0, ErrNotSetUp
 	}
 	if err := ensureScene(c, soundInput); err != nil { // repairs deleted sources
-		return nil, 0, o.fail(c, err)
+		return nil, 0, err
 	}
 	var show []string
 	video := a.File != "" && IsVideo(a.File)
 	switch {
 	case video:
 		if err := setInput(c, videoInput, map[string]any{"is_local_file": true, "local_file": a.File, "looping": false}); err != nil {
-			return nil, 0, o.fail(c, err)
+			return nil, 0, err
 		}
 		show = append(show, videoInput)
 	case a.File != "":
 		if err := setInput(c, imageInput, map[string]any{"file": a.File}); err != nil {
-			return nil, 0, o.fail(c, err)
+			return nil, 0, err
 		}
 		show = append(show, imageInput)
 	}
 	if a.Text != "" {
 		if err := setInput(c, textInput, map[string]any{"text": a.Text}); err != nil {
-			return nil, 0, o.fail(c, err)
+			return nil, 0, err
 		}
 		show = append(show, textInput)
 	}
 	ids, err := itemIDs(c, show)
 	if err != nil {
-		return nil, 0, o.fail(c, err)
+		return nil, 0, err
 	}
 	for _, id := range ids {
 		if err := enable(c, id, true); err != nil {
-			return nil, 0, o.fail(c, err)
+			return nil, 0, err
 		}
 	}
 	if video {
 		if _, err := c.MediaInputs.TriggerMediaInputAction(mediainputs.NewTriggerMediaInputActionParams().
 			WithInputName(videoInput).WithMediaAction(restartAction)); err != nil {
-			return nil, 0, o.fail(c, fmt.Errorf("start the alert video: %w", err))
+			return nil, 0, fmt.Errorf("start the alert video: %w", err)
 		}
 		length = videoLength(ctx, c)
 	}
-	hide = func() {
-		for _, id := range ids {
-			_ = enable(c, id, false) // a gone OBS is handled by the watcher
+	// Hide through the connection current at that time: OBS may have
+	// reconnected while the alert was showing.
+	return func() error { return o.hide(show) }, length, nil
+}
+
+// alertInputs are the sources an alert shows.
+var alertInputs = []string{imageInput, videoInput, textInput}
+
+// HideAlerts hides every alert source, e.g. after (re)connecting, when an
+// alert of a dropped connection may still be on screen. Without the
+// darkbot scene there is nothing to hide.
+func (o *Client) HideAlerts() error {
+	c, err := o.client()
+	if err != nil {
+		return err
+	}
+	list, err := items(c, SceneName)
+	if err != nil {
+		return nil // no darkbot scene (not set up or removed)
+	}
+	var present []string
+	for _, n := range alertInputs {
+		if slices.ContainsFunc(list, func(it *typedefs.SceneItem) bool { return it.SourceName == n }) {
+			present = append(present, n)
 		}
 	}
-	return hide, length, nil
+	return o.hide(present)
+}
+
+func (o *Client) hide(names []string) error {
+	c, err := o.client()
+	if err != nil {
+		return err
+	}
+	ids, err := itemIDs(c, names)
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for _, id := range ids {
+		errs = append(errs, enable(c, id, false))
+	}
+	return errors.Join(errs...)
 }
 
 func setInput(c *goobs.Client, name string, settings map[string]any) error {

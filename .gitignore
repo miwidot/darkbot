@@ -2,3 +2,7 @@ build/bin/
 *.exe
 *.app
 .DS_Store
+
+# `go build .` output in the repo root
+/darkbot
+/darkbot.exe

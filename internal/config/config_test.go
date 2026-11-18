@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -51,8 +52,8 @@ func TestUpdatePersistsAndNormalizes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if fi.Mode().Perm() != filePerm {
-			t.Fatalf("config perm = %v, want %v", fi.Mode().Perm(), os.FileMode(filePerm))
+		if fi.Mode().Perm() != 0o600 { // only the user may read it
+			t.Fatalf("config perm = %v, want 0600", fi.Mode().Perm())
 		}
 	}
 }
@@ -102,5 +103,36 @@ func TestLegacyOBSInputNameMoves(t *testing.T) {
 		if got := s.Get().OBS.InputName; got != tc.want {
 			t.Errorf("stored %q: got %q, want %q", tc.stored, got, tc.want)
 		}
+	}
+}
+
+// A config cut off by a crash must not stop darkbot from starting: it is
+// set aside and darkbot starts with defaults.
+func TestCorruptConfigIsSetAside(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, configFileName)
+	if err := os.WriteFile(path, []byte(`{"master_volume": 0.5,`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatalf("a corrupt config must not stop the start: %v", err)
+	}
+	if s.Recovered == "" {
+		t.Fatal("Recovered must say what happened")
+	}
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("the corrupt file must be moved away: %v", err)
+	}
+	backups, _ := filepath.Glob(path + ".corrupt-*")
+	if len(backups) != 1 {
+		t.Fatalf("backups %v", backups)
+	}
+	if err := s.Update(func(c *Config) { c.MasterVolume = 0.7 }); err != nil {
+		t.Fatal(err)
+	}
+	again, err := Open(dir)
+	if err != nil || again.Recovered != "" || again.Get().MasterVolume != 0.7 {
+		t.Fatalf("after saving, the config must load cleanly: %v %q", err, again.Recovered)
 	}
 }

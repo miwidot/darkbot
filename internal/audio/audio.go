@@ -15,6 +15,8 @@ import (
 	"github.com/gopxl/beep/v2/mp3"
 	"github.com/gopxl/beep/v2/vorbis"
 	"github.com/gopxl/beep/v2/wav"
+
+	"github.com/miwidot/darkbot/internal/i18n"
 )
 
 // Extensions lists the supported file types (lowercase, with dot).
@@ -37,6 +39,25 @@ func MIMEType(path string) string {
 
 // Supported reports whether the file extension is supported.
 func Supported(path string) bool { return MIMEType(path) != "" }
+
+// MaxFileMB caps sound files chosen for redemptions, events and commands.
+// Alert sounds are seconds long; a long WAV would be read into memory on
+// every play (the webview's asset server buffers whole responses on
+// Windows). 25 MB is still a few minutes of uncompressed WAV.
+const MaxFileMB = 25
+
+// Check validates a sound file the streamer picks: supported, readable,
+// at most MaxFileMB. It returns its play length.
+func Check(path string) (time.Duration, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+	if fi.Size() > MaxFileMB<<20 {
+		return 0, i18n.E("err.soundTooBig", "mb", MaxFileMB)
+	}
+	return Duration(path)
+}
 
 // Duration decodes the file header/stream and returns its play length.
 func Duration(path string) (time.Duration, error) {

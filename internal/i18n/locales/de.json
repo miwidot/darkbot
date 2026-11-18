@@ -581,5 +581,7 @@
   "feed.clearConfirm": "Wirklich leeren?",
   "feed.clearTitle": "Entfernt alle Zeilen aus der Aktivitätsliste. darkbot behält die letzten 200 Zeilen, auch über Neustarts und Updates hinweg.",
   "feed.missed": "während aus",
-  "feed.missedTitle": "Passiert, als darkbot nicht lief; beim Vergleich der Follower-Liste gefunden. Es wurde kein Sound und keine Chat-Nachricht ausgelöst."
+  "feed.missedTitle": "Passiert, als darkbot nicht lief; beim Vergleich der Follower-Liste gefunden. Es wurde kein Sound und keine Chat-Nachricht ausgelöst.",
+  "chat.busy": "Gerade kommen zu viele Songwünsche, bitte versuch es in einer Minute nochmal.",
+  "err.soundTooBig": "Die Sound-Datei ist größer als {mb} MB. Nimm eine kürzere oder komprimierte Datei (MP3, OGG)."
 }

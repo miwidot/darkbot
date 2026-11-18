@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -18,14 +19,45 @@ import (
 // live: timers post only then, and a stream that started while darkbot
 // was off starts a new dashboard session.
 
+// readErr explains why a chosen sound file can't be used: its own message
+// when it already has one (too big), else "could not read".
+func readErr(err error) error {
+	if _, ok := errors.AsType[*i18n.Error](err); ok {
+		return err
+	}
+	return i18n.Wrap(err, "err.readFile")
+}
+
+// commandSoundPrefix marks chat command sounds in the sound URL
+// (/sound/cmd-<command ID>).
+const commandSoundPrefix = "cmd-"
+
+// commandSoundFile resolves /sound/cmd-<id> for serveSound.
+func (a *App) commandSoundFile(id string) (string, bool) {
+	id, ok := strings.CutPrefix(id, commandSoundPrefix)
+	if !ok {
+		return "", false
+	}
+	for _, c := range a.cfg.Get().Chat.Commands {
+		if c.ID == id && c.Sound != "" {
+			return c.Sound, true
+		}
+	}
+	return "", false
+}
+
+// liveClockSlack: how far the local clock may be off Twitch's before a
+// stream start counts as one darkbot missed.
+const liveClockSlack = 10 * time.Minute
+
 // newChatBot wires the chat bot to the app. Called in NewApp.
 func (a *App) newChatBot() *chatbot.Bot {
 	return chatbot.New(chatbot.Deps{
 		Settings: func() config.Chat { return a.cfg.Get().Chat },
-		Send:     func(ctx context.Context, text string) { a.sendChat(ctx, text, "") },
+		Send:     func(ctx context.Context, text string) { a.postChat(ctx, text, "") },
 		Play: func(c config.ChatCommand, user string) {
 			a.bot.PlayEvent(config.Sound{
-				ID: "cmd-" + c.ID, RewardTitle: chatbot.Prefix + c.Name,
+				ID: commandSoundPrefix + c.ID, RewardTitle: chatbot.Prefix + c.Name,
 				File: c.Sound, Volume: c.Volume, Enabled: true,
 			}, nil, user)
 		},
@@ -40,7 +72,10 @@ func (a *App) newChatBot() *chatbot.Bot {
 // was off when it started) starts a new session at that time.
 func (a *App) setLive(live bool, since time.Time) {
 	was := a.live.Swap(live)
-	if live && !since.IsZero() && since.After(a.st.Snapshot().Since) {
+	// The session darkbot started on stream.online is stamped with the
+	// local clock, since with Twitch's: a local clock running behind must
+	// not look like a later stream and wipe the first minutes.
+	if live && !since.IsZero() && since.After(a.st.Snapshot().Since.Add(liveClockSlack)) {
 		a.st.ResetSessionAt(since)
 		a.log.Infof("The stream started at %s while darkbot was not running: new dashboard session", since.Local().Format(time.DateTime))
 	}
@@ -75,8 +110,8 @@ func (a *App) SaveCommand(cmd config.ChatCommand) error {
 		if !filepath.IsAbs(cmd.Sound) {
 			return a.uiErr(i18n.E("err.pathAbsolute"))
 		}
-		if _, err := audio.Duration(cmd.Sound); err != nil {
-			return a.uiErr(i18n.Wrap(err, "err.readFile"))
+		if _, err := audio.Check(cmd.Sound); err != nil {
+			return a.uiErr(readErr(err))
 		}
 	}
 	return a.updateChat(func(c *config.Chat) error {
