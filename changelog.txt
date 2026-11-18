@@ -1,3 +1,6 @@
+2026-11-18 15:57 +08 — Release v0.2.6
+- Alerts in OBS (pictures, GIFs, videos, text) through the nested darkbot scene; macOS bundle version 0.2.6.
+
 2026-11-18 05:03 +08 — Alerts in OBS (picture, GIF, video, text) via a nested darkbot scene
 - Each event action can show a picture/GIF (image_source) or video (ffmpeg_source, WebM alpha)
   and an on-screen text ({user} {amount} {tier} {months} {top}) for N seconds (0 = video length
