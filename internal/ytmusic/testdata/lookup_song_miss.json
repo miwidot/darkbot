@@ -1,0 +1,1594 @@
+{
+ "contents": {
+  "tabbedSearchResultsRenderer": {
+   "tabs": [
+    {
+     "tabRenderer": {
+      "title": "YT Music",
+      "selected": true,
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "musicShelfRenderer": {
+           "title": {
+            "runs": [
+             {
+              "text": "Songs"
+             }
+            ]
+           },
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Never Gonna Give You Up",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "lYBUbBu4W08"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Rick Astley",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCwZEU0wAwIyZb4x5G_KJp2w"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Whenever You Need Somebody",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_dcYZhAh5urI"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:34"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "2bn plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "lYBUbBu4W08"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "dQw4w9WgXcQ",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "rVKacxUOoZQ"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Muqdisho",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCFAc58Fa_OQgOJ-VFMzsMeQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "children who have never seen the sky",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_nKyOeWKlDq7"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:01"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "9.6k plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "rVKacxUOoZQ"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "song 35",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "qOnPs8u2Gy8"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "maeve gutierrez",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCbdyM7Cqr2Pp8Azuzv3hNjg"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "song 35",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_bs4okA0uKRF"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "2:32"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "38 plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "qOnPs8u2Gy8"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Never Gonna Give You Up (2022 Remaster)",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "3BFTio5296w"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Rick Astley",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCwZEU0wAwIyZb4x5G_KJp2w"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Whenever You Need Somebody (Deluxe Edition - 2022 Remaster)",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_0ihgukxWfht"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:34"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "14m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "3BFTio5296w"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Rickroll Uia",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "ijEUmSEN42c"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "OIIA Cat",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCI6XvCLjYWRwZFHpdojy1NA"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Rickroll Uia",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_NiTeTNPFPyA"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "2:03"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "54k plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "ijEUmSEN42c"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Never Gonna Give You Up",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "mtlvMzWnov0"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "OxYy",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UC2UowZP7Qveozz5S27GLV6w"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Never Gonna Give You Up",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_6LzcG8wF8Gq"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:17"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "680k plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "mtlvMzWnov0"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Kaalathukkum Nee Venum (From \"Vendhu Thanindhathu Kaadu\")",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "UAo7TihZOqY"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "A.R. Rahman",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCtJe0RYzgPddQXKtWduxz_w"
+                     }
+                    }
+                   },
+                   {
+                    "text": ", "
+                   },
+                   {
+                    "text": "Silambarasan TR",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCSRoWMYA6cRv5R_GkFsY7Yg"
+                     }
+                    }
+                   },
+                   {
+                    "text": " & "
+                   },
+                   {
+                    "text": "Rakshita Suresh",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCZOcEINYmSPfsoW353ex3IA"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Kaalathukkum Nee Venum (From \"Vendhu Thanindhathu Kaadu\")",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_raMOhx5pUXD"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:54"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "52m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "UAo7TihZOqY"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Waka Waka (Esto es Africa) [Cancion Oficial de la Copa Mundial de la FIFA (TM) Sudafrica 2010] (feat. Freshlyground)",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "1FeEa2Ew2yo"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Shakira",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCo6JijJGA3IvIiPsawDK3Ww"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Waka Waka (Esto es Africa) [Cancion Oficial de la Copa Mundial de la FIFA (TM) Sudafrica 2010]",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_im3S47wRj7W"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:23"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "7.3bn plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "1FeEa2Ew2yo"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Chilla Chilla (From \"Thunivu\")",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "FLnBchi36oI"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Ghibran",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCSJYmG5RBQJ4rM622mGzVcQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": ", "
+                   },
+                   {
+                    "text": "Anirudh Ravichander",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCbRSywya_rl8YS15Lo9ttsA"
+                     }
+                    }
+                   },
+                   {
+                    "text": " & "
+                   },
+                   {
+                    "text": "Vaisagh",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCQ_uPnfizc9o8ojtPfbTkzw"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Chilla Chilla (From \"Thunivu\")",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_nLglvObwGwL"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:43"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "127m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "FLnBchi36oI"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Yathe Yathe",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "R9aHcmKEY8s"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "G.V. Prakash Kumar",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCK-E95XlAlzJtXKIrF4-hjA"
+                     }
+                    }
+                   },
+                   {
+                    "text": " & "
+                   },
+                   {
+                    "text": "Snehan"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Aadukalam (Original Motion Picture Soundtrack)",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_tPN3kdClwFf"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "5:45"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "59m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "R9aHcmKEY8s"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Axel F",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "_M1iPYsHZvU"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Crazy Frog",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCCJqyXhkdlx3CgEGx2InPKQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Crazy Hits",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_ZJx5MDpLAYC"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "2:49"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "7.2bn plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "_M1iPYsHZvU"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Traag (feat. Jozo & Kraantje Pappie)",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "1OvAPHGbivk"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Bizzey",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCWrmHTx0-SevALht_ZIc2Tg"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Traag",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_AqXEB1hxpJC"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:10"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "669m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "1OvAPHGbivk"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Last Christmas",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "GJvGf_ifiKw"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Wham!",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCpVKXA1YEpLtD_keJogkCwg"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "LAST CHRISTMAS",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_K99Lwuu94yM"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:23"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "1.7bn plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "GJvGf_ifiKw"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Mallipoo",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "3OiyHwe9Is4"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "A.R. Rahman",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCtJe0RYzgPddQXKtWduxz_w"
+                     }
+                    }
+                   },
+                   {
+                    "text": " & "
+                   },
+                   {
+                    "text": "Madhushree"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Vendhu Thanindhathu Kaadu (Original Motion Picture Soundtrack)",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_SEW0qfFPfdB"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:06"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "290m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "3OiyHwe9Is4"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Samjhawan",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "pUwpLoLlzNQ"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Jawad Ahmed",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCG9GwLnakwT-HcXUfKmnzSQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": ", "
+                   },
+                   {
+                    "text": "Sharib Toshi",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCvHlkG7pSLVqzXd5NfPl4Rg"
+                     }
+                    }
+                   },
+                   {
+                    "text": ", "
+                   },
+                   {
+                    "text": "Arijit Singh",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCDxKh1gFWeYsqePvgVzmPoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " & "
+                   },
+                   {
+                    "text": "Shreya Ghoshal",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCrC-7fsdTCYeaRBpwA6j-Eg"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Samjhawan",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_o2lwczDMvQw"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:30"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "933m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "pUwpLoLlzNQ"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "死ぬのがいいわ - Shinunoga E-Wa",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "3zh9Wb1KuW8"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Fujii Kaze",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCxjfYUXFwmjUCGHMeBri5_w"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "HELP EVER HURT NEVER",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_q5Vcb22Ee2s"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:06"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "650m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "3zh9Wb1KuW8"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Lift Me Up (From Black Panther: Wakanda Forever - Music From and Inspired By)",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "Y6p5FLuv-7Y"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Rihanna",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCvWtix2TtWGe9kffqnwdaMw"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Lift Me Up",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_IFoCcCj5OpV"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:17"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "378m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "Y6p5FLuv-7Y"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Ashrecho",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "JVdDm-9_13Q"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Avrumi Flam",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UChFscCECmWXq1DqDMGUWjrw"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "B'shetzef - He's Just Turned Around",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_R2olhrIET6Y"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:30"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "3.5k plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "JVdDm-9_13Q"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Dame Tu Cosita",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "n7W2OCNbESE"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "El Chombo",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCvlDEVR4EEBd3wt30HbamRQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": ", "
+                   },
+                   {
+                    "text": "Dancing Green Alien",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCVLjC4AsQ-ud91cXA7-KhPg"
+                     }
+                    }
+                   },
+                   {
+                    "text": " & "
+                   },
+                   {
+                    "text": "Cutty Ranks",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UC-oQw3DvYQkOns9UQ9qEJQQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Dame Tu Cosita",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_KSJhwDV0tam"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "2:32"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "6bn plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "n7W2OCNbESE"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Cem Da & Vîrardişe Waşta",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "umFSwcLddoo"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Cemil Qocgiri",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCeYWtIU5dzG9MYGLjbWfsbw"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Hîva Zerî",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_7tHwpQ5xHI3"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "5:46"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "15k plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "umFSwcLddoo"
+              }
+             }
+            }
+           ]
+          }
+         }
+        ]
+       }
+      },
+      "tabIdentifier": "music_search_catalog"
+     }
+    }
+   ]
+  }
+ }
+}

@@ -12,47 +12,60 @@ import (
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/spotify"
 	"github.com/miwidot/darkbot/internal/twitch"
+	"github.com/miwidot/darkbot/internal/ytmusic"
 )
 
 type fakePlayer struct {
+	service string
+	name    string
+	parse   func(string) (string, bool, error)
+	conn    bool
+	playing bool
+
 	mu      sync.Mutex
-	tracks  map[string]*spotify.Track
-	search  *spotify.Track
+	tracks  map[string]*Track // by link ID
+	search  *Track
 	queued  []string
 	skipped int
-	queue   spotify.Queue
+	queue   Queue
 	addErr  error
 }
 
-func (f *fakePlayer) GetTrack(_ context.Context, id string) (*spotify.Track, error) {
+func (f *fakePlayer) Service() string                          { return f.service }
+func (f *fakePlayer) Name() string                             { return f.name }
+func (f *fakePlayer) Connected() bool                          { return f.conn }
+func (f *fakePlayer) ParseLink(s string) (string, bool, error) { return f.parse(s) }
+func (f *fakePlayer) Playing(context.Context) (bool, error)    { return f.playing, nil }
+
+func (f *fakePlayer) Track(_ context.Context, id string) (*Track, error) {
 	if t, ok := f.tracks[id]; ok {
 		return t, nil
 	}
 	return nil, spotify.ErrNotFound
 }
-func (f *fakePlayer) SearchTrack(context.Context, string) (*spotify.Track, error) {
+func (f *fakePlayer) Search(context.Context, string) (*Track, error) {
 	if f.search == nil {
 		return nil, spotify.ErrNotFound
 	}
 	return f.search, nil
 }
-func (f *fakePlayer) AddToQueue(_ context.Context, uri string) error {
+func (f *fakePlayer) Add(_ context.Context, t Track) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.addErr != nil {
 		return f.addErr
 	}
-	f.queued = append(f.queued, uri)
-	f.queue.Next = append(f.queue.Next, spotify.Track{URI: uri})
+	f.queued = append(f.queued, t.ID)
+	f.queue.Next = append(f.queue.Next, t)
 	return nil
 }
-func (f *fakePlayer) Next(context.Context) error {
+func (f *fakePlayer) Skip(context.Context) error {
 	f.mu.Lock()
 	f.skipped++
 	f.mu.Unlock()
 	return nil
 }
-func (f *fakePlayer) GetQueue(context.Context) (*spotify.Queue, error) {
+func (f *fakePlayer) Queue(context.Context) (*Queue, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	q := f.queue
@@ -66,25 +79,31 @@ func (nopLog) Warnf(string, ...any) {}
 
 type harness struct {
 	h       *Handler
-	p       *fakePlayer
+	p       *fakePlayer // Spotify, connected
+	y       *fakePlayer // YouTube Music, off unless a test turns it on
 	s       config.SongRequests
 	replies []string
 	acts    []Activity
 	now     time.Time
 }
 
-func track(id, name string, minutes int) *spotify.Track {
-	t := &spotify.Track{ID: id, URI: "spotify:track:" + id, Name: name, DurationMS: minutes * int(time.Minute/time.Millisecond)}
-	t.Artists = append(t.Artists, struct {
-		Name string `json:"name"`
-	}{Name: "Artist"})
-	return t
+// track is a Spotify song as the adapter returns it (ID = URI).
+func track(id, name string, minutes int) *Track {
+	return &Track{ID: "spotify:track:" + id, Title: "Artist – " + name, Duration: time.Duration(minutes) * time.Minute}
+}
+
+// ytTrack is a YouTube Music song (ID = video ID).
+func ytTrack(id, name string) *Track {
+	return &Track{ID: id, Title: "YT Artist – " + name, Duration: 3 * time.Minute}
 }
 
 func newHarness() *harness {
 	hs := &harness{
-		p: &fakePlayer{tracks: map[string]*spotify.Track{
+		p: &fakePlayer{service: config.ServiceSpotify, name: "Spotify", parse: spotify.ParseLink, conn: true, tracks: map[string]*Track{
 			"4uLU6hMCjMI75M1A2tKUQC": track("4uLU6hMCjMI75M1A2tKUQC", "Song", 3),
+		}},
+		y: &fakePlayer{service: config.ServiceYTMusic, name: "YouTube Music", parse: ytmusic.ParseLink, tracks: map[string]*Track{
+			"4D7u5KF7SP8": ytTrack("4D7u5KF7SP8", "Get Lucky"),
 		}},
 		s:   config.Default().Songs,
 		now: time.Date(2026, 11, 17, 20, 0, 0, 0, time.UTC),
@@ -92,8 +111,7 @@ func newHarness() *harness {
 	hs.s.Enabled = true
 	hs.h = New(Deps{
 		Settings:   func() config.SongRequests { return hs.s },
-		Player:     hs.p,
-		Connected:  func() bool { return true },
+		Players:    []Player{hs.p, hs.y},
 		Lang:       func() string { return "en" },
 		Reply:      func(_ context.Context, text, _ string) { hs.replies = append(hs.replies, text) },
 		OnActivity: func(a Activity) { hs.acts = append(hs.acts, a) },
@@ -230,7 +248,11 @@ func TestRules(t *testing.T) {
 		t.Fatalf("reply %q", hs.last())
 	}
 	hs.say(viewer("!sr https://youtu.be/dQw4w9WgXcQ"))
-	if hs.last() != "Only Spotify links or song names work here." {
+	if hs.last() != "YouTube Music songs don’t work here right now." {
+		t.Fatalf("YouTube is off: reply %q", hs.last())
+	}
+	hs.say(viewer("!sr https://soundcloud.com/artist/song"))
+	if hs.last() != "This kind of link doesn’t work here. Use a song link or the song’s name." {
 		t.Fatalf("reply %q", hs.last())
 	}
 	hs.say(viewer("!sr https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"))
@@ -273,7 +295,7 @@ func TestSkipPermissions(t *testing.T) {
 	hs := newHarness()
 	hs.p.search = track("mine", "Mine", 3)
 	hs.say(viewer("!sr mine"))
-	hs.p.queue = spotify.Queue{Current: hs.p.search}
+	hs.p.queue = Queue{Current: hs.p.search}
 
 	other := twitch.ChatMessage{ID: "m2", ChatterID: "7", ChatterName: "Viewer", Text: "!skip"} // same display name, other account
 	hs.say(other)
@@ -299,7 +321,7 @@ func TestSkipPermissions(t *testing.T) {
 func TestCannotClaimStreamersSong(t *testing.T) {
 	hs := newHarness()
 	playing := track("streamer", "Streamer pick", 3)
-	hs.p.queue = spotify.Queue{Current: playing}
+	hs.p.queue = Queue{Current: playing}
 	hs.p.tracks[playing.ID] = playing
 	hs.say(viewer("!sr spotify:track:streamer"))
 	hs.say(viewer("!skip"))
@@ -312,7 +334,7 @@ func TestInfoCommands(t *testing.T) {
 	hs := newHarness()
 	hs.p.search = track("req", "Wish", 3)
 	hs.say(viewer("!sr wish"))
-	hs.p.queue = spotify.Queue{Current: track("now", "Now", 3), Next: []spotify.Track{*hs.p.search, *track("b", "B", 3)}}
+	hs.p.queue = Queue{Current: track("now", "Now", 3), Next: []Track{*hs.p.search, *track("b", "B", 3)}}
 
 	hs.say(viewer("!song"))
 	if hs.last() != "Now playing: Artist – Now" {
@@ -344,7 +366,7 @@ func TestIsCommand(t *testing.T) {
 	}
 }
 
-// Many accounts at once (a bot wave) can't flood the Spotify queue: the
+// Many accounts at once (a bot wave) can't flood the queue: the
 // whole channel gets maxChannelRequests per window; mods are not limited.
 func TestChannelRequestLimit(t *testing.T) {
 	hs := newHarness()
@@ -370,7 +392,7 @@ func TestChannelRequestLimit(t *testing.T) {
 	}
 }
 
-// With titles hidden, no Spotify title reaches chat (it is posted as the
+// With titles hidden, no song title reaches chat (it is posted as the
 // streamer, unfiltered); the feed still shows it to the streamer.
 func TestHideTitles(t *testing.T) {
 	hs := newHarness()
@@ -392,5 +414,91 @@ func TestHideTitles(t *testing.T) {
 		if strings.Contains(r, "Artist") {
 			t.Fatalf("a title reached chat: %q", r)
 		}
+	}
+}
+
+// Links go to the service they belong to, whatever the search service is.
+func TestLinksPickTheirService(t *testing.T) {
+	hs := newHarness()
+	hs.s.UserCooldownSeconds = 0
+	hs.y.conn = true
+	hs.say(viewer("!sr https://music.youtube.com/watch?v=4D7u5KF7SP8&si=x"))
+	if len(hs.y.queued) != 1 || hs.y.queued[0] != "4D7u5KF7SP8" || len(hs.p.queued) != 0 {
+		t.Fatalf("yt %v spotify %v", hs.y.queued, hs.p.queued)
+	}
+	if hs.last() != "Added to the queue: YT Artist – Get Lucky" {
+		t.Fatalf("reply %q", hs.last())
+	}
+	hs.say(viewer("!sr https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"))
+	if len(hs.p.queued) != 1 || len(hs.y.queued) != 1 {
+		t.Fatalf("yt %v spotify %v", hs.y.queued, hs.p.queued)
+	}
+	hs.say(viewer("!sr https://music.youtube.com/playlist?list=PL1"))
+	if hs.last() != "only links to single songs work, not playlists or channels" {
+		t.Fatalf("reply %q", hs.last())
+	}
+}
+
+// A search goes to the chosen service, or to the other one while the
+// chosen one is off.
+func TestSearchService(t *testing.T) {
+	hs := newHarness()
+	hs.s.UserCooldownSeconds = 0
+	hs.p.search = track("s", "Spot", 3)
+	hs.y.search = ytTrack("yyyyyyyyyyy", "Tube")
+	hs.y.conn = true
+	hs.s.SearchService = config.ServiceYTMusic
+	hs.say(viewer("!sr tube"))
+	if len(hs.y.queued) != 1 || len(hs.p.queued) != 0 {
+		t.Fatalf("search must use YouTube Music: yt %v spotify %v", hs.y.queued, hs.p.queued)
+	}
+	hs.y.conn = false
+	hs.say(viewer("!sr spot"))
+	if len(hs.p.queued) != 1 {
+		t.Fatalf("with YouTube Music off, search falls back to Spotify: %v", hs.p.queued)
+	}
+	hs.p.conn = false
+	hs.say(viewer("!sr spot"))
+	if hs.last() != "Song requests aren’t available right now." {
+		t.Fatalf("reply %q", hs.last())
+	}
+}
+
+// !song, !skip etc. talk about the service that plays right now.
+func TestInfoFollowsThePlayingService(t *testing.T) {
+	hs := newHarness()
+	hs.y.conn = true
+	hs.p.queue = Queue{Current: track("sp", "Spotify Song", 3)}
+	hs.y.queue = Queue{Current: ytTrack("cur", "Tube Song")}
+	hs.say(viewer("!song"))
+	if hs.last() != "Now playing: Artist – Spotify Song" {
+		t.Fatalf("nothing plays: the search service (Spotify) answers, got %q", hs.last())
+	}
+	hs.y.playing = true
+	hs.now = hs.now.Add(infoCooldown)
+	hs.say(viewer("!song"))
+	if hs.last() != "Now playing: YT Artist – Tube Song" {
+		t.Fatalf("reply %q", hs.last())
+	}
+	mod := viewer("!skip")
+	mod.IsModerator = true
+	hs.say(mod)
+	if hs.y.skipped != 1 || hs.p.skipped != 0 {
+		t.Fatalf("skip must hit the playing service: yt %d spotify %d", hs.y.skipped, hs.p.skipped)
+	}
+}
+
+// Requester rights are per service: the same ID on another service is a
+// different song.
+func TestRequesterSkipIsPerService(t *testing.T) {
+	hs := newHarness()
+	hs.y.conn = true
+	hs.y.search = &Track{ID: "same", Title: "YT – Same", Duration: time.Minute}
+	hs.s.SearchService = config.ServiceYTMusic
+	hs.say(viewer("!sr same"))
+	hs.p.queue = Queue{Current: &Track{ID: "same", Title: "Sp – Same"}}
+	hs.say(viewer("!skip"))
+	if hs.p.skipped != 0 {
+		t.Fatal("a YouTube request must not allow skipping a Spotify song")
 	}
 }

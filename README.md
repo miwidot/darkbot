@@ -15,11 +15,11 @@ darkbot does the sound part of tools like Streamer.bot, and nothing else: one wi
 - **Choose where sounds play:**
   - *Audio device:* darkbot plays the sound itself on the output you pick, like Streamer.bot or StreamElements. Capture that output, or darkbot itself, in OBS.
   - *Inside OBS:* darkbot plays the sound in an OBS media source and routes it to the audio tracks 1–6 you choose, for example stream only, or stream and recording but not your VOD track.
-- **Song requests from chat (Spotify).** Viewers type `!sr <Spotify link or song name>` and the song goes into your Spotify queue. `!song`, `!next` and `!queue` show what plays; `!skip` is for you, your moderators and (optional) whoever requested the song. Per-viewer cooldown, maximum length and an explicit filter are adjustable. Uses your own Spotify app, see [Song requests](#song-requests-spotify).
+- **Song requests from chat (Spotify and YouTube Music).** Viewers type `!sr <song link or name>` and the song goes into your queue. A Spotify link goes to Spotify, a YouTube or YouTube Music link to YouTube Music, a name is searched on the service you pick. `!song`, `!next` and `!queue` show what plays on the service that is playing; `!skip` is for you, your moderators and (optional) whoever requested the song. Per-viewer cooldown, maximum length and an explicit filter are adjustable. See [Song requests](#song-requests).
 - **Channel events with actions.** Follows, subs, resubs, gifted subs, Bits, raids, watch streaks shared in chat, hype trains (start, level ups, end), shoutouts, ad breaks and stream start/end appear live in the activity feed. For each you can play a sound and/or post a chat message (`{user}`, `{amount}`, `{tier}`, `{months}`, `{top}` for the biggest hype train contributor, `{points}` for the channel points of a watch streak), optionally only from a minimum amount or level. A sub bomb runs one action for the gifter, not one per recipient. Twitch has no unfollow event; an opt-in check compares your follower list every 10 minutes (up to 5,000 followers). darkbot keeps that list, so after a start it also lists follows and unfollows from while it was off (marked, without sound or chat message).
 - **Chat commands and timers (off until you turn them on).** Your own commands like `!discord` or `!hug @name` with a chat answer (`{user}`, `{target}`), an optional sound, other names, who may use them (everyone, subscribers, VIPs, moderators, only you) and cooldowns. Timers post a message every few minutes while you are live, optionally only after some chat messages, never two at once. darkbot writes with your account and ignores its own messages, so a command can't trigger itself.
 - **Alerts in OBS, without a port.** Each event can show a picture, animated GIF or video (WebM with transparency works) and a text like "{user} is following!" in OBS, together with its sound. One click in Settings, OBS creates a scene called `[darkbot]` that holds everything darkbot shows or plays, and adds it on top of each of your scenes; nothing else in your scenes changes. New scenes are noticed and offered. *Remove from OBS* takes it all out again.
-- **Dashboard.** The start page counts redemptions, chat commands and song requests per stream (kept across restarts and updates; a new stream starts a new count) and in total, ranks the most redeemed sounds and most active viewers, and shows the state of your Twitch and Spotify logins (valid until, next automatic renewal, how long the login lasts) with a renew button.
+- **Dashboard.** The start page counts redemptions, chat commands and song requests per stream (kept across restarts and updates; a new stream starts a new count) and in total, ranks the most redeemed sounds and most active viewers, and shows the state of your Twitch and Spotify logins (valid until, next automatic renewal, how long the login lasts) with a renew button, and whether Pear Desktop answers when you use YouTube Music.
 - **Starts with your computer** if you want (Windows, macOS, Linux; per user, no admin rights). On Windows it starts quietly in the tray.
 - **Lives in the Windows tray.** Closing the window keeps darkbot running next to the clock (can be switched off); click the icon to open it, the menu installs updates and quits. Starting darkbot a second time just shows the running one, so no sound plays twice.
 - **Live view.** Every sound is a pad. It lights up while playing and shows its cooldown draining. An activity feed lists who redeemed what, why something didn't play, and every channel event. It keeps the last 200 lines across restarts and updates and can be cleared.
@@ -32,7 +32,7 @@ darkbot does the sound part of tools like Streamer.bot, and nothing else: one wi
 - No open network ports, no local web server, no browser source. It's a desktop app; the window *is* the app. Alerts reach OBS through OBS's own websocket, which darkbot connects to.
 - No moderation bot: no timeouts, bans, filters or loyalty points. Chat commands answer with text you wrote, and viewers can never make your account post their own words (only their name, or a valid Twitch login for `{target}`).
 - No chat spam: everything darkbot posts counts against one budget (60 messages per 30 s, Twitch mutes accounts at 100), thank-you messages for events against their own (15 per 30 s, so a follow-bot wave can't flood your chat), and song requests are capped at 10 per minute for the whole channel.
-- No cloud, no telemetry, no account. Your settings stay on your computer; the Twitch and Spotify logins and the OBS password live in the OS keychain (a 0600 file only where no keychain is available). Logging out also invalidates the Twitch login at Twitch.
+- No cloud, no telemetry, no account. Your settings stay on your computer; the Twitch, Spotify and Pear Desktop logins and the OBS password live in the OS keychain (a 0600 file only where no keychain is available). Logging out also invalidates the Twitch login at Twitch.
 
 ## Install
 
@@ -64,7 +64,13 @@ Builds aren't code-signed yet. On macOS right-click darkbot and choose *Open* th
 | macOS (WKWebView) | no, system default | WebKit doesn't expose the output list. Capture darkbot in OBS with *macOS Audio Capture*, or use *Inside OBS*. |
 | Linux (WebKitGTK) | usually no, system default | Use PipeWire/PulseAudio routing or *Inside OBS*. |
 
-## Song requests (Spotify)
+## Song requests
+
+Use Spotify, YouTube Music or both. Links always go to the service they belong to; `!sr <name>` searches on the service you choose in Settings, Song requests (or on the other one while that one isn't connected). `!song`, `!next`, `!queue` and `!skip` use the service that is playing right now.
+
+Reconnect Twitch once if darkbot asks, so it may read and answer chat (`user:read:chat`, `user:write:chat`).
+
+### Spotify
 
 Spotify only lets an app in Development Mode serve 5 users, and the extended quota is reserved for companies with at least 250,000 monthly users ([Spotify quota modes](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)). So darkbot can't ship one shared Spotify app: **every streamer creates their own, which takes two minutes.**
 
@@ -73,15 +79,33 @@ Spotify only lets an app in Development Mode serve 5 users, and the extended quo
 3. Tick **Web API**, accept the terms, save.
 4. Copy the app's **Client ID** into darkbot (Settings, Song requests) and click **Connect Spotify**.
 5. Allow access in the browser. The browser then shows "This site can't be reached". **That's expected**, because darkbot opens no port. Copy the whole address from the address bar into darkbot and click **Finish connecting**. The code in that address only works together with a secret that never leaves darkbot (PKCE).
-6. Reconnect Twitch once if darkbot asks, so it may read and answer chat (`user:read:chat`, `user:write:chat`).
 
 Requirements and limits:
 
 - Adding to the queue and skipping need **Spotify Premium** (Spotify Web API), and Spotify must be playing on one of your devices.
 - The Spotify login lasts 6 months, then you connect once more.
-- **Rights:** music you hold no rights to can get your VODs muted or your channel a DMCA strike on Twitch, and Spotify's developer terms don't allow broadcasting. darkbot only manages your queue; what you play is your decision.
-- YouTube links are refused with a hint; only Spotify links and song names work.
-- Song titles are named in chat answers by default. A title on Spotify can be any text and darkbot posts from your own account, which AutoMod doesn't filter; switch off "Name song titles in chat" and darkbot answers without them.
+
+### YouTube Music
+
+YouTube Music has no public API for the queue. darkbot uses [Pear Desktop](https://github.com/pear-devs/pear-desktop) (formerly th-ch/youtube-music), the free open-source YouTube Music app for Windows, macOS and Linux. Its **API Server** plugin lets other programs search, queue and skip. darkbot connects to it on `127.0.0.1` as a client; darkbot itself still opens no port.
+
+1. Install Pear Desktop and sign in to YouTube Music there.
+2. In Pear Desktop open the Plugins menu and turn on **API Server [Beta]**.
+3. In that plugin's menu set **Hostname** to `127.0.0.1` (the default `0.0.0.0` lets every device in your network control your player). Leave HTTPS off and the authorization strategy at **Authorize at first request**.
+4. In darkbot (Settings, Song requests) tick **Take YouTube Music requests** and click **Connect YouTube Music**, then **Allow** in the window Pear Desktop shows. If you changed the port in Pear Desktop (default 26538), enter the same one in darkbot first.
+
+Requirements and limits:
+
+- Pear Desktop has to be running while you stream. If it isn't, viewers get a short "not available" answer and the dashboard says so.
+- Links to single songs and videos work (`music.youtube.com/watch?v=…`, `youtube.com/watch?v=…`, `youtu.be/…`); playlist and channel links are refused.
+- Pear Desktop answers "added" even for songs it can't add, so darkbot watches the queue until the song shows up (at most 5 seconds) and only then confirms in chat.
+- The explicit filter catches what YouTube Music marks as explicit; music videos (as opposed to songs) carry no such mark there.
+- Pear Desktop's API is part of the app, not a stable public interface; a future Pear Desktop version may change it. darkbot was tested with Pear Desktop 3.12.1.
+
+### Both services
+
+- **Rights:** music you hold no rights to can get your VODs muted or your channel a DMCA strike on Twitch, and neither Spotify's nor YouTube's terms allow broadcasting. darkbot only manages your queue; what you play is your decision.
+- Song titles are named in chat answers by default. A title on Spotify or YouTube can be any text and darkbot posts from your own account, which AutoMod doesn't filter; switch off "Name song titles in chat" and darkbot answers without them.
 
 ## How the Twitch login stays alive
 
@@ -144,6 +168,7 @@ internal/selfupdate/   verified GitHub release updates
 internal/audio/        pure-Go decoding for validation and length
 internal/config/       settings file (atomic writes)
 internal/spotify/      Spotify PKCE login (paste flow, no port) and Web API client
+internal/ytmusic/      YouTube Music through Pear Desktop's API Server (client only)
 internal/songs/        chat commands !sr !song !next !queue !skip
 internal/chatbot/      your own chat commands and timers
 internal/stats/        dashboard counts (session and total, kept on disk)

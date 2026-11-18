@@ -1,0 +1,1624 @@
+{
+ "contents": {
+  "tabbedSearchResultsRenderer": {
+   "tabs": [
+    {
+     "tabRenderer": {
+      "title": "YT Music",
+      "selected": true,
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "musicShelfRenderer": {
+           "title": {
+            "runs": [
+             {
+              "text": "Songs"
+             }
+            ]
+           },
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Without Me",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "tqxRidAWER8",
+                      "playerParams": "0gcJCTUC0OBS9m0t"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Eminem Show",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_6hyn9PhqicQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:51"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "3.3bn plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "tqxRidAWER8"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Ass Like That",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "R_XFVAwqi78"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Encore (Deluxe Version)",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_oP4NDMlqZ46"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:26"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "351m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "R_XFVAwqi78"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Criminal",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "mR8_ldc9lag"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Marshall Mathers LP",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_1Xjf214SdV1"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "5:20"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "70m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "mR8_ldc9lag"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Sing For The Moment",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "MJNGXnvHYPg",
+                      "playerParams": "0gcJCTUC0OBS9m0t"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Eminem Show",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_6hyn9PhqicQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "5:40"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "892m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "MJNGXnvHYPg"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Without Me",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "UVSm6uFstxs"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "STATE of MINE",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCsDGx1faYCoe67oRhM_Kskw"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Without Me",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_FnTlsP3AezA"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:21"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "3m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "UVSm6uFstxs"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Kill You",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "D1I1x2pYMK0"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Marshall Mathers LP",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_1Xjf214SdV1"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:25"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "106m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "D1I1x2pYMK0"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Brain Damage",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "ifi6mPWoXxY"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Slim Shady LP",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_C4vvzBDrV4s"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:47"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "26m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "ifi6mPWoXxY"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Beautiful",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "F4yb0CBd4I4"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Relapse (Deluxe)",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_VbHZG2Tt4YN"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "6:33"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "864m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "F4yb0CBd4I4"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Marshall Mathers",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "XGSrs0QIUAc"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Marshall Mathers LP",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_1Xjf214SdV1"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "5:22"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "79m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "XGSrs0QIUAc"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Remember Me? (feat. RBX & Sticky Fingaz)",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "CyuJdoePF0Y",
+                      "playerParams": "0gcJCTUC0OBS9m0t"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Marshall Mathers LP",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_1Xjf214SdV1"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:39"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "15m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "CyuJdoePF0Y"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "FACK",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "BOI8OGIy6cA"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Curtain Call: The Hits",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_LQCAymzbaKJ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:26"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "55m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "BOI8OGIy6cA"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Houdini",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "soNLLPokjC4"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Houdini",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_Zfl6ExCs4ZX"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:48"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "446m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "soNLLPokjC4"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Without Me",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "K__juJxK630"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Dubble Trubble",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCW20gSc8_1DZ8R-yBTm0P_A"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "A Tribute To - Ashanti vs. Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_vGsYTEeSKrZ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:47"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "457k plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "K__juJxK630"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Without Me (karaoke-version) As Made Famous By: Eminem",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "ZbFtj4yqLXY"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Studio Group",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCm3sIwpVd68pKYXnQse8bYA"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Karaoke In Da Hood - Black Boys Rap & Hip Hop Part 2",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_tq1AIEPOQzd"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:42"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "6.8k plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "ZbFtj4yqLXY"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Stronger Than I Was",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "S_qygsy7kuY"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Marshall Mathers LP2",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_xz8bbrE3RP7"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "5:37"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "31m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "S_qygsy7kuY"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Without Me (Slowed)",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "Id4phoHFjC0"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "The Soul Jazz Era",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCAaVwzi9kN4wgIkinAcY10g"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Without Me",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_bmIy3wJCdNh"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "5:45"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "2.4k plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "Id4phoHFjC0"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "The Real Slim Shady",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "r5MR7_INQwg",
+                      "playerParams": "0gcJCTUC0OBS9m0t"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Eminem",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Marshall Mathers LP",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_1Xjf214SdV1"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:45"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "1.8bn plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "r5MR7_INQwg"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Without Me",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "0LmPxEAXOt8"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Lil Poppa",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCN3KZ6fTRRS01alxefu3WHQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Without Me",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_CrCaWaiWTxC"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "2:37"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "681k plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "0LmPxEAXOt8"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Without Me (Radio Edit)",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "aBZ_sNq1yfo"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Technikore",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UC_AzJ2IR0waFcm2d6Q_hZ4w"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Without Me",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_ogEh0q5y5iK"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "4:23"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "57k plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "aBZ_sNq1yfo"
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Better With Me",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "5kALw9amfkA"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Arjan Dhillon",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UC4gE0O_SyPb1cuRNzT_NMqQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " & "
+                   },
+                   {
+                    "text": "Mxrci",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCEVl-nhguji2Jr6wayuK8vQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Enigma",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_5Eydo2YYTjE"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "3:07"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "14m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "5kALw9amfkA"
+              }
+             }
+            }
+           ]
+          }
+         }
+        ]
+       }
+      },
+      "tabIdentifier": "music_search_catalog"
+     }
+    }
+   ]
+  }
+ }
+}

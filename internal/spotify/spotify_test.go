@@ -259,3 +259,25 @@ func TestHealthKeepsLoginDateAcrossRefresh(t *testing.T) {
 		t.Fatalf("login until %v, want %v (refreshing must not extend it)", h.LoginUntil, want)
 	}
 }
+
+func TestPlaying(t *testing.T) {
+	var answer atomic.Value
+	apiServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/me/player" || r.Method != http.MethodGet {
+			t.Errorf("%s %s", r.Method, r.URL.Path)
+		}
+		a := answer.Load().(string)
+		if a == "" {
+			w.WriteHeader(http.StatusNoContent) // no playback at all
+			return
+		}
+		_, _ = w.Write([]byte(a))
+	})
+	c, _ := NewClient("cid", &memStore{tok: &Token{AccessToken: "A", ExpiresAt: time.Now().Add(time.Hour)}}, nopLog{})
+	for body, want := range map[string]bool{"": false, `{"is_playing":false}`: false, `{"is_playing":true}`: true} {
+		answer.Store(body)
+		if got, err := c.Playing(context.Background()); err != nil || got != want {
+			t.Errorf("%q: got %v, %v", body, got, err)
+		}
+	}
+}

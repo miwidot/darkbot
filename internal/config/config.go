@@ -33,6 +33,8 @@ const (
 	tokenFileName  = "token.json"
 	// spotifyTokenFileName is only used when the OS keyring is unavailable.
 	spotifyTokenFileName = "spotify-token.json"
+	// ytmusicTokenFileName is only used when the OS keyring is unavailable.
+	ytmusicTokenFileName = "ytmusic-token.json"
 	statsFileName        = "stats.json"
 	activityFileName     = "activity.json"
 	// followersFileName: the follower list unfollow detection compares with.
@@ -140,7 +142,24 @@ type SongRequests struct {
 	// RequesterCanSkip lets the viewer who requested the current song skip
 	// it (moderators and the broadcaster can always skip).
 	RequesterCanSkip bool `json:"requester_can_skip"`
+	// YTMusicEnabled: requests may also go to YouTube Music through Pear
+	// Desktop's API Server.
+	YTMusicEnabled bool `json:"ytmusic_enabled"`
+	// YTMusicPort is the port of Pear Desktop's API Server.
+	YTMusicPort int `json:"ytmusic_port"`
+	// SearchService answers "!sr <name>" (links go to the service they
+	// belong to): ServiceSpotify or ServiceYTMusic.
+	SearchService string `json:"search_service"`
 }
+
+// Song request services.
+const (
+	ServiceSpotify = "spotify"
+	ServiceYTMusic = "ytmusic"
+	// DefaultYTMusicPort is Pear Desktop's default API Server port.
+	DefaultYTMusicPort = 26538
+	maxPort            = 65535
+)
 
 // EventAction is what darkbot does on a channel event (follow, sub, ...).
 // The event always shows in the activity feed; the action is optional.
@@ -286,6 +305,8 @@ func Default() Config {
 			MaxMinutes:          DefaultSongMaxMinutes,
 			ChatReplies:         true,
 			RequesterCanSkip:    true,
+			YTMusicPort:         DefaultYTMusicPort,
+			SearchService:       ServiceSpotify,
 		},
 	}
 }
@@ -329,6 +350,12 @@ func (c *Config) normalize() {
 	c.Songs.SpotifyClientID = strings.TrimSpace(c.Songs.SpotifyClientID)
 	c.Songs.UserCooldownSeconds = max(c.Songs.UserCooldownSeconds, 0)
 	c.Songs.MaxMinutes = max(c.Songs.MaxMinutes, 0)
+	if c.Songs.YTMusicPort <= 0 || c.Songs.YTMusicPort > maxPort {
+		c.Songs.YTMusicPort = DefaultYTMusicPort
+	}
+	if c.Songs.SearchService != ServiceSpotify && c.Songs.SearchService != ServiceYTMusic {
+		c.Songs.SearchService = ServiceSpotify
+	}
 	if c.Language != "" && !i18n.IsSupported(c.Language) {
 		c.Language = ""
 	}
@@ -484,6 +511,9 @@ func (s *Store) Subscribe(fn func(Config)) {
 
 // SpotifyTokenPath is the Spotify token file (used only without a keyring).
 func (s *Store) SpotifyTokenPath() string { return filepath.Join(s.dir, spotifyTokenFileName) }
+
+// YTMusicTokenPath is the Pear Desktop token file (used only without a keyring).
+func (s *Store) YTMusicTokenPath() string { return filepath.Join(s.dir, ytmusicTokenFileName) }
 
 // StatsPath is the dashboard totals file.
 func (s *Store) StatsPath() string { return filepath.Join(s.dir, statsFileName) }

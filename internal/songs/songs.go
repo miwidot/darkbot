@@ -1,15 +1,16 @@
 // Package songs runs the chat song request commands on the streamer's
-// Spotify:
+// Spotify and/or YouTube Music (through Pear Desktop):
 //
-//	!sr <Spotify link or search>   queue a song (alias !songrequest)
-//	!song                          what plays now
-//	!next                          what plays next
-//	!queue                         the next few songs
-//	!skip                          skip the current song (moderators, the
-//	                               broadcaster, optionally the requester)
+//	!sr <song link or search>   queue a song (alias !songrequest)
+//	!song                       what plays now
+//	!next                       what plays next
+//	!queue                      the next few songs
+//	!skip                       skip the current song (moderators, the
+//	                            broadcaster, optionally the requester)
 //
-// Spotify queues on the device that is currently playing; Add to Queue and
-// Skip need Spotify Premium (Web API reference).
+// A link goes to the service it belongs to; a search goes to the service
+// the streamer picked (or the other one, when that one is off). !song,
+// !next, !queue and !skip use the service that is playing right now.
 package songs
 
 import (
@@ -24,7 +25,6 @@ import (
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/i18n"
 	"github.com/miwidot/darkbot/internal/ratelimit"
-	"github.com/miwidot/darkbot/internal/spotify"
 	"github.com/miwidot/darkbot/internal/twitch"
 )
 
@@ -36,7 +36,7 @@ const (
 	cmdQueue       = "!queue"
 	cmdSkip        = "!skip"
 
-	// requestTimeout bounds all Spotify calls of one command.
+	// requestTimeout bounds all music service calls of one command.
 	requestTimeout = 15 * time.Second
 	// infoCooldown: !song, !next and !queue answer at most once per this
 	// time each, so a chat spamming them can't flood the channel.
@@ -48,11 +48,11 @@ const (
 	rememberFor = 6 * time.Hour
 	// failCooldown: after a refused request (typo, not found, too long) a
 	// viewer may try again this soon, not after the full cooldown, but not
-	// instantly either, so nobody can hammer Spotify's search.
+	// instantly either, so nobody can hammer the music service's search.
 	failCooldown = 10 * time.Second
 	// maxChannelRequests per channelRequestWindow for the whole channel
 	// (mods and the broadcaster excepted): far more than a real chat sends,
-	// few enough that a bot wave can't flood the Spotify queue.
+	// few enough that a bot wave can't flood the queue.
 	maxChannelRequests   = 10
 	channelRequestWindow = time.Minute
 	// commandGap: a viewer (not mod/broadcaster) can trigger one command per
@@ -65,13 +65,37 @@ const (
 	replyWindow = 30 * time.Second
 )
 
-// Player is the part of the Spotify client the commands need.
+// Track is one song on a music service.
+type Track struct {
+	ID         string        // what the service queues by (Spotify URI, YouTube video ID)
+	Title      string        // "Artist – Name"
+	Duration   time.Duration // 0 = unknown
+	Explicit   bool
+	Unplayable bool // the service says the streamer can't play it
+}
+
+// Queue is what plays now and what comes next.
+type Queue struct {
+	Current *Track
+	Next    []Track
+}
+
+// Player is one music service.
 type Player interface {
-	GetTrack(ctx context.Context, id string) (*spotify.Track, error)
-	SearchTrack(ctx context.Context, query string) (*spotify.Track, error)
-	AddToQueue(ctx context.Context, uri string) error
-	Next(ctx context.Context) error
-	GetQueue(ctx context.Context) (*spotify.Queue, error)
+	Service() string // config.ServiceSpotify, config.ServiceYTMusic
+	Name() string    // for chat and the log, e.g. "YouTube Music"
+	// Connected: the streamer set the service up and it may be used.
+	Connected() bool
+	// ParseLink returns the song ID of a link to this service. ok is false
+	// when text is no link to this service; err is set for links to it
+	// that aren't a single song.
+	ParseLink(text string) (id string, ok bool, err error)
+	Track(ctx context.Context, id string) (*Track, error)
+	Search(ctx context.Context, query string) (*Track, error)
+	Add(ctx context.Context, t Track) error
+	Skip(ctx context.Context) error
+	Queue(ctx context.Context) (*Queue, error)
+	Playing(ctx context.Context) (bool, error)
 }
 
 // Logger is the minimal logging interface this package needs.
@@ -99,8 +123,7 @@ type Activity struct {
 // Deps wires the handler to the rest of the app.
 type Deps struct {
 	Settings   func() config.SongRequests
-	Player     Player
-	Connected  func() bool   // Spotify is connected
+	Players    []Player
 	Lang       func() string // language for chat replies
 	Reply      func(ctx context.Context, text, replyTo string)
 	OnActivity func(Activity)
@@ -125,7 +148,7 @@ type Handler struct {
 	channel   *ratelimit.Window    // requests of the whole channel
 	lastCmd   map[string]time.Time // chatter ID -> last command (spam gate)
 	lastInfo  map[string]time.Time // command -> last answer
-	requested map[string]request   // track URI -> who requested it
+	requested map[string]request   // service:track ID -> who requested it
 	replies   []time.Time          // recent chat answers (rate cap)
 }
 
@@ -143,8 +166,6 @@ func New(d Deps) *Handler {
 	return &Handler{d: d, channel: ratelimit.New(maxChannelRequests, channelRequestWindow), lastSR: map[string]time.Time{}, lastCmd: map[string]time.Time{}, lastInfo: map[string]time.Time{}, requested: map[string]request{}}
 }
 
-// IsCommand reports whether text starts with one of our commands, so the
-// caller only spawns work for relevant messages.
 // CommandNames are the song commands without "!", so the streamer's own
 // chat commands can't take them.
 func CommandNames() []string {
@@ -155,6 +176,8 @@ func CommandNames() []string {
 	return out
 }
 
+// IsCommand reports whether text starts with one of our commands, so the
+// caller only spawns work for relevant messages.
 func IsCommand(text string) bool {
 	cmd, _ := split(text)
 	switch cmd {
@@ -259,9 +282,44 @@ func (h *Handler) reject(ctx context.Context, s config.SongRequests, m twitch.Ch
 
 func privileged(m twitch.ChatMessage) bool { return m.IsBroadcaster || m.IsModerator }
 
-func isYouTube(arg string) bool {
+// connected returns the usable services, the one for searches first.
+func (h *Handler) connected(s config.SongRequests) []Player {
+	var out []Player
+	for _, p := range h.d.Players {
+		if !p.Connected() {
+			continue
+		}
+		if p.Service() == s.SearchService {
+			out = append([]Player{p}, out...)
+		} else {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// looksLikeLink: text that is meant as a link, not a search.
+func looksLikeLink(arg string) bool {
 	l := strings.ToLower(arg)
-	return strings.Contains(l, "youtube.com/") || strings.Contains(l, "youtu.be/")
+	return strings.Contains(l, "://") || strings.HasPrefix(l, "www.")
+}
+
+// route picks the service for a request: the one a link belongs to (even
+// when it is off, so the viewer hears that), else the search service.
+// link is false for a search; a nil Player means no service can take it.
+func (h *Handler) route(s config.SongRequests, arg string) (p Player, link bool) {
+	for _, p := range h.d.Players {
+		if _, ok, _ := p.ParseLink(arg); ok {
+			return p, true
+		}
+	}
+	if looksLikeLink(arg) {
+		return nil, true
+	}
+	if c := h.connected(s); len(c) > 0 {
+		return c[0], false
+	}
+	return nil, false
 }
 
 func (h *Handler) request(ctx context.Context, s config.SongRequests, m twitch.ChatMessage, arg string) {
@@ -269,15 +327,19 @@ func (h *Handler) request(ctx context.Context, s config.SongRequests, m twitch.C
 		h.reply(ctx, s, m, h.t("chat.usage"))
 		return
 	}
-	if !h.d.Connected() {
+	p, link := h.route(s, arg)
+	switch {
+	case p == nil && link:
+		h.reject(ctx, s, m, arg, h.t("chat.linkUnsupported"))
+		return
+	case p == nil:
 		h.reply(ctx, s, m, h.t("chat.offline"))
 		return
-	}
-	if isYouTube(arg) {
-		h.reject(ctx, s, m, arg, h.t("chat.onlySpotify"))
+	case !p.Connected():
+		h.reject(ctx, s, m, arg, h.t("chat.serviceOff", "service", p.Name()))
 		return
 	}
-	// Reserve the cooldown before the slow Spotify calls, so two quick
+	// Reserve the cooldown before the slow music service calls, so two quick
 	// requests from the same viewer can't both pass.
 	if wait := h.reserve(s, m); wait > 0 {
 		h.reply(ctx, s, m, h.t("chat.cooldown", "seconds", int(wait.Round(time.Second).Seconds())))
@@ -299,37 +361,37 @@ func (h *Handler) request(ctx context.Context, s config.SongRequests, m twitch.C
 		}
 	}()
 
-	track, err := h.find(ctx, arg)
+	track, err := h.find(ctx, p, arg, link)
 	if err != nil {
-		h.d.Log.Warnf("Song request %q by %s: %v", arg, m.ChatterLogin, err)
+		h.d.Log.Warnf("Song request %q by %s on %s: %v", arg, m.ChatterLogin, p.Name(), err)
 		h.reject(ctx, s, m, arg, h.errText(err))
 		return
 	}
-	title := track.Title()
+	title := track.Title
 	if why := h.check(s, track); why != "" {
 		h.reject(ctx, s, m, title, why)
 		return
 	}
 	// Refuse songs that already play or wait: no duplicates, and nobody can
 	// "claim" the streamer's song to get the right to skip it.
-	q, err := h.d.Player.GetQueue(ctx)
+	q, err := p.Queue(ctx)
 	if err != nil {
-		h.d.Log.Warnf("Read Spotify queue for %q: %v", title, err)
+		h.d.Log.Warnf("Read %s queue for %q: %v", p.Name(), title, err)
 		h.reject(ctx, s, m, title, h.errText(err))
 		return
 	}
-	if inQueue(q, track.URI) {
+	if inQueue(q, track.ID) {
 		h.reject(ctx, s, m, title, h.t("chat.alreadyQueued"))
 		return
 	}
-	if err := h.d.Player.AddToQueue(ctx, track.URI); err != nil {
-		h.d.Log.Warnf("Queue %q for %s: %v", title, m.ChatterLogin, err)
+	if err := p.Add(ctx, *track); err != nil {
+		h.d.Log.Warnf("Queue %q on %s for %s: %v", title, p.Name(), m.ChatterLogin, err)
 		h.reject(ctx, s, m, title, h.errText(err))
 		return
 	}
 	ok = true
-	h.remember(track.URI, m)
-	h.d.Log.Infof("%s requested %q", m.ChatterName, title)
+	h.remember(key(p, track.ID), m)
+	h.d.Log.Infof("%s requested %q on %s", m.ChatterName, title, p.Name())
 	h.d.OnActivity(Activity{Kind: ActAdded, User: m.ChatterName, Title: title, At: h.d.Now()})
 	if s.HideTitles {
 		h.reply(ctx, s, m, h.t("chat.addedNoTitle"))
@@ -338,27 +400,30 @@ func (h *Handler) request(ctx context.Context, s config.SongRequests, m twitch.C
 	}
 }
 
-func (h *Handler) find(ctx context.Context, arg string) (*spotify.Track, error) {
-	id, isLink, err := spotify.ParseLink(arg)
-	switch {
-	case err != nil:
-		return nil, err
-	case isLink:
-		return h.d.Player.GetTrack(ctx, id)
-	default:
-		return h.d.Player.SearchTrack(ctx, arg)
+func (h *Handler) find(ctx context.Context, p Player, arg string, link bool) (*Track, error) {
+	if !link {
+		return p.Search(ctx, arg)
 	}
+	id, _, err := p.ParseLink(arg)
+	if err != nil {
+		return nil, err
+	}
+	return p.Track(ctx, id)
 }
 
+// key names a song across services (for who requested it).
+func key(p Player, id string) string { return p.Service() + ":" + id }
+
 // check applies the streamer's rules; it returns the reason to refuse or "".
-func (h *Handler) check(s config.SongRequests, t *spotify.Track) string {
-	if t.IsPlayable != nil && !*t.IsPlayable {
+// A song of unknown length passes the length rule.
+func (h *Handler) check(s config.SongRequests, t *Track) string {
+	if t.Unplayable {
 		return h.t("chat.unavailable")
 	}
 	if s.BlockExplicit && t.Explicit {
 		return h.t("chat.explicit")
 	}
-	if s.MaxMinutes > 0 && t.Duration() > time.Duration(s.MaxMinutes)*time.Minute {
+	if s.MaxMinutes > 0 && t.Duration > time.Duration(s.MaxMinutes)*time.Minute {
 		return h.t("chat.tooLong", "minutes", s.MaxMinutes)
 	}
 	return ""
@@ -396,12 +461,12 @@ func (h *Handler) shorten(s config.SongRequests, m twitch.ChatMessage) {
 	h.mu.Unlock()
 }
 
-func inQueue(q *spotify.Queue, uri string) bool {
-	if q.Current != nil && q.Current.URI == uri {
+func inQueue(q *Queue, id string) bool {
+	if q.Current != nil && q.Current.ID == id {
 		return true
 	}
 	for _, t := range q.Next {
-		if t.URI == uri {
+		if t.ID == id {
 			return true
 		}
 	}
@@ -410,7 +475,7 @@ func inQueue(q *spotify.Queue, uri string) bool {
 
 // remember records the requester. An existing record is never replaced, so
 // requesting a song again can't take over someone else's request.
-func (h *Handler) remember(uri string, m twitch.ChatMessage) {
+func (h *Handler) remember(k string, m twitch.ChatMessage) {
 	now := h.d.Now()
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -419,15 +484,15 @@ func (h *Handler) remember(uri string, m twitch.ChatMessage) {
 			delete(h.requested, k)
 		}
 	}
-	if _, taken := h.requested[uri]; !taken {
-		h.requested[uri] = request{userID: m.ChatterID, user: m.ChatterName, at: now}
+	if _, taken := h.requested[k]; !taken {
+		h.requested[k] = request{userID: m.ChatterID, user: m.ChatterName, at: now}
 	}
 }
 
-func (h *Handler) requester(uri string) request {
+func (h *Handler) requester(k string) request {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return h.requested[uri]
+	return h.requested[k]
 }
 
 func (h *Handler) infoAllowed(cmd string) bool {
@@ -442,21 +507,42 @@ func (h *Handler) infoAllowed(cmd string) bool {
 }
 
 // label is "Title (requested by user)" when a viewer asked for it.
-func (h *Handler) label(t spotify.Track) string {
-	if r := h.requester(t.URI); r.user != "" {
-		return h.t("chat.byUser", "title", t.Title(), "user", r.user)
+func (h *Handler) label(p Player, t Track) string {
+	if r := h.requester(key(p, t.ID)); r.user != "" {
+		return h.t("chat.byUser", "title", t.Title, "user", r.user)
 	}
-	return t.Title()
+	return t.Title
+}
+
+// active is the service !song, !next, !queue and !skip talk about: the one
+// playing right now (the search service first, if both play); if none
+// plays, the search service.
+func (h *Handler) active(ctx context.Context, s config.SongRequests) Player {
+	c := h.connected(s)
+	if len(c) == 0 {
+		return nil
+	}
+	if len(c) > 1 {
+		for _, p := range c {
+			// An error here (e.g. Pear Desktop closed) only means "not
+			// this one"; the chosen service's own call reports problems.
+			if on, err := p.Playing(ctx); err == nil && on {
+				return p
+			}
+		}
+	}
+	return c[0]
 }
 
 func (h *Handler) info(ctx context.Context, s config.SongRequests, m twitch.ChatMessage, cmd string) {
-	if !h.d.Connected() {
+	p := h.active(ctx, s)
+	if p == nil {
 		h.reply(ctx, s, m, h.t("chat.offline"))
 		return
 	}
-	q, err := h.d.Player.GetQueue(ctx)
+	q, err := p.Queue(ctx)
 	if err != nil {
-		h.d.Log.Warnf("Read Spotify queue: %v", err)
+		h.d.Log.Warnf("Read %s queue: %v", p.Name(), err)
 		h.reply(ctx, s, m, h.errText(err))
 		return
 	}
@@ -471,13 +557,13 @@ func (h *Handler) info(ctx context.Context, s config.SongRequests, m twitch.Chat
 			h.reply(ctx, s, m, h.t("chat.nothingPlaying"))
 			return
 		}
-		h.reply(ctx, s, m, h.t("chat.nowPlaying", "title", h.label(*q.Current)))
+		h.reply(ctx, s, m, h.t("chat.nowPlaying", "title", h.label(p, *q.Current)))
 	case cmdNext:
 		if len(q.Next) == 0 {
 			h.reply(ctx, s, m, h.t("chat.queueEmpty"))
 			return
 		}
-		h.reply(ctx, s, m, h.t("chat.upNext", "title", h.label(q.Next[0])))
+		h.reply(ctx, s, m, h.t("chat.upNext", "title", h.label(p, q.Next[0])))
 	case cmdQueue:
 		if len(q.Next) == 0 {
 			h.reply(ctx, s, m, h.t("chat.queueEmpty"))
@@ -485,20 +571,21 @@ func (h *Handler) info(ctx context.Context, s config.SongRequests, m twitch.Chat
 		}
 		parts := make([]string, 0, queueShown)
 		for i, t := range q.Next[:min(queueShown, len(q.Next))] {
-			parts = append(parts, fmt.Sprintf("%d. %s", i+1, h.label(t)))
+			parts = append(parts, fmt.Sprintf("%d. %s", i+1, h.label(p, t)))
 		}
 		h.reply(ctx, s, m, h.t("chat.queue", "list", strings.Join(parts, " | ")))
 	}
 }
 
 func (h *Handler) skip(ctx context.Context, s config.SongRequests, m twitch.ChatMessage) {
-	if !h.d.Connected() {
+	p := h.active(ctx, s)
+	if p == nil {
 		h.reply(ctx, s, m, h.t("chat.offline"))
 		return
 	}
-	q, err := h.d.Player.GetQueue(ctx)
+	q, err := p.Queue(ctx)
 	if err != nil {
-		h.d.Log.Warnf("Read Spotify queue: %v", err)
+		h.d.Log.Warnf("Read %s queue: %v", p.Name(), err)
 		h.reply(ctx, s, m, h.errText(err))
 		return
 	}
@@ -507,18 +594,18 @@ func (h *Handler) skip(ctx context.Context, s config.SongRequests, m twitch.Chat
 		return
 	}
 	// Compare user IDs: display names can change and aren't unique.
-	own := s.RequesterCanSkip && m.ChatterID != "" && h.requester(q.Current.URI).userID == m.ChatterID
+	own := s.RequesterCanSkip && m.ChatterID != "" && h.requester(key(p, q.Current.ID)).userID == m.ChatterID
 	if !privileged(m) && !own {
 		h.reply(ctx, s, m, h.t("chat.skipDenied"))
 		return
 	}
-	if err := h.d.Player.Next(ctx); err != nil {
-		h.d.Log.Warnf("Skip on Spotify: %v", err)
+	if err := p.Skip(ctx); err != nil {
+		h.d.Log.Warnf("Skip on %s: %v", p.Name(), err)
 		h.reply(ctx, s, m, h.errText(err))
 		return
 	}
-	title := q.Current.Title()
-	h.d.Log.Infof("%s skipped %q", m.ChatterName, title)
+	title := q.Current.Title
+	h.d.Log.Infof("%s skipped %q on %s", m.ChatterName, title, p.Name())
 	h.d.OnActivity(Activity{Kind: ActSkipped, User: m.ChatterName, Title: title, At: h.d.Now()})
 	if s.HideTitles {
 		h.reply(ctx, s, m, h.t("chat.skippedNoTitle"))

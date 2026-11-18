@@ -1,3 +1,27 @@
+2026-11-19 01:07 +08 — YouTube Music song requests (Pear Desktop)
+- !sr now also takes YouTube Music: through Pear Desktop (free open-source YouTube Music app,
+  formerly th-ch/youtube-music) and its API Server plugin, the same way Streamer.bot extensions
+  do it. darkbot connects to 127.0.0.1 as a client only (still no open port); access is granted
+  once with Allow in Pear Desktop and the token kept in the OS keychain.
+- Routing: a link goes to the service it belongs to (Spotify / music.youtube.com, youtube.com,
+  youtu.be); "!sr <name>" searches on the chosen service ("Song names are searched on"), or on
+  the other one while that one is off. !song, !next, !queue and !skip use the service that is
+  playing right now. Unknown links get "this kind of link doesn't work here".
+- Pear Desktop answers "added" even for IDs it can't add and adds asynchronously, so darkbot
+  serialises adds and watches the queue until the song shows up (max 5 s) before confirming.
+  Links are resolved by searching the video ID (songs first, then all results) to get title,
+  length and the explicit mark, so the length limit and explicit filter work like on Spotify.
+- Tested end to end against Pear Desktop 3.12.1 (search, links, playlist refusal, duplicates,
+  !song/!next/!queue/!skip). Found and fixed there: Node closes idle connections after 5 s, so
+  requests after a pause failed with "connection reset"; keep-alive is now off for Pear Desktop.
+- Settings, Song requests: YouTube Music block (switch, status, setup steps, port, connect with
+  cancel, disconnect) and the search service choice. Dashboard: YouTube Music card (allowed
+  since, last answer from Pear Desktop, check now) when YouTube Music is on.
+- songs package is now service-neutral (Player interface, Spotify and YouTube Music adapters);
+  Spotify got Playing() (Get Playback State). Fixed: the "Name song titles" checkbox could be
+  reset by a refresh before saving.
+- README: Song requests section for both services.
+
 2026-11-18 22:07 +08 — Release v0.3.0 (first stable release)
 - Kept activity feed, follows/unfollows while darkbot was off, pre-release review (security,
   correctness, performance), song titles switch, Go 1.27.4 + Wails 2.17.1; macOS bundle 0.3.0.

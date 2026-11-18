@@ -30,6 +30,7 @@ import (
 	"github.com/miwidot/darkbot/internal/tray"
 	"github.com/miwidot/darkbot/internal/twitch"
 	"github.com/miwidot/darkbot/internal/version"
+	"github.com/miwidot/darkbot/internal/ytmusic"
 )
 
 // defaultClientID is darkbot's own public Twitch app (client type Public,
@@ -97,6 +98,7 @@ type App struct {
 	web      *webOutput
 	obsO     *obs.Output
 	sp       *spotify.Client
+	yt       *ytmusic.Client // YouTube Music through Pear Desktop
 	sr       *songs.Handler
 	st       *stats.Stats
 	act      *activity.Log // the activity feed, kept on disk
@@ -109,6 +111,7 @@ type App struct {
 	update      *selfupdate.Info
 	updating    bool
 	spLogin     *spotify.PendingLogin   // Spotify login waiting for the pasted address
+	ytConnect   context.CancelFunc      // waiting for Allow in Pear Desktop (songs_app.go)
 	fw          *twitch.FollowerWatcher // unfollow detection, nil when off
 	fwCancel    context.CancelFunc
 	// sysLangs are the system languages reported by the web view
@@ -171,10 +174,17 @@ func NewApp(log *applog.Log) (*App, error) {
 		return nil, err
 	}
 	a.sp.OnChange(a.emitState)
+	ytStore := &ytmusic.KeyringStore{FallbackPath: cfg.YTMusicTokenPath(), Log: log}
+	if a.yt, err = ytmusic.NewClient(cfg.Get().Songs.YTMusicPort, ytStore); err != nil {
+		return nil, err
+	}
+	a.yt.OnChange(a.emitState)
 	a.sr = songs.New(songs.Deps{
-		Settings:  func() config.SongRequests { return cfg.Get().Songs },
-		Player:    a.sp,
-		Connected: func() bool { return a.sp.Current() != nil },
+		Settings: func() config.SongRequests { return cfg.Get().Songs },
+		Players: []songs.Player{
+			songs.Spotify{C: a.sp},
+			songs.YTMusic{C: a.yt, Enabled: func() bool { return cfg.Get().Songs.YTMusicEnabled }},
+		},
 		Lang:      a.lang,
 		Reply:     a.sendChat,
 		OnCommand: a.st.Command,
@@ -396,6 +406,9 @@ type State struct {
 	// Token health for the dashboard ("Logins" panel).
 	TwitchHealth  twitch.Health  `json:"twitchHealth"`
 	SpotifyHealth spotify.Health `json:"spotifyHealth"`
+	// YouTube Music through Pear Desktop.
+	YTMusicHealth     ytmusic.Health `json:"ytmusicHealth"`
+	YTMusicConnecting bool           `json:"ytmusicConnecting"`
 	// FollowerStatus: unfollow detection state (nil = off).
 	FollowerStatus *twitch.FollowerStatus `json:"followerStatus"`
 	// Autostart: darkbot starts when the user logs in to the computer.
@@ -423,6 +436,7 @@ func (a *App) GetState() State {
 	}
 	s.SpotifyRedirectURI = spotify.RedirectURI
 	s.TwitchHealth, s.SpotifyHealth = a.tok.Health(), a.sp.Health()
+	s.YTMusicHealth = a.yt.Health(func(err error) string { return i18n.Localize(err, a.lang()) })
 	s.FollowerStatus = a.followerStatus()
 	s.TraySupported = tray.Supported()
 	s.Channel = a.channelTotals()
@@ -447,6 +461,7 @@ func (a *App) GetState() State {
 		s.OBSScene = &st
 	}
 	s.SpotifyLoginPending = a.spLogin != nil
+	s.YTMusicConnecting = a.ytConnect != nil
 	a.mu.Unlock()
 	return s
 }
@@ -1045,6 +1060,7 @@ func (a *App) SaveSongSettings(s config.SongRequests) error {
 	err := a.cfg.Update(func(c *config.Config) { c.Songs = s })
 	if err == nil {
 		a.sp.SetClientID(a.cfg.Get().Songs.SpotifyClientID)
+		a.yt.SetPort(a.cfg.Get().Songs.YTMusicPort)
 		a.emitState()
 	}
 	return a.uiErr(err)

@@ -15,6 +15,9 @@ const REWARD_COLORS = ['#9147FF', '#1F69FF', '#00C8AF', '#57BEE6', '#FACD3B', '#
 const TOAST_MS = 5000;
 const CONFIRM_MS = 4000;
 const SPOTIFY_DASHBOARD = 'https://developer.spotify.com/dashboard';
+const PEAR_DOWNLOAD = 'https://github.com/pear-devs/pear-desktop/releases/latest';
+const YTM_DEFAULT_PORT = 26538; // Pear Desktop's API Server default
+const MAX_PORT = 65535;
 const VIEW_KEY = 'darkbot.view';     // localStorage: last opened view
 const BUMP_MS = 900;                 // how long a meter glows after it changed
 
@@ -441,15 +444,51 @@ function loginCard(service, h, opts) {
   return card;
 }
 
+// The LED is only green once Pear Desktop answered: darkbot doesn't poll
+// it, so right after start nothing is known yet.
+const ytmWorks = (h) => h.linked && !h.lastError && isSet(h.lastOk);
+
+// YouTube Music has no token that expires: Pear Desktop allowed darkbot
+// once, so the card shows that and whether Pear Desktop answers.
+function ytmCard(h) {
+  const ok = ytmWorks(h);
+  const card = el('div', { class: 'login-card' + (h.linked ? '' : ' off') + (h.lastError ? ' warn' : '') });
+  card.append(el('div', { class: 'login-head' },
+    el('span', { class: 'login-led' + (ok ? ' on' : ''), 'aria-hidden': 'true' }),
+    el('b', {}, t('logins.ytmusic')),
+    el('span', { class: 'login-who' }, h.linked ? t('logins.ytmWho') : t('logins.off'))));
+  if (!h.linked) {
+    card.append(el('button', { class: 'btn', onclick: () => openSettings('songs') }, t('logins.connect')));
+    return card;
+  }
+  card.append(el('dl', { class: 'login-rows' },
+    ...loginRow(t('logins.ytmAllowed'), isSet(h.authorizedAt) ? dayDate(h.authorizedAt) : t('logins.unknown')),
+    ...loginRow(t('logins.ytmLastOK'), isSet(h.lastOk) ? clock(new Date(h.lastOk)) : t('logins.notYet'))));
+  if (h.lastError) card.append(el('p', { class: 'login-error' }, t('logins.error', { error: h.lastError })));
+  const btn = el('button', { class: 'btn' }, t('logins.ytmCheck'));
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      await call('YTMusicCheck');
+      toast(t('logins.ytmChecked'));
+    } catch (e) { /* toast shown by call */ } finally { btn.disabled = false; refresh(); }
+  });
+  card.append(btn);
+  return card;
+}
+
 function renderLogins() {
   if (!state) return;
   const th = state.twitchHealth || {};
   const sh = state.spotifyHealth || {};
-  $('logins').replaceChildren(
+  const cards = [
     loginCard('twitch', th, { who: state.twitchLogin, section: 'twitch', renew: 'RefreshTwitchToken',
       nextRefresh: isSet(th.nextRefresh) ? th.nextRefresh : '', withCheck: true, untilKey: 'logins.twitchUntil' }),
     loginCard('spotify', sh, { who: state.spotifyUser, section: 'songs', renew: 'RefreshSpotifyToken',
-      nextRefresh: '', withCheck: false, untilKey: 'logins.spotifyUntil' }));
+      nextRefresh: '', withCheck: false, untilKey: 'logins.spotifyUntil' })];
+  // Only for streamers who use YouTube Music.
+  if (state.config.songs.ytmusic_enabled) cards.push(ytmCard(state.ytmusicHealth || {}));
+  $('logins').replaceChildren(...cards);
 }
 setInterval(() => { if (!$('viewDash').classList.contains('hidden')) renderLogins(); }, LOGIN_TICK_MS);
 
@@ -1204,7 +1243,21 @@ function renderSongs() {
   $('spotifyLogin').textContent = connected ? t('songs.reconnect') : t('songs.connect');
   // Open the setup steps until Spotify is connected.
   if (!connected && !sec.dataset.setupShown) { $('spotifySetup').open = true; sec.dataset.setupShown = '1'; }
+  const yh = state.ytmusicHealth || {};
+  $('ytmStatus').textContent = yh.linked ? t('songs.ytmConnected') : t('songs.ytmNotConnected');
+  $('ytmStatus').classList.toggle('on', ytmWorks(yh));
+  $('ytmDisconnect').classList.toggle('hidden', !yh.linked);
+  $('ytmProblem').textContent = yh.lastError ? t('songs.ytmProblem', { error: yh.lastError }) : '';
+  $('ytmProblem').classList.toggle('hidden', !yh.lastError);
+  $('ytmWaitBox').classList.toggle('hidden', !state.ytmusicConnecting);
+  $('ytmConnect').disabled = !!state.ytmusicConnecting;
+  $('ytmConnect').textContent = yh.linked ? t('songs.reconnect') : t('songs.ytmConnect');
   if (sec.dataset.touched) return;
+  $('ytmEnabled').checked = c.ytmusic_enabled;
+  $('ytmPort').value = c.ytmusic_port || YTM_DEFAULT_PORT;
+  $('songsSearch').value = c.search_service;
+  // Open the YouTube Music steps once while it is on but not connected.
+  if (c.ytmusic_enabled && !yh.linked && !sec.dataset.ytmSetupShown) { $('ytmSetup').open = true; sec.dataset.ytmSetupShown = '1'; }
   $('spotifyClientId').value = c.spotify_client_id || '';
   $('songsEnabled').checked = c.enabled;
   $('songsCooldown').value = c.user_cooldown_seconds;
@@ -1214,7 +1267,7 @@ function renderSongs() {
   $('songsReplies').checked = c.chat_replies;
   $('songsTitles').checked = !c.hide_titles;
 }
-for (const id of ['spotifyClientId', 'songsEnabled', 'songsCooldown', 'songsMax', 'songsExplicit', 'songsRequesterSkip', 'songsReplies']) {
+for (const id of ['spotifyClientId', 'songsEnabled', 'songsCooldown', 'songsMax', 'songsExplicit', 'songsRequesterSkip', 'songsReplies', 'songsTitles', 'ytmEnabled', 'ytmPort', 'songsSearch']) {
   $(id).addEventListener('input', () => { $('sec-songs').dataset.touched = '1'; });
   $(id).addEventListener('change', () => { $('sec-songs').dataset.touched = '1'; });
 }
@@ -1228,7 +1281,15 @@ function songSettings() {
     chat_replies: $('songsReplies').checked,
     hide_titles: !$('songsTitles').checked,
     requester_can_skip: $('songsRequesterSkip').checked,
+    ytmusic_enabled: $('ytmEnabled').checked,
+    ytmusic_port: portValue($('ytmPort').value),
+    search_service: $('songsSearch').value,
   };
+}
+// A port outside 1..65535 falls back to Pear Desktop's default.
+function portValue(v) {
+  const n = parseInt(v, 10);
+  return n >= 1 && n <= MAX_PORT ? n : YTM_DEFAULT_PORT;
 }
 async function saveSongs() {
   await call('SaveSongSettings', songSettings());
@@ -1267,6 +1328,22 @@ $('spotifyFinish').addEventListener('click', async () => {
 });
 $('spotifyPaste').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('spotifyFinish').click(); });
 $('spotifyLogout').addEventListener('click', async () => { await call('SpotifyLogout'); refresh(); });
+// Switching YouTube Music on opens its steps right away.
+$('ytmEnabled').addEventListener('change', () => { if ($('ytmEnabled').checked && !(state.ytmusicHealth || {}).linked) $('ytmSetup').open = true; });
+$('ytmDownload').addEventListener('click', () => window.runtime.BrowserOpenURL(PEAR_DOWNLOAD));
+$('ytmConnect').addEventListener('click', async () => {
+  // Connecting means using it: switch it on and save the port first.
+  $('ytmEnabled').checked = true;
+  await saveSongs();
+  try {
+    if (await call('YTMusicConnect')) {
+      $('ytmSetup').open = false;
+      toast(t('songs.ytmConnectedToast'));
+    }
+  } catch (e) { /* toast shown by call */ } finally { refresh(); }
+});
+$('ytmCancel').addEventListener('click', () => App().YTMusicCancelConnect());
+$('ytmDisconnect').addEventListener('click', async () => { await call('YTMusicDisconnect'); refresh(); });
 
 // updates
 function renderUpdates() {

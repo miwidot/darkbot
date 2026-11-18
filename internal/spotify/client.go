@@ -448,6 +448,18 @@ func (c *Client) GetQueue(ctx context.Context) (*Queue, error) {
 	return &q, nil
 }
 
+// Playing reports whether Spotify plays right now (Get Playback State;
+// 204 = no playback at all).
+func (c *Client) Playing(ctx context.Context) (bool, error) {
+	var st struct {
+		IsPlaying bool `json:"is_playing"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/me/player", nil, &st); err != nil {
+		return false, err
+	}
+	return st.IsPlaying, nil
+}
+
 // Spotify IDs are base62 (https://developer.spotify.com/documentation/web-api/concepts/spotify-uris-ids).
 var (
 	trackURL = regexp.MustCompile(`^https?://open\.spotify\.com/(?:intl-[a-zA-Z-]+/)?(track|album|playlist|artist|episode|show)/([0-9A-Za-z]+)`)

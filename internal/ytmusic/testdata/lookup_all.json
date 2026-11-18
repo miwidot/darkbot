@@ -1,0 +1,1182 @@
+{
+ "contents": {
+  "tabbedSearchResultsRenderer": {
+   "tabs": [
+    {
+     "tabRenderer": {
+      "title": "YT Music",
+      "selected": true,
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "musicCardShelfRenderer": {
+           "title": {
+            "runs": [
+             {
+              "text": "Never Gonna Give You Up",
+              "navigationEndpoint": {
+               "watchEndpoint": {
+                "videoId": "dQw4w9WgXcQ"
+               }
+              }
+             }
+            ]
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "Video"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Rick Astley",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCwZEU0wAwIyZb4x5G_KJp2w"
+               }
+              }
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "1.8bn views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "3:34"
+             }
+            ]
+           },
+           "thumbnailOverlay": {
+            "musicItemThumbnailOverlayRenderer": {
+             "background": {
+              "verticalGradient": {
+               "gradientLayerColors": [
+                "3422552064",
+                "3422552064"
+               ]
+              }
+             },
+             "content": {
+              "musicPlayButtonRenderer": {
+               "playNavigationEndpoint": {
+                "watchEndpoint": {
+                 "videoId": "dQw4w9WgXcQ"
+                }
+               },
+               "playIcon": {
+                "iconType": "PLAY_ARROW"
+               },
+               "pauseIcon": {
+                "iconType": "PAUSE"
+               },
+               "iconColor": 4294967295,
+               "backgroundColor": 0,
+               "activeBackgroundColor": 0,
+               "loadingIndicatorColor": 14745645,
+               "playingIcon": {
+                "iconType": "VOLUME_UP"
+               },
+               "iconLoadingColor": 0,
+               "activeScaleFactor": 1,
+               "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_LARGE",
+               "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF"
+              }
+             },
+             "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+             "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+            }
+           }
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Never Gonna Give You Up",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "lYBUbBu4W08"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Song"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Rick Astley",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCwZEU0wAwIyZb4x5G_KJp2w"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "2bn plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "lYBUbBu4W08"
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "dQw4w9WgXcQ",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "rVKacxUOoZQ"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Song"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Muqdisho",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCFAc58Fa_OQgOJ-VFMzsMeQ"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "9.6k plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "rVKacxUOoZQ"
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Rick Roll (Different link + no ads)",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "xvFZjo5PgG0"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Video"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Duran",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCqIdYNJUq-KUVv36R0JwI2A"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "23m views"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "xvFZjo5PgG0"
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Never gonna Meow you up",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "hvL1339luv0"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Video"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Rapid Liquid",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UC38r7_x7oMPAZweB2fvGDXQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "15m views"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "hvL1339luv0"
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "№21 из 100 мэшапов с Дорой: Стоп-dQw4w9WgXcQ (Дора x Rick Astley)",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "FSHr0q7gK-o"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Video"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "EGRSLD",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCKtEf1zx27x5DkpCc4yJx0w"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "155 views"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "FSHr0q7gK-o"
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "children who have never seen the sky"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Album"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Muqdisho",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCFAc58Fa_OQgOJ-VFMzsMeQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "2021"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPREb_nKyOeWKlDq7"
+               }
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "https://youtu.be/dQw4w9WgXcQ"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Playlist"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "bubdon",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCqiTiG1vwTXvWSXu2q-GnXg"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "19k views"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "VLPLt5WZW--pOco6vxtAWk8IUSklFGuqOreE"
+               }
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "POV: Someone sent you dQw4w9WgXcQ"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Playlist"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "NtGm 889",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCXB7RFcefsHDQINf6ZA4OGA"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "12 views"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "VLPLNwD8SUJxlAlUEQrTXNVbndlNroxfWzj2"
+               }
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "song 35",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "qOnPs8u2Gy8",
+                      "playerParams": "0gcJCTUC0OBS9m0t"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Song"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "maeve gutierrez",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCbdyM7Cqr2Pp8Azuzv3hNjg"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "38 plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "qOnPs8u2Gy8"
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "https://youtu.be/dQw4w9WgXcQ"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Playlist"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "CC",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCoqpBQpGkacrMB_r7QP_rzQ"
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "292 views"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "VLPLHHc4OGeEdGTeSx-sZALuFPNGP25VrDbV"
+               }
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "patrix"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Profile"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "@patrix1755"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCZ7IfVTBPA86AOga-xV4VQA"
+               }
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Xddcc"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Profile"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "@solo_pro115"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCSEa9KMJ9fIEmJow3WonlsA"
+               }
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "nifty"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Profile"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "@nifty_AU"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCXliC3bAwcJdg6oQS4h3IVQ"
+               }
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Never Gonna Give You Up (2022 Remaster)",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "3BFTio5296w"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Song"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Rick Astley",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCwZEU0wAwIyZb4x5G_KJp2w"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "14m plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "3BFTio5296w"
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Rickroll Uia",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "ijEUmSEN42c"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Song"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "OIIA Cat",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCI6XvCLjYWRwZFHpdojy1NA"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "54k plays"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "ijEUmSEN42c"
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Dragon Half (1993) | OVA Hell",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDJ9oO8IbupoY"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Episode"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "28 Sept 2025"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "OVA Hell",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPL-_armRdCqUrqEGsAq_F1MmCyxSr6jn-j"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "J9oO8IbupoY"
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Guyver: Out of Control (1986) [feat. DrLockdown & MerriKiwi] | OVA Hell",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDNYrVI3oLNaw"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Episode"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "27 Oct 2025"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "OVA Hell",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPL-_armRdCqUrqEGsAq_F1MmCyxSr6jn-j"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "NYrVI3oLNaw"
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "In The Field (2) Oliver vs Sentalium [REUPLOAD]",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDNBG1IxXKJbA"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Episode"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "30 Apr 2025"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "In the Field",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPOLPMnm1M8bfGU4lCvhHdjO7cDjqjUqHzPcQ"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "NBG1IxXKJbA"
+              }
+             }
+            }
+           ]
+          }
+         }
+        ]
+       }
+      },
+      "tabIdentifier": "music_search_catalog"
+     }
+    }
+   ]
+  }
+ }
+}

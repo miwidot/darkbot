@@ -387,6 +387,13 @@ details.more summary { cursor: pointer; color: var(--ink-2); }
   border: 1px solid var(--led-dim); background: rgba(255, 178, 63, .06); color: var(--ink-2);
 }
 .songs-status { display: flex; align-items: center; gap: 10px; min-height: 34px; }
+/* One block per music service; the first one follows the lede directly. */
+.service-head { margin: 22px 0 4px; font-size: var(--step-0); font-weight: 650; color: var(--ink-2); }
+#sec-songs .notice + .service-head, #sec-songs .lede + .service-head { margin-top: 8px; }
+.service-head + .hint { margin: 0 0 8px; }
+.warn-text { color: var(--fault); word-break: break-word; }
+.field.narrow { max-width: 14ch; }
+#ytmWaitBox p { margin: 10px 0 6px; }
 .songs-status .status.on { color: var(--live); }
 #sec-songs details.more { margin: 12px 0 18px; }
 .steps { margin: 12px 0 4px; padding-left: 20px; color: var(--ink-2); }

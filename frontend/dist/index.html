@@ -271,6 +271,7 @@
         <p class="lede" data-i18n="songs.lede"></p>
         <p class="notice hidden" id="songsChatHint" data-i18n="songs.chatMissing"></p>
 
+        <h4 class="service-head" data-i18n="songs.spotifyTitle"></h4>
         <div class="songs-status">
           <span class="status" id="spotifyStatus"></span>
           <button class="btn danger hidden" id="spotifyLogout" data-i18n="songs.disconnect"></button>
@@ -306,6 +307,44 @@
             </div>
           </div>
         </details>
+
+        <h4 class="service-head" data-i18n="songs.ytmTitle"></h4>
+        <p class="hint" data-i18n="songs.ytmLede"></p>
+        <label class="check"><input type="checkbox" id="ytmEnabled"> <span data-i18n="songs.ytmEnabled"></span></label>
+        <div class="songs-status">
+          <span class="status" id="ytmStatus"></span>
+          <button class="btn danger hidden" id="ytmDisconnect" data-i18n="songs.ytmDisconnect"></button>
+        </div>
+        <p class="hint warn-text hidden" id="ytmProblem"></p>
+        <details class="more" id="ytmSetup">
+          <summary data-i18n="songs.ytmSetupSummary"></summary>
+          <ol class="steps">
+            <li data-i18n="songs.ytmStep1"></li>
+            <li data-i18n="songs.ytmStep2"></li>
+            <li data-i18n="songs.ytmStep3"></li>
+            <li data-i18n="songs.ytmStep4"></li>
+          </ol>
+          <div class="field narrow">
+            <label for="ytmPort"><span data-i18n="songs.ytmPort"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.ytmPort" data-i18n-aria-label="tip.more"></span></label>
+            <input id="ytmPort" type="number" min="1" max="65535" step="1">
+          </div>
+          <div class="sec-actions start">
+            <button class="btn primary" id="ytmConnect" data-i18n="songs.ytmConnect"></button>
+            <button class="btn quiet" id="ytmDownload" data-i18n="songs.ytmDownload"></button>
+          </div>
+          <div class="login hidden" id="ytmWaitBox">
+            <p data-i18n="songs.ytmWaiting"></p>
+            <div class="inline"><button class="btn quiet" id="ytmCancel" data-i18n="twitch.cancel"></button></div>
+          </div>
+        </details>
+
+        <div class="field">
+          <label for="songsSearch"><span data-i18n="songs.searchService"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.searchService" data-i18n-aria-label="tip.more"></span></label>
+          <select id="songsSearch">
+            <option value="spotify" data-i18n="songs.spotifyTitle"></option>
+            <option value="ytmusic" data-i18n="songs.ytmTitle"></option>
+          </select>
+        </div>
 
         <label class="check"><input type="checkbox" id="songsEnabled"> <span data-i18n="songs.enabled"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.songsEnabled" data-i18n-aria-label="tip.more"></span></label>
         <div class="grid2">

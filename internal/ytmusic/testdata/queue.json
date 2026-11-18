@@ -1,0 +1,402 @@
+{
+ "items": [
+  {
+   "playlistPanelVideoRenderer": {
+    "title": {
+     "runs": [
+      {
+       "text": "Never Gonna Give You Up"
+      }
+     ]
+    },
+    "longBylineText": {
+     "runs": [
+      {
+       "text": "Rick Astley",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "UCwZEU0wAwIyZb4x5G_KJp2w"
+        }
+       }
+      },
+      {
+       "text": " • "
+      },
+      {
+       "text": "1.8bn views"
+      },
+      {
+       "text": " • "
+      },
+      {
+       "text": "19m likes"
+      }
+     ]
+    },
+    "lengthText": {
+     "runs": [
+      {
+       "text": "3:34"
+      }
+     ]
+    },
+    "selected": false,
+    "navigationEndpoint": {
+     "watchEndpoint": {
+      "videoId": "dQw4w9WgXcQ",
+      "params": "OAHyAQIIAeoEC2RRdzR3OVdnWGNR",
+      "playerParams": "0gcJCU4BEIKdP_Kw",
+      "index": 0
+     }
+    },
+    "videoId": "dQw4w9WgXcQ",
+    "shortBylineText": {
+     "runs": [
+      {
+       "text": "Rick Astley"
+      }
+     ]
+    },
+    "canReorder": true
+   }
+  },
+  {
+   "playlistPanelVideoRenderer": {
+    "title": {
+     "runs": [
+      {
+       "text": "Without Me"
+      }
+     ]
+    },
+    "longBylineText": {
+     "runs": [
+      {
+       "text": "Eminem",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "UCedvOgsKFzcK3hA5taf3KoQ"
+        }
+       }
+      },
+      {
+       "text": " • "
+      },
+      {
+       "text": "The Eminem Show",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "MPREb_6hyn9PhqicQ"
+        }
+       }
+      },
+      {
+       "text": " • "
+      },
+      {
+       "text": "2002"
+      }
+     ]
+    },
+    "lengthText": {
+     "runs": [
+      {
+       "text": "4:51"
+      }
+     ]
+    },
+    "selected": true,
+    "navigationEndpoint": {
+     "watchEndpoint": {
+      "videoId": "tqxRidAWER8",
+      "params": "OAHyAQIIAQ%3D%3D",
+      "playerParams": "0gcJCU4BEIKdP_Kw",
+      "index": 51
+     }
+    },
+    "videoId": "tqxRidAWER8",
+    "shortBylineText": {
+     "runs": [
+      {
+       "text": "Eminem"
+      }
+     ]
+    },
+    "badges": [
+     {
+      "musicInlineBadgeRenderer": {
+       "icon": {
+        "iconType": "MUSIC_EXPLICIT_BADGE"
+       }
+      }
+     }
+    ],
+    "canReorder": true
+   }
+  },
+  {
+   "playlistPanelVideoRenderer": {
+    "title": {
+     "runs": [
+      {
+       "text": "Never Gonna Give You Up"
+      }
+     ]
+    },
+    "longBylineText": {
+     "runs": [
+      {
+       "text": "Rick Astley",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "UCwZEU0wAwIyZb4x5G_KJp2w"
+        }
+       }
+      },
+      {
+       "text": " • "
+      },
+      {
+       "text": "Whenever You Need Somebody",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "MPREb_dcYZhAh5urI"
+        }
+       }
+      },
+      {
+       "text": " • "
+      },
+      {
+       "text": "1987"
+      }
+     ]
+    },
+    "lengthText": {
+     "runs": [
+      {
+       "text": "3:34"
+      }
+     ]
+    },
+    "selected": false,
+    "navigationEndpoint": {
+     "watchEndpoint": {
+      "videoId": "lYBUbBu4W08",
+      "params": "OAHyAQIIAQ%3D%3D",
+      "playerParams": "0gcJCU4BEIKdP_Kw",
+      "index": 52
+     }
+    },
+    "videoId": "lYBUbBu4W08",
+    "shortBylineText": {
+     "runs": [
+      {
+       "text": "Rick Astley"
+      }
+     ]
+    },
+    "canReorder": true
+   }
+  },
+  {
+   "playlistPanelVideoRenderer": {
+    "title": {
+     "runs": [
+      {
+       "text": "Get Lucky (feat. Pharrell Williams and Nile Rodgers)"
+      }
+     ]
+    },
+    "longBylineText": {
+     "runs": [
+      {
+       "text": "Daft Punk",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "UCRr1xG_2WIDs18a6cIiCxeA"
+        }
+       }
+      },
+      {
+       "text": ", "
+      },
+      {
+       "text": "Pharrell Williams",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "UCJw8VyO6e3v6S0327AsgwcQ"
+        }
+       }
+      },
+      {
+       "text": " & "
+      },
+      {
+       "text": "Nile Rodgers",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "UCThde8ccpEr6sP8dIHZ-ceQ"
+        }
+       }
+      },
+      {
+       "text": " • "
+      },
+      {
+       "text": "Random Access Memories",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "MPREb_K8qWMWVqXGi"
+        }
+       }
+      },
+      {
+       "text": " • "
+      },
+      {
+       "text": "2013"
+      }
+     ]
+    },
+    "lengthText": {
+     "runs": [
+      {
+       "text": "6:10"
+      }
+     ]
+    },
+    "selected": false,
+    "navigationEndpoint": {
+     "watchEndpoint": {
+      "videoId": "4D7u5KF7SP8",
+      "params": "OAHyAQIIAQ%3D%3D",
+      "playerParams": "0gcJCU4BEIKdP_Kw",
+      "index": 53
+     }
+    },
+    "videoId": "4D7u5KF7SP8",
+    "shortBylineText": {
+     "runs": [
+      {
+       "text": "Daft Punk"
+      },
+      {
+       "text": ", "
+      },
+      {
+       "text": "Pharrell Williams"
+      },
+      {
+       "text": " & "
+      },
+      {
+       "text": "Nile Rodgers"
+      }
+     ]
+    },
+    "canReorder": true
+   }
+  },
+  {
+   "playlistPanelVideoRenderer": {
+    "title": {
+     "runs": [
+      {
+       "text": "Get Lucky (feat. Pharrell Williams and Nile Rodgers)"
+      }
+     ]
+    },
+    "longBylineText": {
+     "runs": [
+      {
+       "text": "Daft Punk",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "UCRr1xG_2WIDs18a6cIiCxeA"
+        }
+       }
+      },
+      {
+       "text": ", "
+      },
+      {
+       "text": "Pharrell Williams",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "UCJw8VyO6e3v6S0327AsgwcQ"
+        }
+       }
+      },
+      {
+       "text": " & "
+      },
+      {
+       "text": "Nile Rodgers",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "UCThde8ccpEr6sP8dIHZ-ceQ"
+        }
+       }
+      },
+      {
+       "text": " • "
+      },
+      {
+       "text": "Random Access Memories",
+       "navigationEndpoint": {
+        "browseEndpoint": {
+         "browseId": "MPREb_K8qWMWVqXGi"
+        }
+       }
+      },
+      {
+       "text": " • "
+      },
+      {
+       "text": "2013"
+      }
+     ]
+    },
+    "lengthText": {
+     "runs": [
+      {
+       "text": "6:10"
+      }
+     ]
+    },
+    "selected": false,
+    "navigationEndpoint": {
+     "watchEndpoint": {
+      "videoId": "4D7u5KF7SP8",
+      "params": "OAHyAQIIAQ%3D%3D",
+      "index": 54
+     }
+    },
+    "videoId": "4D7u5KF7SP8",
+    "shortBylineText": {
+     "runs": [
+      {
+       "text": "Daft Punk"
+      },
+      {
+       "text": ", "
+      },
+      {
+       "text": "Pharrell Williams"
+      },
+      {
+       "text": " & "
+      },
+      {
+       "text": "Nile Rodgers"
+      }
+     ]
+    },
+    "canReorder": true
+   }
+  }
+ ],
+ "autoPlaying": false,
+ "continuation": "CDISXhILMTI5a3VEQ1F0SHMiEVJEQU1WTWRRdzR3OVdnWGNRMiR3QUVCOGdFQ2VBSHFCQXRrVVhjMGR6bFhaMWhqVVElM0QlM0Q4MdABAfoBEEQ2MjVBQjQwMjk0RDM4MUQYCg%3D%3D"
+}
