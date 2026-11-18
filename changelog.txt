@@ -1,3 +1,13 @@
+2026-11-19 02:08 +08 — Dashboard: status colors, YouTube Music always in Logins
+- Logins cards have a state with LED, word and (when it needs you) a tinted frame: green Running,
+  amber Attention (Spotify login ends within 14 days, Twitch needs a reconnect for new
+  permissions; with a "Connect again" button), red Problem (last error), grey Off / Unchecked.
+- YouTube Music card always shows (off with Connect when not set up); "Unchecked" until Pear
+  Desktop answered once since start (darkbot doesn't poll it).
+- Top bar: Redemptions red when logged in but not receiving, OBS red in OBS output mode without
+  OBS, Twitch amber when a reconnect is needed.
+- Meters: unfollows, refused redemptions and rejected song requests show red when above zero.
+
 2026-11-19 01:57 +08 — CI: Linux package install no longer hangs the build
 - Ubuntu's mirrors stalled the "Linux GUI dependencies" step for 15+ minutes twice today
   (v0.4.0 release and the next build). Each apt run is now time-boxed (update 5 min, install

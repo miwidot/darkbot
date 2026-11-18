@@ -305,7 +305,6 @@
   "dash.resetConfirm": "Erneut klicken für eine neue Sitzung",
   "dash.resetDone": "Neue Sitzung gestartet.",
   "dash.redemptions": "Einlösungen",
-  "dash.redemptionsDetail": "{played} gespielt, {refused} abgelehnt",
   "dash.commands": "Chat-Befehle",
   "dash.commandsDetail": "{skips} Songs übersprungen",
   "dash.songs": "Songwünsche",
@@ -647,5 +646,14 @@
   "tip.cmdOnce": "Gut für Begrüßungen: Wer zweimal „hi“ schreibt, bekommt bis zu deinem nächsten Streamstart nur eine Antwort.",
   "cmds.fileAnswer": "Zufällige Zeile aus {file}",
   "cmds.once": "einmal pro Stream",
-  "tip.cmdWord": "Das Wort, mit dem eine Nachricht anfangen muss, z. B. hi. Ein Wort ohne Leerzeichen; Groß-/Kleinschreibung und Satzzeichen sind egal."
+  "tip.cmdWord": "Das Wort, mit dem eine Nachricht anfangen muss, z. B. hi. Ein Wort ohne Leerzeichen; Groß-/Kleinschreibung und Satzzeichen sind egal.",
+  "logins.stateOk": "Läuft",
+  "logins.stateAttn": "Achtung",
+  "logins.stateBad": "Problem",
+  "logins.stateIdle": "Ungeprüft",
+  "logins.endsSoon": "Die Anmeldung endet am {date}. Verbinde vorher neu.",
+  "logins.needsReconnect": "Verbinde Twitch einmal neu, damit darkbot seine neuen Rechte bekommt.",
+  "dash.played": "{n} gespielt",
+  "dash.refused": "{n} abgelehnt",
+  "logins.reconnect": "Neu verbinden"
 }

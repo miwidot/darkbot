@@ -72,7 +72,10 @@ button { font: inherit; color: inherit; }
 .signal i { width: 7px; height: 7px; border-radius: 50%; background: var(--metal-3); }
 .signal.on { color: var(--ink-2); }
 .signal.on i { background: var(--live); box-shadow: 0 0 6px rgba(70, 209, 154, .55); }
-.signal.fault i { background: var(--fault); }
+.signal.fault { color: var(--fault); }
+.signal.fault i { background: var(--fault); box-shadow: 0 0 6px rgba(255, 92, 92, .55); }
+.signal.attn { color: var(--led); }
+.signal.attn i { background: var(--led); }
 .bar-end { display: flex; align-items: center; gap: 10px; }
 
 .icon-btn {
@@ -470,6 +473,7 @@ details.more summary { cursor: pointer; color: var(--ink-2); }
 .meter.bump .meter-value { color: var(--led); }
 .meter-value { transition: color .6s; }
 .meter-detail { color: var(--ink-3); font-size: var(--step--1); }
+.meter-detail .loss { color: var(--fault); }
 .meter-total.now { color: var(--ink-2); }
 .meter-total { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--metal-3); color: var(--ink-3); font-size: var(--step--1); font-variant-numeric: tabular-nums; }
 
@@ -477,18 +481,28 @@ details.more summary { cursor: pointer; color: var(--ink-2); }
 .logins-wrap { margin-top: 26px; }
 .logins { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; align-items: start; }
 .login-card { padding: 14px 16px; border-radius: var(--r-pad); border: 1px solid var(--metal-2); background: var(--metal-0); }
-.login-card.warn { border-color: rgba(255, 92, 92, .45); }
+/* States: the LED and the state word carry the color; a card only gets a
+   tinted frame when it needs the streamer (amber) or has a problem (red). */
+.login-card.attn { border-color: rgba(255, 178, 63, .5); background: rgba(255, 178, 63, .05); }
+.login-card.bad { border-color: rgba(255, 92, 92, .55); background: rgba(255, 92, 92, .06); }
+.login-state { flex: none; font-size: var(--step--1); font-weight: 650; color: var(--ink-3); }
+.login-card.ok .login-state { color: var(--live); }
+.login-card.attn .login-state { color: var(--led); }
+.login-card.bad .login-state { color: var(--fault); }
+.login-attn { color: var(--led); font-size: var(--step--1); margin: -4px 0 10px; }
 .login-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .login-head b { font-weight: 650; }
 .login-who { margin-left: auto; color: var(--ink-3); font-size: var(--step--1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .login-led { width: 8px; height: 8px; border-radius: 50%; background: var(--metal-3); flex: none; }
-.login-led.on { background: var(--live); box-shadow: 0 0 6px rgba(70, 209, 154, .55); }
-.login-card.warn .login-led { background: var(--fault); }
+.login-card.ok .login-led { background: var(--live); box-shadow: 0 0 6px rgba(70, 209, 154, .55); }
+.login-card.attn .login-led { background: var(--led); box-shadow: 0 0 6px rgba(255, 178, 63, .55); }
+.login-card.bad .login-led { background: var(--fault); box-shadow: 0 0 6px rgba(255, 92, 92, .55); }
 .login-rows { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0 0 12px; font-size: var(--step--1); }
 .login-rows dt { color: var(--ink-3); }
 .login-rows dd { margin: 0; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .login-error { color: var(--fault); font-size: var(--step--1); margin: 0 0 10px; word-break: break-word; }
 .login-card.off .btn { margin-top: 2px; }
+.login-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .ranks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 22px; margin-top: 24px; }
 .rank-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: rank; }

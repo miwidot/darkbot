@@ -305,7 +305,6 @@
   "dash.resetConfirm": "Click again to start a new session",
   "dash.resetDone": "New session started.",
   "dash.redemptions": "Redemptions",
-  "dash.redemptionsDetail": "{played} played, {refused} refused",
   "dash.commands": "Chat commands",
   "dash.commandsDetail": "{skips} songs skipped",
   "dash.songs": "Song requests",
@@ -647,5 +646,14 @@
   "tip.cmdOnce": "Good for greetings: a viewer who says “hi” twice only gets one answer until your next stream starts.",
   "cmds.fileAnswer": "Random line from {file}",
   "cmds.once": "once per stream",
-  "tip.cmdWord": "The word a message has to start with, e.g. hi. One word without spaces; case and punctuation don’t matter."
+  "tip.cmdWord": "The word a message has to start with, e.g. hi. One word without spaces; case and punctuation don’t matter.",
+  "logins.stateOk": "Running",
+  "logins.stateAttn": "Attention",
+  "logins.stateBad": "Problem",
+  "logins.stateIdle": "Unchecked",
+  "logins.endsSoon": "The login ends on {date}. Connect again before then.",
+  "logins.needsReconnect": "Connect Twitch once more so darkbot gets its new permissions.",
+  "dash.played": "{n} played",
+  "dash.refused": "{n} refused",
+  "logins.reconnect": "Connect again"
 }

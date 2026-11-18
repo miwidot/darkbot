@@ -119,9 +119,11 @@ function render() {
   const c = state.config;
   const loggedIn = !!state.twitchLogin;
 
-  setSignal('sigTwitch', loggedIn, loggedIn ? state.twitchLogin : t('signal.twitch'));
-  setSignal('sigEvents', state.eventSubOnline, t('signal.redemptions'));
-  setSignal('sigObs', state.obsConnected, t('signal.obs'));
+  setSignal('sigTwitch', loggedIn, loggedIn ? state.twitchLogin : t('signal.twitch'), loggedIn && state.needsReconnect ? 'attn' : '');
+  // Red: it should run but doesn't (logged in without live events, OBS
+  // output without OBS).
+  setSignal('sigEvents', state.eventSubOnline, t('signal.redemptions'), loggedIn && !state.eventSubOnline ? 'fault' : '');
+  setSignal('sigObs', state.obsConnected, t('signal.obs'), c.output_mode === 'obs' && !state.obsConnected ? 'fault' : '');
   $('sigObs').classList.toggle('hidden', c.output_mode !== 'obs' && !state.obsConnected);
 
   const up = state.update;
@@ -146,9 +148,12 @@ function render() {
   if ($('settings').open) renderSettings();
 }
 
-function setSignal(id, on, text) {
+// setSignal: green when on; problem ('attn' amber, 'fault' red) wins.
+function setSignal(id, on, text, problem) {
   const s = $(id);
-  s.classList.toggle('on', on);
+  s.classList.toggle('on', on && !problem);
+  s.classList.toggle('attn', problem === 'attn');
+  s.classList.toggle('fault', problem === 'fault');
   s.querySelector('span').textContent = text;
 }
 
@@ -263,6 +268,10 @@ try { const v = localStorage.getItem(VIEW_KEY); view = VIEWS.includes(v) ? v : '
 
 const num = (n) => Number(n || 0).toLocaleString(I18N.lang || undefined);
 
+// loss marks a count that went wrong (unfollows, refused, rejected) red
+// once it is above zero.
+const loss = (text, n) => (n > 0 ? el('span', { class: 'loss' }, text) : text);
+
 // Four meters. The big number is this session; the lines below explain it.
 // Channel meters: what Twitch reports about your channel.
 // channelNow: Twitch reported this channel total (state.channel).
@@ -273,7 +282,7 @@ function channelNow(key) {
 const METERS_CHANNEL = [
   { id: 'follows', label: 'dash.follows', tip: 'tip.dashFollows',
     value: (s) => s.session.follows,
-    detail: (s) => (state && state.config.unfollow_detection ? t('dash.followsDetail', { n: num(s.session.unfollows) }) : t('dash.followsNoDetect')),
+    detail: (s) => (state && state.config.unfollow_detection ? loss(t('dash.followsDetail', { n: num(s.session.unfollows) }), s.session.unfollows) : t('dash.followsNoDetect')),
     total: (s) => s.total.follows,
     // The channel as it is on Twitch now, when known; else darkbot's count.
     now: () => (channelNow('followers') ? t('dash.followersNow', { n: num(state.channel.followers) }) : '') },
@@ -295,7 +304,7 @@ const METERS_CHANNEL = [
 const METERS = [
   { id: 'redemptions', label: 'dash.redemptions', tip: 'tip.dashRedemptions',
     value: (s) => s.session.redemptions,
-    detail: (s) => t('dash.redemptionsDetail', { played: num(s.session.played), refused: num(s.session.refused) }),
+    detail: (s) => [t('dash.played', { n: num(s.session.played) }), ', ', loss(t('dash.refused', { n: num(s.session.refused) }), s.session.refused)],
     total: (s) => s.total.redemptions },
   { id: 'commands', label: 'dash.commands', tip: 'tip.dashCommands',
     value: (s) => s.session.commands,
@@ -303,7 +312,7 @@ const METERS = [
     total: (s) => s.total.commands },
   { id: 'songs', label: 'dash.songs', tip: 'tip.dashSongs',
     value: (s) => s.session.songsAdded,
-    detail: (s) => t('dash.songsDetail', { rejected: num(s.session.songsRejected) }),
+    detail: (s) => loss(t('dash.songsDetail', { rejected: num(s.session.songsRejected) }), s.session.songsRejected),
     total: (s) => s.total.songsAdded },
   { id: 'viewers', label: 'dash.viewers', tip: 'tip.dashViewers',
     value: (s) => s.viewers,
@@ -340,7 +349,7 @@ function renderMeters(id, defs) {
         el('span', { class: 'meter-label' }, t(m.label)),
         el('span', { class: 'tip', tabindex: '0', role: 'button', 'data-tip': m.tip, 'aria-label': t('tip.more') })),
       el('div', { class: 'meter-value' }, num(v)),
-      el('div', { class: 'meter-detail' }, m.detail(stats)),
+      el('div', { class: 'meter-detail' }, ...[m.detail(stats)].flat()),
       m.now && m.now() ? el('div', { class: 'meter-total now' }, m.now())
         : m.total ? el('div', { class: 'meter-total' }, t('dash.total', { n: num(m.total(stats)) })) : null);
     if (bump) setTimeout(() => tile.classList.remove('bump'), BUMP_MS);
@@ -410,14 +419,32 @@ function loginRow(label, value) {
   return [el('dt', {}, label), el('dd', {}, value)];
 }
 
-function loginCard(service, h, opts) {
-  const ok = h.loggedIn && !h.lastError;
-  const card = el('div', { class: 'login-card' + (h.loggedIn ? '' : ' off') + (h.lastError ? ' warn' : '') });
-  const head = el('div', { class: 'login-head' },
-    el('span', { class: 'login-led' + (ok ? ' on' : '') , 'aria-hidden': 'true' }),
+// A login's state: 'ok' green, 'attn' amber (works, but needs you soon),
+// 'bad' red (a problem now), 'idle' grey (connected, not checked yet),
+// 'off' grey. Every state also has a word, so color is never the only sign.
+const LOGIN_SOON_DAYS = 14; // a login that ends sooner asks to reconnect
+const DAY_MS = 86400000;
+const STATE_WORD = { ok: 'logins.stateOk', attn: 'logins.stateAttn', bad: 'logins.stateBad', idle: 'logins.stateIdle', off: 'logins.off' };
+
+function cardHead(service, st, who) {
+  return el('div', { class: 'login-head' },
+    el('span', { class: 'login-led', 'aria-hidden': 'true' }),
     el('b', {}, t('logins.' + service)),
-    el('span', { class: 'login-who' }, h.loggedIn ? opts.who : t('logins.off')));
-  card.append(head);
+    el('span', { class: 'login-who' }, who),
+    el('span', { class: 'login-state' }, t(STATE_WORD[st])));
+}
+
+function loginCard(service, h, opts) {
+  let st = 'off';
+  if (h.loggedIn) {
+    // Only a login that really ends (Spotify) warns; Twitch's extends itself.
+    const endsSoon = opts.warnEnding && isSet(h.loginUntil) && new Date(h.loginUntil) - Date.now() < LOGIN_SOON_DAYS * DAY_MS;
+    st = h.lastError ? 'bad' : (endsSoon || opts.attn ? 'attn' : 'ok');
+  }
+  const card = el('div', { class: 'login-card ' + st });
+  card.append(cardHead(service, st, h.loggedIn ? opts.who : ''));
+  // Amber says why: the reconnect it needs, or the login ending soon.
+  if (st === 'attn') card.append(el('p', { class: 'login-attn' }, opts.attn || t('logins.endsSoon', { date: dayDate(h.loginUntil) })));
   if (!h.loggedIn) {
     card.append(el('button', { class: 'btn', onclick: () => openSettings(opts.section) }, t('logins.connect')));
     return card;
@@ -440,24 +467,27 @@ function loginCard(service, h, opts) {
       toast(t('logins.renewed', { service: t('logins.' + service) }));
     } catch (e) { /* toast shown by call */ } finally { btn.disabled = false; refresh(); }
   });
-  card.append(btn);
+  // Renewing doesn't help a login that ends or lacks permissions: offer
+  // connecting again, first.
+  const actions = el('div', { class: 'login-actions' }, btn);
+  if (st === 'attn') actions.prepend(el('button', { class: 'btn primary', onclick: () => openSettings(opts.section) }, t('logins.reconnect')));
+  card.append(actions);
   return card;
 }
 
-// The LED is only green once Pear Desktop answered: darkbot doesn't poll
-// it, so right after start nothing is known yet.
+// Green only once Pear Desktop answered: darkbot doesn't poll it, so right
+// after start nothing is known yet (grey "not checked" until "Check now"
+// or the first song request).
 const ytmWorks = (h) => h.linked && !h.lastError && isSet(h.lastOk);
 
 // YouTube Music has no token that expires: Pear Desktop allowed darkbot
 // once, so the card shows that and whether Pear Desktop answers.
-function ytmCard(h) {
-  const ok = ytmWorks(h);
-  const card = el('div', { class: 'login-card' + (h.linked ? '' : ' off') + (h.lastError ? ' warn' : '') });
-  card.append(el('div', { class: 'login-head' },
-    el('span', { class: 'login-led' + (ok ? ' on' : ''), 'aria-hidden': 'true' }),
-    el('b', {}, t('logins.ytmusic')),
-    el('span', { class: 'login-who' }, h.linked ? t('logins.ytmWho') : t('logins.off'))));
-  if (!h.linked) {
+function ytmCard(h, enabled) {
+  let st = 'off';
+  if (h.linked && enabled) st = h.lastError ? 'bad' : (ytmWorks(h) ? 'ok' : 'idle');
+  const card = el('div', { class: 'login-card ' + st });
+  card.append(cardHead('ytmusic', st, h.linked ? t('logins.ytmWho') : ''));
+  if (!h.linked || !enabled) {
     card.append(el('button', { class: 'btn', onclick: () => openSettings('songs') }, t('logins.connect')));
     return card;
   }
@@ -483,11 +513,11 @@ function renderLogins() {
   const sh = state.spotifyHealth || {};
   const cards = [
     loginCard('twitch', th, { who: state.twitchLogin, section: 'twitch', renew: 'RefreshTwitchToken',
+      attn: state.needsReconnect ? t('logins.needsReconnect') : '',
       nextRefresh: isSet(th.nextRefresh) ? th.nextRefresh : '', withCheck: true, untilKey: 'logins.twitchUntil' }),
     loginCard('spotify', sh, { who: state.spotifyUser, section: 'songs', renew: 'RefreshSpotifyToken',
-      nextRefresh: '', withCheck: false, untilKey: 'logins.spotifyUntil' })];
-  // Only for streamers who use YouTube Music.
-  if (state.config.songs.ytmusic_enabled) cards.push(ytmCard(state.ytmusicHealth || {}));
+      nextRefresh: '', withCheck: false, untilKey: 'logins.spotifyUntil', warnEnding: true })];
+  cards.push(ytmCard(state.ytmusicHealth || {}, state.config.songs.ytmusic_enabled));
   $('logins').replaceChildren(...cards);
 }
 setInterval(() => { if (!$('viewDash').classList.contains('hidden')) renderLogins(); }, LOGIN_TICK_MS);
