@@ -59,6 +59,21 @@ func waitFor(t *testing.T, what string, within time.Duration, cond func() bool) 
 	}
 }
 
+// idleFor: no new request for this long counts as idle.
+const idleFor = 300 * time.Millisecond
+
+// waitIdle waits until darkbot sends no more requests to the fake OBS.
+func waitIdle(t *testing.T, st *obstest.State) {
+	t.Helper()
+	last, since := -1, time.Now()
+	waitFor(t, "darkbot to finish its requests", 5*time.Second, func() bool {
+		if n := st.Total(); n != last {
+			last, since = n, time.Now()
+		}
+		return time.Since(since) >= idleFor
+	})
+}
+
 // OBS starts after darkbot, closes, and comes back: darkbot follows.
 func TestOBSKeepAlive(t *testing.T) {
 	port := freePort(t)
@@ -97,7 +112,11 @@ func TestOBSKeepAlive(t *testing.T) {
 		t.Fatal("must reconnect")
 	}
 	// OBS crashes: the connection just ends without goodbye. The ping
-	// notices it, at the latest after obs.DropWithin.
+	// notices it, at the latest after obs.DropWithin, when OBS crashes while
+	// idle. So first let darkbot's after-connect requests (scene check,
+	// hiding old alerts) finish: goobs answers queued requests to a dead
+	// OBS only after each one's response timeout.
+	waitIdle(t, f.State)
 	f.Close()
 	if testing.Short() {
 		return

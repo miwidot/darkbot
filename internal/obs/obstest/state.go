@@ -101,6 +101,13 @@ func (s *State) Input(name string) map[string]any {
 	return out
 }
 
+// Total returns how many requests were sent.
+func (s *State) Total() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.Requests)
+}
+
 // Count returns how often a request type was sent.
 func (s *State) Count(req string) int {
 	s.mu.Lock()
