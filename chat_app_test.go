@@ -18,7 +18,9 @@ func newChatApp(t *testing.T) *App {
 		t.Fatal(err)
 	}
 	log := applog.New()
-	return &App{cfg: cfg, log: log, st: stats.Open(filepath.Join(t.TempDir(), "s.json"), log), act: activity.Open(filepath.Join(t.TempDir(), "a.json"), log)}
+	a := &App{cfg: cfg, log: log, st: stats.Open(filepath.Join(t.TempDir(), "s.json"), log), act: activity.Open(filepath.Join(t.TempDir(), "a.json"), log)}
+	a.cb = a.newChatBot()
+	return a
 }
 
 func TestChatOffByDefault(t *testing.T) {

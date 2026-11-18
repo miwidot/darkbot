@@ -197,15 +197,34 @@ const (
 // Permissions lists every level, lowest first.
 var Permissions = []Permission{PermEveryone, PermSubscriber, PermVIP, PermModerator, PermBroadcaster}
 
-// ChatCommand answers "!name" (or an alias) in chat.
+// Command triggers.
+const (
+	// TriggerCommand: the message starts with "!name" (or an alias).
+	TriggerCommand = "command"
+	// TriggerWord: the message's first word is the name (or an alias),
+	// without "!", e.g. "hi" in "Hi everyone!".
+	TriggerWord = "word"
+)
+
+// ChatCommand answers "!name" (or an alias) in chat, or a message that
+// starts with a word (Trigger).
 type ChatCommand struct {
 	ID string `json:"id"`
 	// Name without "!", lowercase.
 	Name    string   `json:"name"`
 	Aliases []string `json:"aliases,omitempty"`
+	// Trigger is TriggerCommand or TriggerWord.
+	Trigger string `json:"trigger"`
 	// Response template; placeholders {user} and {target}.
-	Response   string     `json:"response"`
-	Permission Permission `json:"permission"`
+	Response string `json:"response"`
+	// ResponseFile is a text file; when set, each answer is a random line
+	// of it (same placeholders) instead of Response. darkbot reads it again
+	// whenever it changes.
+	ResponseFile string `json:"response_file,omitempty"`
+	// OncePerStream answers each viewer at most once per stream (e.g. a
+	// greeting); the broadcaster is exempt.
+	OncePerStream bool       `json:"once_per_stream,omitempty"`
+	Permission    Permission `json:"permission"`
 	// CooldownSeconds blocks the command for everyone after a use;
 	// UserCooldownSeconds for the same viewer. The broadcaster is exempt.
 	CooldownSeconds     int `json:"cooldown_seconds"`
@@ -332,6 +351,9 @@ func (c *Config) normalize() {
 		}
 		if !slices.Contains(Permissions, cmd.Permission) {
 			cmd.Permission = PermBroadcaster // unknown level: fail closed
+		}
+		if cmd.Trigger != TriggerWord {
+			cmd.Trigger = TriggerCommand
 		}
 		cmd.CooldownSeconds = min(max(cmd.CooldownSeconds, 0), MaxCommandCooldown)
 		cmd.UserCooldownSeconds = min(max(cmd.UserCooldownSeconds, 0), MaxCommandCooldown)

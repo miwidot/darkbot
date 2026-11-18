@@ -89,6 +89,7 @@ func newEventApp(t *testing.T, events map[string]config.EventAction, overlay ...
 	out := &recordOutput{played: make(chan config.Sound, 4)}
 	a := &App{cfg: cfg, log: log, st: stats.Open(filepath.Join(t.TempDir(), "s.json"), log), act: activity.Open(filepath.Join(t.TempDir(), "a.json"), log)}
 	a.bot = bot.New(cfg, log, func() bot.Output { return out }, nil)
+	a.cb = a.newChatBot()
 	if len(overlay) > 0 {
 		a.bot.SetOverlay(func() bot.Overlay { return overlay[0] })
 	}

@@ -1,3 +1,18 @@
+2026-11-19 01:44 +08 — Chat commands: word triggers and random answers from a text file
+- A chat command can now be triggered by a word at the start of a message instead of !name
+  ("hi" catches "Hi!", "hi everyone"; case and punctuation ignored; aliases e.g. hallo, moin).
+  The streamer's own messages never trigger a word, so their "hi" doesn't make their account
+  answer itself. A word and a !command may share a name; song command names stay reserved only
+  for !commands.
+- Answer from a text file: a random line per answer (one per line, {user}/{target} work, empty
+  lines skipped, UTF-8 BOM and CRLF handled, max 1 MB / 10,000 lines). The file is linked, not
+  copied, and read again when it changes, so it can be edited during a stream; never the same
+  line twice in a row. A missing or empty file means no answer (logged) and no cooldown used.
+- "Answer each viewer only once per stream" (on by default for new word commands): reset when
+  the stream goes live.
+- Command editor: trigger choice, answer text or file (shows how many answers the file has),
+  once-per-stream switch; the list shows words without "!" and the file name.
+
 2026-11-19 01:10 +08 — Release v0.4.0
 - YouTube Music song requests through Pear Desktop (links routed by service, search service
   setting, dashboard card); macOS bundle 0.4.0.

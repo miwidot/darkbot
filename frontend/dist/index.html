@@ -519,10 +519,17 @@
 <dialog class="modal" id="cmdEditor" aria-labelledby="cmdTitle">
   <h2 id="cmdTitle"></h2>
   <label class="check"><input type="checkbox" id="cmdEnabled"> <span data-i18n="cmdedit.enabled"></span></label>
+  <div class="field">
+    <label for="cmdTrigger"><span data-i18n="cmdedit.trigger"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdTrigger" data-i18n-aria-label="tip.more"></span></label>
+    <select id="cmdTrigger">
+      <option value="command" data-i18n="cmdedit.triggerCommand"></option>
+      <option value="word" data-i18n="cmdedit.triggerWord"></option>
+    </select>
+  </div>
   <div class="grid2 wide-first">
     <div class="field">
-      <label for="cmdName"><span data-i18n="cmdedit.name"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdName" data-i18n-aria-label="tip.more"></span></label>
-      <div class="cmd-name"><span aria-hidden="true">!</span><input id="cmdName" type="text" maxlength="26" autocomplete="off" spellcheck="false" data-i18n-placeholder="cmdedit.namePlaceholder"></div>
+      <label for="cmdName"><span id="cmdNameLabel" data-i18n="cmdedit.name"></span> <span class="tip" id="cmdNameTip" tabindex="0" role="button" data-tip="tip.cmdName" data-i18n-aria-label="tip.more"></span></label>
+      <div class="cmd-name"><span aria-hidden="true" id="cmdBang">!</span><input id="cmdName" type="text" maxlength="26" autocomplete="off" spellcheck="false" data-i18n-placeholder="cmdedit.namePlaceholder"></div>
     </div>
     <div class="field">
       <label for="cmdPermission" data-i18n="cmdedit.permission"></label>
@@ -534,9 +541,21 @@
     <input id="cmdAliases" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="cmdedit.aliasesPlaceholder">
   </div>
   <div class="field">
+    <label for="cmdAnswerMode" data-i18n="cmdedit.answerFrom"></label>
+    <select id="cmdAnswerMode">
+      <option value="text" data-i18n="cmdedit.answerText"></option>
+      <option value="file" data-i18n="cmdedit.answerFile"></option>
+    </select>
+  </div>
+  <div class="field" id="cmdTextField">
     <label for="cmdResponse"><span data-i18n="cmdedit.response"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdResponse" data-i18n-aria-label="tip.more"></span></label>
     <textarea id="cmdResponse" rows="2" maxlength="500" data-i18n-placeholder="cmdedit.responsePlaceholder"></textarea>
     <p class="hint" data-i18n="cmdedit.responseHint"></p>
+  </div>
+  <div class="field hidden" id="cmdFileField">
+    <div class="inline"><input id="cmdFile" type="text" readonly data-i18n-placeholder="cmdedit.fileNone" data-i18n-aria-label="cmdedit.answerFile"><button type="button" class="btn" id="cmdFilePick" data-i18n="editor.chooseFile"></button></div>
+    <p class="hint" id="cmdFileInfo"></p>
+    <p class="hint" data-i18n="cmdedit.fileHint"></p>
   </div>
   <div class="grid2">
     <div class="field">
@@ -548,6 +567,7 @@
       <input id="cmdUserCooldown" type="number" min="0" max="3600" step="1">
     </div>
   </div>
+  <label class="check"><input type="checkbox" id="cmdOnce"> <span data-i18n="cmdedit.oncePerStream"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdOnce" data-i18n-aria-label="tip.more"></span></label>
   <div class="field">
     <label for="cmdSound"><span data-i18n="cmdedit.sound"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdSound" data-i18n-aria-label="tip.more"></span></label>
     <div class="inline"><input id="cmdSound" type="text" readonly data-i18n-placeholder="evedit.noSound"><button type="button" class="btn" id="cmdPick" data-i18n="editor.chooseFile"></button><button type="button" class="btn quiet" id="cmdClear" data-i18n="evedit.clear"></button></div>

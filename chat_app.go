@@ -13,6 +13,7 @@ import (
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/i18n"
 	"github.com/miwidot/darkbot/internal/songs"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Chat commands and timers (internal/chatbot), and whether the stream is
@@ -57,7 +58,7 @@ func (a *App) newChatBot() *chatbot.Bot {
 		Send:     func(ctx context.Context, text string) { a.postChat(ctx, text, "") },
 		Play: func(c config.ChatCommand, user string) {
 			a.bot.PlayEvent(config.Sound{
-				ID: commandSoundPrefix + c.ID, RewardTitle: chatbot.Prefix + c.Name,
+				ID: commandSoundPrefix + c.ID, RewardTitle: chatbot.Display(c),
 				File: c.Sound, Volume: c.Volume, Enabled: true,
 			}, nil, user)
 		},
@@ -72,6 +73,9 @@ func (a *App) newChatBot() *chatbot.Bot {
 // was off when it started) starts a new session at that time.
 func (a *App) setLive(live bool, since time.Time) {
 	was := a.live.Swap(live)
+	if live && !was {
+		a.cb.NewStream() // greetings etc. answer everyone again
+	}
 	// The session darkbot started on stream.online is stamped with the
 	// local clock, since with Twitch's: a local clock running behind must
 	// not look like a later stream and wipe the first minutes.
@@ -104,8 +108,32 @@ func (a *App) SetTimersEnabled(on bool) error {
 	return a.updateChat(func(c *config.Chat) error { c.TimersEnabled = on; return nil })
 }
 
+// PickTextFile opens a native file dialog for a command's answer file.
+func (a *App) PickTextFile() (string, error) {
+	lang := a.lang()
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:   i18n.T(lang, "dialog.chooseText"),
+		Filters: []runtime.FileFilter{{DisplayName: i18n.T(lang, "dialog.textFiles"), Pattern: "*.txt"}},
+	})
+	return path, a.uiErr(err)
+}
+
+// CountLines reads an answer file and returns how many answers it has.
+func (a *App) CountLines(path string) (int, error) {
+	lines, err := chatbot.ReadLines(path)
+	return len(lines), a.uiErr(err)
+}
+
 // SaveCommand adds a command (empty ID) or replaces the one with its ID.
 func (a *App) SaveCommand(cmd config.ChatCommand) error {
+	if cmd.ResponseFile = strings.TrimSpace(cmd.ResponseFile); cmd.ResponseFile != "" {
+		if !filepath.IsAbs(cmd.ResponseFile) {
+			return a.uiErr(i18n.E("err.pathAbsolute"))
+		}
+		if _, err := chatbot.ReadLines(cmd.ResponseFile); err != nil {
+			return a.uiErr(err)
+		}
+	}
 	if cmd.Sound = strings.TrimSpace(cmd.Sound); cmd.Sound != "" {
 		if !filepath.IsAbs(cmd.Sound) {
 			return a.uiErr(i18n.E("err.pathAbsolute"))

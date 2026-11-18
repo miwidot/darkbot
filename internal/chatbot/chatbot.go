@@ -1,5 +1,6 @@
-// Package chatbot runs the streamer's own chat commands ("!discord") and
-// timed messages. Both are off until the streamer turns them on.
+// Package chatbot runs the streamer's own chat commands ("!discord", or a
+// word at the start of a message like "hi") and timed messages. Both are
+// off until the streamer turns them on.
 //
 // Twitch (checked 2026-11-18):
 //   - Chat arrives through EventSub channel.chat.message; roles come from
@@ -19,6 +20,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/twitch"
@@ -80,9 +82,11 @@ type Bot struct {
 	mu       sync.Mutex
 	used     map[string]time.Time // command ID -> last use
 	usedBy   map[string]time.Time // command ID + "|" + user ID -> last use
+	answered map[string]bool      // command ID + "|" + user ID, this stream (OncePerStream)
+	lines    *Lines               // answer files
 	replies  []time.Time          // command answers within replyWindow
 	sent     []sentMsg            // darkbot's messages within echoWindow
-	lines    int                  // chat messages seen (darkbot's own excluded)
+	seen     int                  // chat messages seen (darkbot's own excluded)
 	timers   map[string]timerState
 	lastPost time.Time // last timer post
 	running  bool      // timers were active at the last tick
@@ -103,7 +107,15 @@ func New(d Deps) *Bot {
 	if d.Now == nil {
 		d.Now = time.Now
 	}
-	return &Bot{d: d, used: map[string]time.Time{}, usedBy: map[string]time.Time{}, timers: map[string]timerState{}}
+	return &Bot{d: d, used: map[string]time.Time{}, usedBy: map[string]time.Time{}, answered: map[string]bool{}, lines: NewLines(), timers: map[string]timerState{}}
+}
+
+// NewStream starts a new stream: OncePerStream commands answer everyone
+// again. Call when the stream goes live.
+func (b *Bot) NewStream() {
+	b.mu.Lock()
+	clear(b.answered)
+	b.mu.Unlock()
 }
 
 // Handle looks at one chat message: it counts for the timers' minimum and
@@ -113,26 +125,33 @@ func (b *Bot) Handle(ctx context.Context, m twitch.ChatMessage) {
 		return
 	}
 	b.mu.Lock()
-	b.lines++
+	b.seen++
 	b.mu.Unlock()
 
 	s := b.d.Settings()
 	if !s.CommandsEnabled {
 		return
 	}
-	name, arg := split(m.Text)
-	if name == "" {
-		return
-	}
-	cmd, ok := Find(s.Commands, name)
+	cmd, arg, ok := match(s.Commands, m)
 	if !ok || !cmd.Enabled || !Allowed(cmd.Permission, m) {
 		return
 	}
-	text := Render(cmd.Response, m, arg)
+	tmpl := cmd.Response
+	if cmd.ResponseFile != "" {
+		line, err := b.lines.Pick(cmd.ResponseFile)
+		if err != nil {
+			b.d.Log.Warnf("Command %s: no answer from %s: %v", Display(cmd), cmd.ResponseFile, err)
+		}
+		tmpl = line
+	}
+	text := Render(tmpl, m, arg)
+	if text == "" && cmd.Sound == "" {
+		return
+	}
 	if !b.take(cmd, m, text != "") {
 		return
 	}
-	b.d.Log.Infof("%s used %s%s", m.ChatterName, Prefix, cmd.Name)
+	b.d.Log.Infof("%s used %s", m.ChatterName, Display(cmd))
 	if b.d.Used != nil {
 		b.d.Used()
 	}
@@ -142,6 +161,52 @@ func (b *Bot) Handle(ctx context.Context, m twitch.ChatMessage) {
 	if cmd.Sound != "" && b.d.Play != nil {
 		b.d.Play(cmd, m.ChatterName)
 	}
+}
+
+// match finds the command a message triggers, and the text after the
+// trigger. A "!" message can only be a command; any other message may
+// start with a word trigger. The broadcaster's own words trigger nothing:
+// their "hi" to chat must not make their account answer itself.
+func match(cmds []config.ChatCommand, m twitch.ChatMessage) (config.ChatCommand, string, bool) {
+	if name, arg := split(m.Text); name != "" {
+		cmd, ok := Find(cmds, config.TriggerCommand, name)
+		return cmd, arg, ok
+	}
+	if m.IsBroadcaster {
+		return config.ChatCommand{}, "", false
+	}
+	word, arg := firstWord(m.Text)
+	if word == "" {
+		return config.ChatCommand{}, "", false
+	}
+	cmd, ok := Find(cmds, config.TriggerWord, word)
+	return cmd, arg, ok
+}
+
+// firstWord returns a message's first word, lowercase and without the
+// punctuation around it ("Hi!" and "hallo," count as "hi" and "hallo"),
+// and the rest of the message.
+func firstWord(text string) (word, rest string) {
+	first, rest, _ := strings.Cut(strings.TrimSpace(text), " ")
+	word = strings.TrimFunc(first, func(r rune) bool { return unicode.IsPunct(r) || unicode.IsSymbol(r) })
+	return strings.ToLower(word), strings.TrimSpace(rest)
+}
+
+// Trigger is a command's trigger; settings from before word triggers have
+// none and are "!" commands.
+func Trigger(c config.ChatCommand) string {
+	if c.Trigger == config.TriggerWord {
+		return config.TriggerWord
+	}
+	return config.TriggerCommand
+}
+
+// Display names a command as chat sees it: "!discord", or "hi" for a word.
+func Display(c config.ChatCommand) string {
+	if Trigger(c) == config.TriggerWord {
+		return c.Name
+	}
+	return Prefix + c.Name
 }
 
 // split returns the command name (lowercase, without "!") and the rest.
@@ -154,9 +219,13 @@ func split(text string) (name, arg string) {
 	return strings.ToLower(first), strings.TrimSpace(rest)
 }
 
-// Find returns the command answering to name (a name or an alias).
-func Find(cmds []config.ChatCommand, name string) (config.ChatCommand, bool) {
+// Find returns the command with that trigger answering to name (a name or
+// an alias).
+func Find(cmds []config.ChatCommand, trigger, name string) (config.ChatCommand, bool) {
 	for _, c := range cmds {
+		if Trigger(c) != trigger {
+			continue
+		}
 		if c.Name == name || slices.Contains(c.Aliases, name) {
 			return c, true
 		}
@@ -200,14 +269,18 @@ func Render(tmpl string, m twitch.ChatMessage, arg string) string {
 	return strings.TrimSpace(r.Replace(tmpl))
 }
 
-// take checks the cooldowns and the answer cap and, if the command may
-// run, starts its cooldowns. The broadcaster skips the cooldowns.
+// take checks the cooldowns, the once-per-stream rule and the answer cap
+// and, if the command may run, starts its cooldowns. The broadcaster skips
+// the cooldowns and the once-per-stream rule.
 func (b *Bot) take(cmd config.ChatCommand, m twitch.ChatMessage, answers bool) bool {
 	now := b.d.Now()
 	key := cmd.ID + "|" + m.ChatterID
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if !m.IsBroadcaster {
+		if cmd.OncePerStream && b.answered[key] {
+			return false
+		}
 		if last, ok := b.used[cmd.ID]; ok && now.Sub(last) < time.Duration(cmd.CooldownSeconds)*time.Second {
 			return false
 		}
@@ -218,13 +291,16 @@ func (b *Bot) take(cmd config.ChatCommand, m twitch.ChatMessage, answers bool) b
 	if answers {
 		b.replies = slices.DeleteFunc(b.replies, func(t time.Time) bool { return now.Sub(t) >= replyWindow })
 		if len(b.replies) >= maxReplies {
-			b.d.Log.Warnf("Command %s%s skipped: %d answers in the last %s", Prefix, cmd.Name, maxReplies, replyWindow)
+			b.d.Log.Warnf("Command %s skipped: %d answers in the last %s", Display(cmd), maxReplies, replyWindow)
 			return false
 		}
 		b.replies = append(b.replies, now)
 	}
 	b.used[cmd.ID] = now
 	b.usedBy[key] = now
+	if cmd.OncePerStream && !m.IsBroadcaster {
+		b.answered[key] = true
+	}
 	b.forgetOld(now)
 	return true
 }
@@ -322,10 +398,10 @@ func (b *Bot) dueTimer() (config.ChatTimer, bool) {
 		st, ok := b.timers[t.ID]
 		if !ok || !t.Enabled {
 			// New or off: (re)starts waiting from now.
-			b.timers[t.ID] = timerState{last: now, lines: b.lines}
+			b.timers[t.ID] = timerState{last: now, lines: b.seen}
 			continue
 		}
-		if now.Sub(st.last) < time.Duration(t.IntervalMinutes)*time.Minute || b.lines-st.lines < t.MinLines {
+		if now.Sub(st.last) < time.Duration(t.IntervalMinutes)*time.Minute || b.seen-st.lines < t.MinLines {
 			continue
 		}
 		if pick == nil || st.last.Before(pickSince) {
@@ -340,7 +416,7 @@ func (b *Bot) dueTimer() (config.ChatTimer, bool) {
 	if pick == nil || (!b.lastPost.IsZero() && now.Sub(b.lastPost) < timerGap) {
 		return config.ChatTimer{}, false
 	}
-	b.timers[pick.ID] = timerState{last: now, lines: b.lines}
+	b.timers[pick.ID] = timerState{last: now, lines: b.seen}
 	b.lastPost = now
 	return *pick, true
 }

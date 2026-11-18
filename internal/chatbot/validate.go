@@ -18,8 +18,9 @@ func cleanName(s string) string {
 }
 
 // NormalizeCommand cleans up c and checks it against the other commands
-// (same ID = the one being edited) and the reserved names (song
-// commands). The sound file is checked by the caller.
+// with the same trigger (same ID = the one being edited) and the reserved
+// names (song commands, only for "!" commands). The sound and answer
+// files are checked by the caller.
 func NormalizeCommand(c config.ChatCommand, others []config.ChatCommand, reserved []string) (config.ChatCommand, error) {
 	c.Name = cleanName(c.Name)
 	var aliases []string
@@ -30,13 +31,15 @@ func NormalizeCommand(c config.ChatCommand, others []config.ChatCommand, reserve
 	}
 	c.Aliases = aliases
 	c.Response = oneLine(c.Response)
+	c.ResponseFile = strings.TrimSpace(c.ResponseFile)
 	c.Sound = strings.TrimSpace(c.Sound)
+	c.Trigger = Trigger(c)
 	switch {
 	case !namePattern.MatchString(c.Name):
 		return c, i18n.E("err.cmdName", "name", c.Name)
 	case len(c.Aliases) > config.MaxAliases:
 		return c, i18n.E("err.cmdAliases", "max", config.MaxAliases)
-	case c.Response == "" && c.Sound == "":
+	case c.Response == "" && c.ResponseFile == "" && c.Sound == "":
 		return c, i18n.E("err.cmdEmpty")
 	case utf8.RuneCountInString(c.Response) > config.MaxChatTemplate:
 		return c, i18n.E("err.chatTooLong", "max", config.MaxChatTemplate)
@@ -53,12 +56,13 @@ func NormalizeCommand(c config.ChatCommand, others []config.ChatCommand, reserve
 	}
 	names := append([]string{c.Name}, c.Aliases...)
 	for _, n := range names {
-		if slices.Contains(reserved, n) {
-			return c, i18n.E("err.cmdReserved", "name", Prefix+n)
+		shown := Display(config.ChatCommand{Name: n, Trigger: c.Trigger})
+		if c.Trigger == config.TriggerCommand && slices.Contains(reserved, n) {
+			return c, i18n.E("err.cmdReserved", "name", shown)
 		}
 		for _, o := range others {
-			if o.ID != c.ID && (o.Name == n || slices.Contains(o.Aliases, n)) {
-				return c, i18n.E("err.cmdTaken", "name", Prefix+n)
+			if o.ID != c.ID && Trigger(o) == c.Trigger && (o.Name == n || slices.Contains(o.Aliases, n)) {
+				return c, i18n.E("err.cmdTaken", "name", shown)
 			}
 		}
 	}

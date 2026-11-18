@@ -657,10 +657,18 @@ const DEFAULT_TIMER_MINUTES = 15;
 let cmdEditing = null;    // command open in the editor (null id = new)
 let timerEditing = null;  // timer open in the editor
 
-const cmdNames = (c) => ['!' + c.name, ...(c.aliases || []).map((a) => '!' + a)].join(', ');
+// A "!" command or a word at the start of a message (older settings have
+// no trigger: "!" commands).
+const isWord = (c) => c.trigger === 'word';
+const cmdNames = (c) => {
+  const p = isWord(c) ? '' : '!';
+  return [p + c.name, ...(c.aliases || []).map((a) => p + a)].join(', ');
+};
+const cmdAnswer = (c) => c.response_file ? t('cmds.fileAnswer', { file: basename(c.response_file) }) : (c.response || t('cmds.soundOnly'));
 
 function cmdSummary(c) {
   const bits = [t('perm.' + c.permission)];
+  if (c.once_per_stream) bits.push(t('cmds.once'));
   if (c.cooldown_seconds > 0) bits.push(t('cmds.cooldown', { n: num(c.cooldown_seconds) }));
   if (c.sound) bits.push(t('events.sound'));
   return bits.join(', ');
@@ -691,7 +699,7 @@ function renderChat() {
   $('cmdEmpty').classList.toggle('hidden', cmds.length > 0);
   $('timerEmpty').classList.toggle('hidden', timers.length > 0);
   $('cmdList').replaceChildren(...cmds.map((cmd) => chatRow(
-    c.commands_enabled && cmd.enabled, cmdNames(cmd), cmd.response || t('cmds.soundOnly'), cmdSummary(cmd), () => openCommandEditor(cmd))));
+    c.commands_enabled && cmd.enabled, cmdNames(cmd), cmdAnswer(cmd), cmdSummary(cmd), () => openCommandEditor(cmd))));
   $('timerList').replaceChildren(...timers.map((tm) => chatRow(
     c.timers_enabled && tm.enabled, timerSummary(tm), tm.message, '', () => openTimerEditor(tm))));
   let st = t('cmds.timersOff');
@@ -714,11 +722,49 @@ function fillPermissionLabels() {
 }
 
 let cmdDeleteArmed = 0;
+// The editor follows the trigger (the "!" before the name) and the answer
+// source (text or file).
+function cmdEditorMode() {
+  const word = $('cmdTrigger').value === 'word';
+  $('cmdBang').classList.toggle('hidden', word);
+  $('cmdNameLabel').textContent = t(word ? 'cmdedit.word' : 'cmdedit.name');
+  $('cmdNameTip').dataset.tip = word ? 'tip.cmdWord' : 'tip.cmdName';
+  $('cmdName').placeholder = t(word ? 'cmdedit.wordPlaceholder' : 'cmdedit.namePlaceholder');
+  const file = $('cmdAnswerMode').value === 'file';
+  $('cmdTextField').classList.toggle('hidden', file);
+  $('cmdFileField').classList.toggle('hidden', !file);
+}
+
+// cmdFileInfo shows how many answers the chosen file has (or why it can't
+// be used). Only the newest check may write, the file can change fast.
+let cmdFileCheck = 0;
+async function showFileInfo() {
+  const path = $('cmdFile').value;
+  const mine = ++cmdFileCheck;
+  $('cmdFileInfo').textContent = '';
+  $('cmdFileInfo').classList.remove('warn-text');
+  if (!path) return;
+  try {
+    const n = await App().CountLines(path);
+    if (mine === cmdFileCheck) $('cmdFileInfo').textContent = t('cmdedit.fileLines', { n: num(n) });
+  } catch (e) {
+    if (mine !== cmdFileCheck) return;
+    $('cmdFileInfo').textContent = errText(e);
+    $('cmdFileInfo').classList.add('warn-text');
+  }
+}
+
 function openCommandEditor(cmd) {
-  cmdEditing = cmd || { id: '', name: '', aliases: [], response: '', permission: 'everyone', cooldown_seconds: 0, user_cooldown_seconds: 0, sound: '', volume: 1, enabled: true };
+  cmdEditing = cmd || { id: '', name: '', aliases: [], trigger: 'command', response: '', response_file: '', once_per_stream: false, permission: 'everyone', cooldown_seconds: 0, user_cooldown_seconds: 0, sound: '', volume: 1, enabled: true };
   fillPermissionLabels();
-  $('cmdTitle').textContent = cmd ? '!' + cmd.name : t('cmdedit.new');
+  $('cmdTitle').textContent = cmd ? cmdNames({ ...cmd, aliases: [] }) : t('cmdedit.new');
   $('cmdEnabled').checked = cmdEditing.enabled;
+  $('cmdTrigger').value = isWord(cmdEditing) ? 'word' : 'command';
+  $('cmdAnswerMode').value = cmdEditing.response_file ? 'file' : 'text';
+  $('cmdFile').value = cmdEditing.response_file || '';
+  $('cmdOnce').checked = !!cmdEditing.once_per_stream;
+  cmdEditorMode();
+  showFileInfo();
   $('cmdName').value = cmdEditing.name;
   $('cmdAliases').value = (cmdEditing.aliases || []).join(', ');
   $('cmdResponse').value = cmdEditing.response || '';
@@ -741,7 +787,11 @@ function editedCommand() {
     id: cmdEditing.id,
     name: $('cmdName').value,
     aliases: $('cmdAliases').value.split(/[,\s]+/).filter(Boolean),
-    response: $('cmdResponse').value,
+    trigger: $('cmdTrigger').value,
+    // Only the chosen answer source is kept.
+    response: $('cmdAnswerMode').value === 'text' ? $('cmdResponse').value : '',
+    response_file: $('cmdAnswerMode').value === 'file' ? $('cmdFile').value : '',
+    once_per_stream: $('cmdOnce').checked,
     permission: $('cmdPermission').value,
     cooldown_seconds: intIn('cmdCooldown'),
     user_cooldown_seconds: intIn('cmdUserCooldown'),
@@ -761,6 +811,16 @@ $('cmdPick').addEventListener('click', async () => {
   if (f) $('cmdSound').value = f;
 });
 $('cmdClear').addEventListener('click', () => { $('cmdSound').value = ''; });
+$('cmdTrigger').addEventListener('change', () => {
+  // A new greeting word answers each viewer once by default.
+  if (!cmdEditing.id && $('cmdTrigger').value === 'word') $('cmdOnce').checked = true;
+  cmdEditorMode();
+});
+$('cmdAnswerMode').addEventListener('change', cmdEditorMode);
+$('cmdFilePick').addEventListener('click', async () => {
+  const f = await call('PickTextFile');
+  if (f) { $('cmdFile').value = f; showFileInfo(); }
+});
 $('cmdResponse').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
 $('cmdCancel').addEventListener('click', () => $('cmdEditor').close());
 $('cmdSave').addEventListener('click', async () => {
