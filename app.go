@@ -13,6 +13,7 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"github.com/miwidot/darkbot/internal/activity"
 	"github.com/miwidot/darkbot/internal/applog"
 	"github.com/miwidot/darkbot/internal/audio"
 	"github.com/miwidot/darkbot/internal/autostart"
@@ -88,6 +89,7 @@ type App struct {
 	sp                                    *spotify.Client
 	sr                                    *songs.Handler
 	st                                    *stats.Stats
+	act                                   *activity.Log // the activity feed, kept on disk
 
 	mu          sync.Mutex
 	esCancel    context.CancelFunc
@@ -125,7 +127,7 @@ func NewApp(log *applog.Log) (*App, error) {
 		return nil, err
 	}
 
-	a := &App{log: log, cfg: cfg, tok: tok, hx: twitch.NewHelix(tok), st: stats.Open(cfg.StatsPath(), log)}
+	a := &App{log: log, cfg: cfg, tok: tok, hx: twitch.NewHelix(tok), st: stats.Open(cfg.StatsPath(), log), act: activity.Open(cfg.ActivityPath(), log)}
 	a.ch.kick = make(chan struct{}, 1)
 	a.st.OnChange(func() {
 		if a.ctx != nil {
@@ -138,7 +140,9 @@ func NewApp(log *applog.Log) (*App, error) {
 	a.obsO = &obs.Output{OBS: a.obs, Cfg: cfg}
 	a.bot = bot.New(cfg, log, a.currentOutput, func(act bot.Activity) {
 		a.countActivity(act)
-		if a.ctx != nil {
+		if keptBotKinds[act.Kind] && !act.Test {
+			a.keepActivity(act) // saves and shows it
+		} else if a.ctx != nil {
 			runtime.EventsEmit(a.ctx, "activity", act)
 		}
 	})
@@ -168,9 +172,7 @@ func NewApp(log *applog.Log) (*App, error) {
 			case songs.ActSkipped:
 				a.st.Skip()
 			}
-			if a.ctx != nil {
-				runtime.EventsEmit(a.ctx, "activity", act)
-			}
+			a.keepActivity(act)
 		},
 		Log: log,
 	})
@@ -303,6 +305,7 @@ func (a *App) installUpdate() error {
 	a.log.Infof("Update %s installed, restarting", tag)
 	// Restart exits without the normal shutdown: save what shutdown saves.
 	a.st.Flush()
+	a.act.Flush()
 	a.obs.Disconnect()
 	tray.Stop()
 	var args []string
@@ -319,6 +322,7 @@ func (a *App) SetAutoUpdate(on bool) error {
 
 func (a *App) shutdown(context.Context) {
 	a.st.Flush()
+	a.act.Flush()
 	a.obs.Disconnect()
 	tray.Stop()
 }

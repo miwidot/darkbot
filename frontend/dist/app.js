@@ -7,7 +7,7 @@ const $ = (id) => document.getElementById(id);
 const IS_WINDOWS = navigator.userAgent.includes('Windows');
 const SINK_SUPPORTED = typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype;
 const TRACK_COUNT = 6;
-const FEED_MAX = 120;
+const FEED_MAX = 200; // as many as darkbot keeps on disk (activity.MaxEntries)
 const DEFAULT_COST = 100;
 // Suggested reward colors (Twitch accepts any #RRGGBB). New rewards start
 // with a random one so the reward list on Twitch stays easy to tell apart.
@@ -791,6 +791,16 @@ function onActivity(a) {
 }
 
 function addFeed(a) {
+  // Usually the newest; a follow found after darkbot was off is older and
+  // goes where its time belongs.
+  const at = Date.parse(a.at);
+  const pos = activities.findIndex((o) => Date.parse(o.at) <= at);
+  if (pos > 0) {
+    activities.splice(pos, 0, a);
+    if (activities.length > FEED_MAX) activities.length = FEED_MAX;
+    renderFeed();
+    return;
+  }
   activities.unshift(a);
   if (activities.length > FEED_MAX) activities.length = FEED_MAX;
   const item = feedItem(a);
@@ -802,25 +812,66 @@ function addFeed(a) {
   requestAnimationFrame(() => requestAnimationFrame(() => item.classList.remove('fresh')));
 }
 
+// feedTime: the time today, the date on earlier days (full time as tooltip).
+function feedTime(at) {
+  const d = new Date(at);
+  const today = d.toDateString() === new Date().toDateString();
+  const full = d.toLocaleString(I18N.lang || undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return el('time', { datetime: at, title: full },
+    today ? clock(d) : d.toLocaleDateString(I18N.lang || undefined, { day: 'numeric', month: 'numeric' }));
+}
+
 function feedItem(a) {
   if (a.kind === 'event') {
+    const tag = a.test ? el('span', { class: 'test-tag' }, t('feed.test'))
+      : a.event.missed ? el('span', { class: 'test-tag', title: t('feed.missedTitle') }, t('feed.missed')) : null;
     return el('li', { class: 'feed-item event ev-' + a.event.kind },
-      el('time', { datetime: a.at }, clock(new Date(a.at))),
-      el('span', { class: 'what' }, ...(a.test ? [el('span', { class: 'test-tag' }, t('feed.test')), ' '] : []), ...eventLine(a.event)));
+      feedTime(a.at),
+      el('span', { class: 'what' }, ...(tag ? [tag, ' '] : []), ...eventLine(a.event)));
   }
-  const [who, verb, what, why] = FEED_TEXT[a.kind](a);
+  const text = FEED_TEXT[a.kind];
+  if (!text) return null; // kept by a newer darkbot; nothing to show
+  const [who, verb, what, why] = text(a);
   const kindClass = FEED_CLASS[a.kind] || 'skipped';
   return el('li', { class: 'feed-item ' + kindClass },
-    el('time', { datetime: a.at }, clock(new Date(a.at))),
+    feedTime(a.at),
     el('span', { class: 'what' }, el('b', {}, who), verb, el('b', {}, what)),
     why ? el('span', { class: 'why' }, why) : null);
 }
 
 // Rebuilds the feed, e.g. after the language changed.
 function renderFeed() {
-  $('feed').replaceChildren(...activities.map(feedItem));
+  $('feed').replaceChildren(...activities.map(feedItem).filter(Boolean));
   $('feedEmpty').classList.toggle('hidden', activities.length > 0);
 }
+
+// loadFeed shows what darkbot kept (it outlives restarts and updates).
+async function loadFeed() {
+  try {
+    activities.length = 0;
+    activities.push(...((await App().GetActivity()) || []).slice(0, FEED_MAX));
+  } catch (e) { toast(errText(e), true); }
+  renderFeed();
+}
+
+// Two-step like deleting a sound.
+let feedClearArmed = 0;
+$('feedClear').addEventListener('click', async () => {
+  const btn = $('feedClear');
+  if (Date.now() - feedClearArmed > CONFIRM_MS) {
+    feedClearArmed = Date.now();
+    btn.textContent = t('feed.clearConfirm');
+    setTimeout(() => { if (Date.now() - feedClearArmed >= CONFIRM_MS) btn.textContent = t('feed.clear'); }, CONFIRM_MS);
+    return;
+  }
+  feedClearArmed = 0;
+  btn.textContent = t('feed.clear');
+  try {
+    await App().ClearActivity();
+    activities.length = 0;
+    renderFeed();
+  } catch (e) { toast(errText(e), true); }
+});
 
 // ---------- strip ----------
 
@@ -1429,6 +1480,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadDevices(false);
   App().ReportAudioSupport(SINK_SUPPORTED, devices.length, devices.filter((d) => d.label).length);
   stats = await App().GetStats();
+  await loadFeed();
   await refresh();
   if (state.twitchLogin) {
     try { rewards = (await App().GetRewards()) || []; renderPads(); } catch (e) { /* shown when editing */ }

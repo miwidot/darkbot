@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/miwidot/darkbot/internal/activity"
 	"github.com/miwidot/darkbot/internal/applog"
 	"github.com/miwidot/darkbot/internal/bot"
 	"github.com/miwidot/darkbot/internal/config"
@@ -85,7 +87,7 @@ func newEventApp(t *testing.T, events map[string]config.EventAction, overlay ...
 	}
 	log := applog.New()
 	out := &recordOutput{played: make(chan config.Sound, 4)}
-	a := &App{cfg: cfg, log: log, st: stats.Open(filepath.Join(t.TempDir(), "s.json"), log)}
+	a := &App{cfg: cfg, log: log, st: stats.Open(filepath.Join(t.TempDir(), "s.json"), log), act: activity.Open(filepath.Join(t.TempDir(), "a.json"), log)}
 	a.bot = bot.New(cfg, log, func() bot.Output { return out }, nil)
 	if len(overlay) > 0 {
 		a.bot.SetOverlay(func() bot.Overlay { return overlay[0] })
@@ -280,5 +282,41 @@ func TestSaveEventActionChecksAlert(t *testing.T) {
 	}
 	if got := a.cfg.Get().Events[twitch.EvUnfollow]; got.OverlayText != "" || got.Visual != gif {
 		t.Fatalf("unfollow saved %+v", got)
+	}
+}
+
+// Events found after darkbot was off are kept in the feed at the time they
+// happened, but play nothing and don't count for the session; tests show
+// but are not kept.
+func TestMissedEventsOnlyInFeed(t *testing.T) {
+	a, out := newEventApp(t, map[string]config.EventAction{
+		twitch.EvFollow: {Enabled: true, Sound: "/follow.mp3", Volume: 1},
+	})
+	when := time.Now().Add(-3 * time.Hour).Truncate(time.Second)
+	a.handleEvent(twitch.ChannelEvent{Kind: twitch.EvFollow, User: "Nachts", Missed: true, At: when}, false)
+	a.handleEvent(twitch.ChannelEvent{Kind: twitch.EvFollow, User: "Probe"}, true)
+	a.handleEvent(twitch.ChannelEvent{Kind: twitch.EvFollow, User: "Live"}, false)
+
+	select {
+	case s := <-out.played:
+		if s.File != "/follow.mp3" {
+			t.Fatalf("played %+v", s)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the live follow must play")
+	}
+	if n := a.st.Snapshot().Session.Follows; n != 1 {
+		t.Fatalf("session follows %d, want only the live one", n)
+	}
+	list := a.GetActivity()
+	if len(list) != 2 {
+		t.Fatalf("kept %d entries, want the missed and the live follow", len(list))
+	}
+	var oldest EventActivity
+	if err := json.Unmarshal(list[1], &oldest); err != nil {
+		t.Fatal(err)
+	}
+	if oldest.Event.User != "Nachts" || !oldest.Event.Missed || !oldest.At.Equal(when) {
+		t.Fatalf("missed follow kept as %+v", oldest)
 	}
 }

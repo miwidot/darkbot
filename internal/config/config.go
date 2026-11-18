@@ -32,8 +32,11 @@ const (
 	// spotifyTokenFileName is only used when the OS keyring is unavailable.
 	spotifyTokenFileName = "spotify-token.json"
 	statsFileName        = "stats.json"
-	filePerm             = 0o600
-	dirPerm              = 0o700
+	activityFileName     = "activity.json"
+	// followersFileName: the follower list unfollow detection compares with.
+	followersFileName = "followers.json"
+	filePerm          = 0o600
+	dirPerm           = 0o700
 )
 
 // OutputMode decides where sounds are played.
@@ -458,6 +461,12 @@ func (s *Store) SpotifyTokenPath() string { return filepath.Join(s.dir, spotifyT
 
 // StatsPath is the dashboard totals file.
 func (s *Store) StatsPath() string { return filepath.Join(s.dir, statsFileName) }
+
+// ActivityPath is the kept activity feed.
+func (s *Store) ActivityPath() string { return filepath.Join(s.dir, activityFileName) }
+
+// FollowersPath is the follower list of the unfollow detection.
+func (s *Store) FollowersPath() string { return filepath.Join(s.dir, followersFileName) }
 
 // TokenPath returns where the Twitch token file lives.
 func (s *Store) TokenPath() string { return filepath.Join(s.dir, tokenFileName) }

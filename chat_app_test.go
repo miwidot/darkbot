@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/miwidot/darkbot/internal/activity"
 	"github.com/miwidot/darkbot/internal/applog"
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/stats"
@@ -17,7 +18,7 @@ func newChatApp(t *testing.T) *App {
 		t.Fatal(err)
 	}
 	log := applog.New()
-	return &App{cfg: cfg, log: log, st: stats.Open(filepath.Join(t.TempDir(), "s.json"), log)}
+	return &App{cfg: cfg, log: log, st: stats.Open(filepath.Join(t.TempDir(), "s.json"), log), act: activity.Open(filepath.Join(t.TempDir(), "a.json"), log)}
 }
 
 func TestChatOffByDefault(t *testing.T) {

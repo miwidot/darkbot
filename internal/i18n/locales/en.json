@@ -22,7 +22,7 @@
   "pad.seconds": "{n} s",
   "points": "{n} points",
   "feed.title": "Activity",
-  "feed.empty": "Redemptions appear here as they happen.",
+  "feed.empty": "Redemptions, follows and other channel events appear here. darkbot keeps them across restarts.",
   "feed.redeemed": "redeemed",
   "feed.previewOf": "of",
   "feed.preview": "Preview",
@@ -422,7 +422,7 @@
   "events.unfollowWatching": "Watching {n} followers, last compared at {time}.",
   "events.unfollowStarting": "Reading your follower list…",
   "events.unfollowTooMany": "Not possible: your channel has {n} followers, the limit is 5,000.",
-  "tip.unfollow": "Twitch doesn’t tell anyone about unfollows, so darkbot reads your follower list every 10 minutes and reports who is missing. Unfollows can show up to 10 minutes late, and deleted or banned accounts count too. Up to 5,000 followers; there is never a chat message for unfollows.",
+  "tip.unfollow": "Twitch tells nobody about unfollows. So darkbot reads your follower list every 10 minutes and reports who is missing. Unfollows can show up to 10 minutes late, and deleted or banned accounts count too. darkbot keeps the list, so on the next start it also finds follows and unfollows from while it was off (marked “while off”, no sound). Up to 5,000 followers; unfollows never get a chat message.",
   "evedit.enabled": "Action is on",
   "evedit.sound": "Sound file",
   "evedit.noSound": "No sound",
@@ -576,5 +576,10 @@
   "event.watch_streak": "Watch streak",
   "eventdesc.watch_streak": "A viewer shares in chat how many streams in a row they watched.",
   "feed.ev.watch_streak": "{user} shares a watch streak of {amount} streams",
-  "evdefault.watch_streak": "Wow {user}, {amount} streams in a row! Thanks for sticking around!"
+  "evdefault.watch_streak": "Wow {user}, {amount} streams in a row! Thanks for sticking around!",
+  "feed.clear": "Clear",
+  "feed.clearConfirm": "Really clear?",
+  "feed.clearTitle": "Removes every line from the activity list. darkbot keeps the last 200 lines, also across restarts and updates.",
+  "feed.missed": "while off",
+  "feed.missedTitle": "Happened while darkbot was not running; found when it compared the follower list. No sound or chat message was sent."
 }

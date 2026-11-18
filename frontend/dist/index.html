@@ -139,7 +139,10 @@
     </section>
 
     <aside class="feed" aria-labelledby="feedTitle">
-      <h2 id="feedTitle" data-i18n="feed.title"></h2>
+      <div class="feed-head">
+        <h2 id="feedTitle" data-i18n="feed.title"></h2>
+        <button class="btn quiet" id="feedClear" data-i18n="feed.clear" data-i18n-title="feed.clearTitle"></button>
+      </div>
       <ol class="feed-list" id="feed"></ol>
       <p class="feed-empty" id="feedEmpty" data-i18n="feed.empty"></p>
     </aside>

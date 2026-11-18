@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 )
 
 // Channel events (verified 2026-11-17, https://dev.twitch.tv/docs/eventsub/reference/):
@@ -68,6 +69,11 @@ type ChannelEvent struct {
 	Gift      bool   `json:"gift"`   // sub/sub_end was a gifted sub
 	Top       string `json:"top"`    // hype_end: biggest contributor ("" if unknown)
 	Points    int    `json:"points"` // watch_streak: channel points Twitch awarded
+	// Missed: happened while darkbot was off and was found later (follower
+	// list comparison). Shown in the feed only: no sound, chat or counting.
+	Missed bool `json:"missed"`
+	// At is when it happened, if known and not "now" (a missed follow).
+	At time.Time `json:"-"`
 	// TrainID identifies the hype train (begin/progress/end), for hypeTracker.
 	TrainID string `json:"-"`
 }

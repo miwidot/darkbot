@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/miwidot/darkbot/internal/activity"
 	"github.com/miwidot/darkbot/internal/applog"
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/obs"
@@ -37,7 +38,7 @@ func newOBSApp(t *testing.T, port int) *App {
 		t.Fatal(err)
 	}
 	log := applog.New()
-	a := &App{cfg: cfg, log: log, st: stats.Open(filepath.Join(t.TempDir(), "s.json"), log)}
+	a := &App{cfg: cfg, log: log, st: stats.Open(filepath.Join(t.TempDir(), "s.json"), log), act: activity.Open(filepath.Join(t.TempDir(), "a.json"), log)}
 	a.obs = obs.New(a.onOBSDrop)
 	t.Cleanup(a.obs.Disconnect)
 	return a

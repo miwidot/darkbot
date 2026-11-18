@@ -196,10 +196,11 @@ button { font: inherit; color: inherit; }
   border-left: 1px solid var(--metal-2); background: var(--metal-0);
   display: flex; flex-direction: column; min-height: 0;
 }
-.feed h2 { margin: 0; padding: 26px 20px 12px; font-size: var(--step-1); font-weight: 650; }
+.feed-head { order: -2; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 26px 20px 12px; }
+.feed h2 { margin: 0; font-size: var(--step-1); font-weight: 650; }
 .feed-list { list-style: none; margin: 0; padding: 0 12px 16px; overflow: auto; flex: 1; }
 .feed-item {
-  display: grid; grid-template-columns: 42px 1fr; gap: 2px 10px;
+  display: grid; grid-template-columns: 44px 1fr; gap: 2px 10px;
   padding: 9px 8px; border-radius: var(--r-ctl);
 }
 .feed-item time { color: var(--ink-3); font-size: var(--step--1); font-variant-numeric: tabular-nums; padding-top: 1px; }
@@ -211,7 +212,6 @@ button { font: inherit; color: inherit; }
 .feed-item.error .why { color: var(--fault); }
 .feed-item.fresh { background: rgba(255, 178, 63, .07); transition: background 1.6s ease-out; }
 .feed-empty { order: -1; color: var(--ink-3); padding: 0 20px; margin: 0; font-size: var(--step--1); }
-.feed h2 { order: -2; }
 
 /* ---------- strip ---------- */
 .strip {

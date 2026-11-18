@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -439,54 +441,167 @@ func TestEventSpecsAreComplete(t *testing.T) {
 	}
 }
 
-func TestFollowerWatcherReportsUnfollows(t *testing.T) {
-	var mu sync.Mutex
-	followers := []map[string]any{}
-	for i := range 150 { // two pages
-		followers = append(followers, map[string]any{"user_id": strconv.Itoa(i), "user_name": "u" + strconv.Itoa(i)})
+// fakeFollowers serves Get Channel Followers from a list the test changes:
+// pages of followerPageSize (cursor = offset) and the single-account check.
+type fakeFollowers struct {
+	mu   sync.Mutex
+	list []map[string]any // newest first
+	fail bool
+	// skip hides this user from the paged read only, like the list shifting
+	// while it is read; the single-account check still finds it.
+	skip string
+}
+
+func newFakeFollowers(t *testing.T, n int, followedAt time.Time) *fakeFollowers {
+	f := &fakeFollowers{}
+	for i := range n {
+		f.list = append(f.list, map[string]any{"user_id": strconv.Itoa(i), "user_name": "u" + strconv.Itoa(i), "followed_at": followedAt})
 	}
-	failNext := false
 	fakeTwitch(t, func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
-		defer mu.Unlock()
-		if failNext {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		if f.fail {
 			writeJSON(w, 500, map[string]any{"status": 500, "message": "boom"})
 			return
+		}
+		if id := r.URL.Query().Get("user_id"); id != "" {
+			data := []any{}
+			for _, e := range f.list {
+				if e["user_id"] == id {
+					data = append(data, e)
+				}
+			}
+			writeJSON(w, 200, map[string]any{"data": data, "total": len(f.list), "pagination": map[string]any{}})
+			return
+		}
+		list := []map[string]any{}
+		for _, e := range f.list {
+			if e["user_id"] != f.skip {
+				list = append(list, e)
+			}
 		}
 		start := 0
 		if c := r.URL.Query().Get("after"); c != "" {
 			start, _ = strconv.Atoi(c)
 		}
-		end := min(start+followerPageSize, len(followers))
+		end := min(start+followerPageSize, len(list))
 		cursor := ""
-		if end < len(followers) {
+		if end < len(list) {
 			cursor = strconv.Itoa(end)
 		}
-		writeJSON(w, 200, map[string]any{"data": followers[start:end], "total": len(followers), "pagination": map[string]any{"cursor": cursor}})
+		writeJSON(w, 200, map[string]any{"data": list[start:end], "total": len(f.list), "pagination": map[string]any{"cursor": cursor}})
 	})
+	return f
+}
+
+func (f *fakeFollowers) change(fn func(f *fakeFollowers)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	fn(f)
+}
+
+func followerWatcher(t *testing.T, path string, got *[]ChannelEvent) *FollowerWatcher {
+	t.Helper()
 	tok := &Token{AccessToken: "A", RefreshToken: "R", UserID: "9", Scopes: Scopes, ExpiresAt: time.Now().Add(time.Hour)}
 	m, _ := NewTokenManager("cid", &memStore{tok: tok}, nopLog{})
+	return NewFollowerWatcher(NewHelix(m), m, nopLog{}, path, func(e ChannelEvent) { *got = append(*got, e) })
+}
+
+func TestFollowerWatcherReportsUnfollows(t *testing.T) {
+	f := newFakeFollowers(t, 150, time.Now().Add(-time.Hour)) // two pages
 	var got []ChannelEvent
-	w := NewFollowerWatcher(NewHelix(m), m, nopLog{}, func(e ChannelEvent) { got = append(got, e) })
+	w := followerWatcher(t, "", &got)
 
 	w.check(context.Background()) // baseline
 	if len(got) != 0 || w.Status().Tracking != 150 {
 		t.Fatalf("baseline: events %v status %+v", got, w.Status())
 	}
-	mu.Lock()
-	followers = append(followers[:10], followers[11:]...) // u10 unfollowed
-	failNext = true
-	mu.Unlock()
+	f.change(func(f *fakeFollowers) {
+		f.list = append(f.list[:10], f.list[11:]...) // u10 unfollowed
+		f.fail = true
+	})
 	w.check(context.Background())
 	if len(got) != 0 {
 		t.Fatal("a failed read must not be taken as mass unfollows")
 	}
-	mu.Lock()
-	failNext = false
-	mu.Unlock()
+	f.change(func(f *fakeFollowers) { f.fail = false })
 	w.check(context.Background())
-	if len(got) != 1 || got[0].Kind != EvUnfollow || got[0].User != "u10" {
+	if len(got) != 1 || got[0].Kind != EvUnfollow || got[0].User != "u10" || got[0].Missed {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestFollowerWatcherChecksVanishedAccounts(t *testing.T) {
+	f := newFakeFollowers(t, 150, time.Now().Add(-time.Hour))
+	var got []ChannelEvent
+	w := followerWatcher(t, "", &got)
+	w.check(context.Background())
+	f.change(func(f *fakeFollowers) { f.skip = "99" }) // hidden at a page edge
+	w.check(context.Background())
+	if len(got) != 0 {
+		t.Fatalf("an account hidden by the list shifting is no unfollow: %+v", got)
+	}
+	f.change(func(f *fakeFollowers) { f.skip = "" })
+	w.check(context.Background())
+	if len(got) != 0 || w.Status().Tracking != 150 {
+		t.Fatalf("got %+v, status %+v", got, w.Status())
+	}
+}
+
+func TestFollowerWatcherFindsWhatHappenedWhileOff(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "followers.json")
+	before := time.Now().Add(-time.Hour)
+	f := newFakeFollowers(t, 20, before)
+	var got []ChannelEvent
+	followerWatcher(t, path, &got).check(context.Background()) // darkbot ran once
+	if len(got) != 0 {
+		t.Fatalf("baseline: %+v", got)
+	}
+
+	// darkbot is off: u3 unfollows, "new" follows.
+	offFollow := time.Now().Add(-time.Minute)
+	f.change(func(f *fakeFollowers) {
+		f.list = append(f.list[:3], f.list[4:]...)
+		f.list = append([]map[string]any{{"user_id": "new", "user_name": "Newbie", "followed_at": offFollow}}, f.list...)
+	})
+
+	w := followerWatcher(t, path, &got) // next start
+	// A follow after the start came through EventSub: not reported again.
+	f.change(func(f *fakeFollowers) {
+		f.list = append([]map[string]any{{"user_id": "live", "user_name": "Live", "followed_at": time.Now().Add(time.Minute)}}, f.list...)
+	})
+	w.check(context.Background())
+	if len(got) != 2 {
+		t.Fatalf("got %+v", got)
+	}
+	slices.SortFunc(got, func(a, b ChannelEvent) int { return strings.Compare(a.Kind, b.Kind) })
+	if fo := got[0]; fo.Kind != EvFollow || fo.User != "Newbie" || !fo.Missed || !fo.At.Equal(offFollow) {
+		t.Errorf("missed follow: %+v", fo)
+	}
+	if un := got[1]; un.Kind != EvUnfollow || un.User != "u3" || !un.Missed {
+		t.Errorf("missed unfollow: %+v", un)
+	}
+
+	// Later rounds are live again: nothing is "missed" any more.
+	got = nil
+	f.change(func(f *fakeFollowers) { f.list = f.list[1:] }) // "live" unfollows
+	w.check(context.Background())
+	if len(got) != 1 || got[0].User != "Live" || got[0].Missed {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestFollowerWatcherIgnoresOtherAccountsList(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "followers.json")
+	data, _ := json.Marshal(savedFollowers{BroadcasterID: "someone-else", Followers: map[string]string{"x": "X"}})
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	newFakeFollowers(t, 5, time.Now().Add(-time.Hour))
+	var got []ChannelEvent
+	followerWatcher(t, path, &got).check(context.Background())
+	if len(got) != 0 {
+		t.Fatalf("another account's list must not produce events: %+v", got)
 	}
 }
 
@@ -496,7 +611,7 @@ func TestFollowerWatcherSkipsBigChannels(t *testing.T) {
 	})
 	tok := &Token{AccessToken: "A", RefreshToken: "R", UserID: "9", Scopes: Scopes, ExpiresAt: time.Now().Add(time.Hour)}
 	m, _ := NewTokenManager("cid", &memStore{tok: tok}, nopLog{})
-	w := NewFollowerWatcher(NewHelix(m), m, nopLog{}, func(ChannelEvent) { t.Fatal("no events expected") })
+	w := NewFollowerWatcher(NewHelix(m), m, nopLog{}, "", func(ChannelEvent) { t.Fatal("no events expected") })
 	w.check(context.Background())
 	if !w.Status().TooMany {
 		t.Fatal("channels above the limit must be skipped")

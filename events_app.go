@@ -71,15 +71,27 @@ func (a *App) handleEvent(ev twitch.ChannelEvent, test bool) {
 		// there too. Same split as Streamer.bot's Gift Bomb trigger.
 		return
 	}
+	at := time.Now()
+	if !ev.At.IsZero() {
+		at = ev.At
+	}
+	act := EventActivity{Kind: "event", Event: ev, Test: test, At: at}
+	if ev.Missed {
+		// Found after darkbot was off (follower list): too late for a sound
+		// or a chat message, and not part of this session's numbers.
+		a.log.Infof("Event %s %s found, it happened while darkbot was off", ev.Kind, ev.User)
+		a.keepActivity(act)
+		return
+	}
 	if !test {
 		a.countEvent(ev)
 		if channelKinds[ev.Kind] {
 			a.refreshChannelTotalsSoon()
 		}
 		a.log.Infof("Event %s %s %d", ev.Kind, ev.User, ev.Amount)
-	}
-	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, "activity", EventActivity{Kind: "event", Event: ev, Test: test, At: time.Now()})
+		a.keepActivity(act)
+	} else if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "activity", act) // tests show, but aren't kept
 	}
 	a.runAction(ev)
 }
@@ -271,7 +283,7 @@ func (a *App) startFollowerWatcher() {
 	}
 	a.stopFollowerWatcher()
 	ctx, cancel := context.WithCancel(a.ctx)
-	w := twitch.NewFollowerWatcher(a.hx, a.tok, a.log, a.onChannelEvent)
+	w := twitch.NewFollowerWatcher(a.hx, a.tok, a.log, a.cfg.FollowersPath(), a.onChannelEvent)
 	a.mu.Lock()
 	a.fwCancel, a.fw = cancel, w
 	a.mu.Unlock()

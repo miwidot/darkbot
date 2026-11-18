@@ -1,3 +1,13 @@
+2026-11-18 21:07 +08 — The activity feed is kept, and finds what happened while darkbot was off
+- The feed (redemptions, song requests, channel events) is saved to activity.json and shown again
+  after a restart or update; the last 200 lines, newest first, earlier days with their date. Tests
+  are shown but not kept. New "Clear" button (two-step).
+- Unfollow detection saves the follower list (followers.json, per Twitch account). The first check
+  after a start reports unfollows and follows from while darkbot was off (EventSub has no catch-up);
+  they are marked "while off" in the feed, at their follow time, without sound, chat or counting.
+- An account missing from the paged follower list is checked once more on its own (user_id) before
+  it counts as an unfollow, so the list shifting during a read can't produce a false unfollow.
+
 2026-11-18 19:18 +08 — Release v0.2.9
 - Watch streaks as a channel event; macOS bundle version 0.2.9.
 

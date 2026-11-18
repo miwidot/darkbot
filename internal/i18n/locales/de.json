@@ -22,7 +22,7 @@
   "pad.seconds": "{n} s",
   "points": "{n} Punkte",
   "feed.title": "Aktivität",
-  "feed.empty": "Einlösungen erscheinen hier, sobald sie passieren.",
+  "feed.empty": "Einlösungen, Follows und andere Kanal-Ereignisse erscheinen hier. darkbot behält sie auch nach einem Neustart.",
   "feed.redeemed": "hat eingelöst:",
   "feed.previewOf": "von",
   "feed.preview": "Probe",
@@ -422,7 +422,7 @@
   "events.unfollowWatching": "Beobachtet {n} Follower, zuletzt verglichen um {time}.",
   "events.unfollowStarting": "Lese deine Follower-Liste…",
   "events.unfollowTooMany": "Nicht möglich: dein Kanal hat {n} Follower, die Grenze liegt bei 5.000.",
-  "tip.unfollow": "Twitch meldet Unfollows an niemanden. darkbot liest deshalb alle 10 Minuten deine Follower-Liste und meldet, wer fehlt. Unfollows können bis zu 10 Minuten später erscheinen, und gelöschte oder gesperrte Konten zählen mit. Bis 5.000 Follower; für Unfollows gibt es nie eine Chat-Nachricht.",
+  "tip.unfollow": "Twitch meldet Unfollows an niemanden. darkbot liest deshalb alle 10 Minuten deine Follower-Liste und meldet, wer fehlt. Unfollows können bis zu 10 Minuten später erscheinen, und gelöschte oder gesperrte Konten zählen mit. darkbot speichert die Liste und findet so beim nächsten Start auch Follows und Unfollows aus der Zeit, als er aus war (markiert mit „während aus“, ohne Sound). Bis 5.000 Follower; für Unfollows gibt es nie eine Chat-Nachricht.",
   "evedit.enabled": "Aktion ist an",
   "evedit.sound": "Sounddatei",
   "evedit.noSound": "Kein Sound",
@@ -576,5 +576,10 @@
   "event.watch_streak": "Watch-Streak",
   "eventdesc.watch_streak": "Ein Zuschauer teilt im Chat, wie viele Streams in Folge er geschaut hat.",
   "feed.ev.watch_streak": "{user} teilt eine Watch-Streak von {amount} Streams",
-  "evdefault.watch_streak": "Wow {user}, {amount} Streams in Folge dabei! Danke für die Treue!"
+  "evdefault.watch_streak": "Wow {user}, {amount} Streams in Folge dabei! Danke für die Treue!",
+  "feed.clear": "Leeren",
+  "feed.clearConfirm": "Wirklich leeren?",
+  "feed.clearTitle": "Entfernt alle Zeilen aus der Aktivitätsliste. darkbot behält die letzten 200 Zeilen, auch über Neustarts und Updates hinweg.",
+  "feed.missed": "während aus",
+  "feed.missedTitle": "Passiert, als darkbot nicht lief; beim Vergleich der Follower-Liste gefunden. Es wurde kein Sound und keine Chat-Nachricht ausgelöst."
 }
