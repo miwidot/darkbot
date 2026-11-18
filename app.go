@@ -840,9 +840,9 @@ func (a *App) resolveRedemption(r twitch.Redemption, fulfill bool) {
 	}
 }
 
-// TestSound plays a sound now (ignores cooldowns).
+// TestSound plays a sound ignoring cooldowns, in turn with the queue.
 func (a *App) TestSound(id string) {
-	go a.bot.Test(a.ctx, id)
+	a.bot.Test(id)
 }
 
 // SoundDone is called by the frontend when playback finished. errMsg is

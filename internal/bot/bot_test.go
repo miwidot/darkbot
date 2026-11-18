@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -312,5 +313,76 @@ func TestNoOverlayStillPlaysSound(t *testing.T) {
 	case <-out.played:
 	case <-time.After(2 * time.Second):
 		t.Fatal("the sound must play without OBS")
+	}
+}
+
+// countingOutput plays every sound for d and records the most sounds that
+// ever played at the same time, and the order they started in.
+type countingOutput struct {
+	d       time.Duration
+	mu      sync.Mutex
+	now     int
+	most    int
+	started []string
+}
+
+func (c *countingOutput) Play(ctx context.Context, s config.Sound, _ float64) error {
+	c.mu.Lock()
+	c.now++
+	c.most = max(c.most, c.now)
+	c.started = append(c.started, s.ID)
+	c.mu.Unlock()
+	select {
+	case <-ctx.Done():
+	case <-time.After(c.d):
+	}
+	c.mu.Lock()
+	c.now--
+	c.mu.Unlock()
+	return nil
+}
+
+// A raid, a sub, a redemption and a test arriving together play one after
+// another in arrival order, never mixed.
+func TestSoundsNeverOverlap(t *testing.T) {
+	store, err := config.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	reward := config.Sound{ID: "airhorn", RewardID: "r1", RewardTitle: "Airhorn", File: "/a.mp3", Enabled: true, Volume: 1}
+	if err := store.Update(func(c *config.Config) { c.Sounds = []config.Sound{reward} }); err != nil {
+		t.Fatal(err)
+	}
+	const each = 80 * time.Millisecond
+	out := &countingOutput{d: each}
+	b := New(store, nopLogger{}, func() Output { return out }, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go b.Run(ctx)
+
+	b.PlayEvent(config.Sound{ID: "ev-raid", File: "/raid.mp3"}, nil, "Anna")
+	b.PlayEvent(config.Sound{ID: "ev-sub", File: "/sub.mp3"}, nil, "Ben")
+	b.HandleRedemption(twitch.Redemption{RewardID: "r1", RewardTitle: "Airhorn", UserID: "u1", UserName: "Cleo"})
+	b.Test("airhorn")
+
+	want := []string{"ev-raid", "ev-sub", "airhorn", "airhorn"}
+	deadline := time.Now().Add(time.Duration(len(want))*each + 2*time.Second)
+	for {
+		out.mu.Lock()
+		n, most, started := out.now, out.most, slices.Clone(out.started)
+		out.mu.Unlock()
+		if len(started) == len(want) && n == 0 {
+			if most != 1 {
+				t.Fatalf("%d sounds played at once", most)
+			}
+			if !slices.Equal(started, want) {
+				t.Fatalf("order %v, want %v", started, want)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("only %v played", started)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }

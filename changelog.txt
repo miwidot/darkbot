@@ -1,3 +1,8 @@
+2026-11-18 17:28 +08 — Tests wait in the sound queue
+- The sound Test button no longer plays past the queue: it waits its turn like redemptions and
+  events, so no two sounds ever mix. New test: raid, sub, redemption and test arriving together
+  play one after another in arrival order.
+
 2026-11-18 16:59 +08 — Release v0.2.7
 - Remove from OBS, [darkbot] names in OBS; macOS bundle version 0.2.7.
 

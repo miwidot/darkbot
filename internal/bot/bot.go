@@ -275,13 +275,19 @@ func (b *Bot) PlayEvent(s config.Sound, alert *Alert, user string) {
 	}
 }
 
-// Test plays a sound immediately, bypassing cooldowns and the queue.
-func (b *Bot) Test(ctx context.Context, soundID string) {
+// Test plays a sound without cooldowns. It still waits in the queue: one
+// sound at a time, so a test never mixes with a redemption or an event.
+func (b *Bot) Test(soundID string) {
 	for _, s := range b.cfg.Get().Sounds {
-		if s.ID == soundID {
-			b.play(ctx, job{sound: s, test: true})
-			return
+		if s.ID != soundID {
+			continue
 		}
+		select {
+		case b.queue <- job{sound: s, test: true}:
+		default:
+			b.log.Warnf("Test of %q skipped, %d sounds are already waiting", s.RewardTitle, MaxQueue)
+		}
+		return
 	}
 	b.log.Warnf("Test: sound %s not found", soundID)
 }
