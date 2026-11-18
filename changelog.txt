@@ -1,3 +1,7 @@
+2026-11-18 22:07 +08 — Release v0.3.0 (first stable release)
+- Kept activity feed, follows/unfollows while darkbot was off, pre-release review (security,
+  correctness, performance), song titles switch, Go 1.27.4 + Wails 2.17.1; macOS bundle 0.3.0.
+
 2026-11-18 21:55 +08 — Song titles in chat can be switched off
 - Settings, Song requests: "Name song titles in chat" (on by default). Off: requests and skips
   are answered without the title, !song/!next/!queue only say that titles aren't posted. Spotify
