@@ -1,3 +1,6 @@
+2026-11-18 16:59 +08 — Release v0.2.7
+- Remove from OBS, [darkbot] names in OBS; macOS bundle version 0.2.7.
+
 2026-11-18 16:45 +08 — Remove from OBS, [darkbot] names in OBS
 - Settings, OBS: "Remove from OBS" (two-step) takes the darkbot scene out of every scene, removes
   darkbot's sources (the sound source only under its default name) and the scene itself.
