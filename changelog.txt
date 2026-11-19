@@ -1,3 +1,12 @@
+2026-11-19 12:01 +08 — Status colors: green = on, red = off, amber = problem
+- On/off lights now read as everyone expects: commands, timers, events and the clip command
+  light green when on and red when off (were amber/grey); sound pads green, red when switched
+  off, green while playing; checkboxes, radio choices and OBS track picks green when ticked.
+- Activity feed: played sounds and added songs green, not played (cooldown, off, rejected)
+  amber, errors red; channel events green (big ones brighter).
+- Amber stays only for problems (dashboard warnings, "reconnect") and as the accent of
+  buttons, tabs and focus rings. Checked in the browser mock (Chat, Sounds).
+
 2026-11-19 11:48 +08 — Release v0.7.0
 - !clips: viewers make a clip of the last 60 seconds from chat, link posted in chat and the
   activity feed; Twitch login asks for clips:edit (reconnect once); macOS bundle 0.7.0.

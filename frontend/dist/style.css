@@ -24,6 +24,10 @@
   --led-dim: #6b5126;
   --live: #46d19a;
   --fault: #ff5c5c;
+  /* State lights: green on, red off, amber a problem (as everyone reads
+     them). The amber --led stays the accent for buttons and focus. */
+  --on-glow: rgba(70, 209, 154, .55);
+  --off-light: #c24a4a;
 
   --step--1: 12px;
   --step-0: 13.5px;
@@ -129,7 +133,7 @@ button { font: inherit; color: inherit; }
 .pad:active { transform: translateY(1px); }
 .pad .led {
   position: absolute; top: 18px; left: 18px; width: 8px; height: 8px; border-radius: 50%;
-  background: #4a3a1d; box-shadow: 0 0 0 2px rgba(255, 178, 63, .10);
+  background: var(--live); box-shadow: 0 0 0 2px rgba(70, 209, 154, .12);
 }
 .pad .cd {
   position: absolute; top: 13px; right: 48px; color: var(--ink-3);
@@ -153,8 +157,8 @@ button { font: inherit; color: inherit; }
 .pad .edit svg { width: 16px; height: 16px; }
 
 /* playing: the LED lights, the pad edge glows */
-.pad.playing { border-color: var(--led); }
-.pad.playing .led { background: var(--led); box-shadow: 0 0 10px var(--led), 0 0 2px #fff; }
+.pad.playing { border-color: var(--live); }
+.pad.playing .led { background: var(--live); box-shadow: 0 0 10px var(--live), 0 0 2px #fff; }
 .pad.playing::before { background: linear-gradient(180deg, #2a2618, #22201a); }
 /* cooldown: a sweep that drains clockwise */
 .pad.cooling::after {
@@ -184,7 +188,7 @@ button { font: inherit; color: inherit; }
 }
 #edColorHex { width: 104px; font-variant-numeric: tabular-nums; text-transform: uppercase; }
 #edColorHex.invalid { border-color: var(--fault); }
-.pad.off .led { background: var(--metal-3); }
+.pad.off .led { background: var(--off-light); box-shadow: none; }
 .pad.off .cd::before { content: "Off"; }
 
 .onboard, .pads-empty {
@@ -212,7 +216,9 @@ button { font: inherit; color: inherit; }
 .feed-item .what a { color: inherit; text-decoration: underline; text-decoration-color: var(--led); text-underline-offset: 2px; }
 .feed-item .what a:hover, .feed-item .what a:focus-visible { color: var(--led); }
 .feed-item .why { grid-column: 2; color: var(--ink-3); font-size: var(--step--1); }
-.feed-item.played { box-shadow: inset 2px 0 0 var(--led); }
+.feed-item.played { box-shadow: inset 2px 0 0 var(--live); }
+/* Not played (cooldown, switched off, rejected request): a problem, amber. */
+.feed-item.skipped { box-shadow: inset 2px 0 0 var(--led); }
 .feed-item.error { box-shadow: inset 2px 0 0 var(--fault); }
 .feed-item.error .why { color: var(--fault); }
 .feed-item.fresh { background: rgba(255, 178, 63, .07); transition: background 1.6s ease-out; }
@@ -260,7 +266,7 @@ textarea { resize: vertical; line-height: 1.4; }
 .chat-row { display: flex; gap: 8px; align-items: flex-start; }
 input[readonly] { color: var(--ink-2); }
 input[type=range] { accent-color: var(--led); }
-input[type=checkbox], input[type=radio] { accent-color: var(--led); width: 15px; height: 15px; margin: 0; }
+input[type=checkbox], input[type=radio] { accent-color: var(--live); width: 15px; height: 15px; margin: 0; }
 
 /* ---------- dialogs ---------- */
 dialog { color: var(--ink); border: 1px solid var(--metal-3); padding: 0; background: var(--metal-1); }
@@ -319,7 +325,7 @@ dialog::backdrop { background: rgba(6, 7, 10, .62); }
 .choice-item input { margin-top: 3px; }
 .choice-item b { display: block; font-weight: 600; }
 .choice-item small { color: var(--ink-3); font-size: var(--step--1); }
-.choice-item:has(input:checked) { border-color: var(--led-dim); background: rgba(255, 178, 63, .05); }
+.choice-item:has(input:checked) { border-color: rgba(70, 209, 154, .45); background: rgba(70, 209, 154, .05); }
 
 .tracks { display: flex; gap: 6px; }
 .track {
@@ -328,7 +334,7 @@ dialog::backdrop { background: rgba(6, 7, 10, .62); }
   font-weight: 650; font-variant-numeric: tabular-nums; color: var(--ink-3);
 }
 .track input { position: absolute; opacity: 0; pointer-events: none; }
-.track:has(input:checked) { border-color: var(--led); color: var(--led); background: rgba(255, 178, 63, .08); }
+.track:has(input:checked) { border-color: var(--live); color: var(--live); background: rgba(70, 209, 154, .08); }
 .track:has(input:focus-visible) { outline: 2px solid var(--led); outline-offset: 2px; }
 
 .login { background: var(--metal-0); border: 1px solid var(--metal-3); border-radius: var(--r-pad); padding: 20px; text-align: center; margin-bottom: 8px; }
@@ -538,8 +544,8 @@ details.more summary { cursor: pointer; color: var(--ink-2); }
   padding: 10px 12px; border: 1px solid var(--metal-2); border-radius: var(--r-ctl); background: var(--metal-1);
 }
 .event-row:hover { border-color: var(--metal-3); }
-.event-led { width: 8px; height: 8px; border-radius: 50%; background: var(--metal-3); }
-.event-row.on .event-led { background: var(--led); box-shadow: 0 0 6px rgba(255, 178, 63, .55); }
+.event-led { width: 8px; height: 8px; border-radius: 50%; background: var(--off-light); }
+.event-row.on .event-led { background: var(--live); box-shadow: 0 0 6px var(--on-glow); }
 .event-text { display: flex; flex-direction: column; min-width: 0; }
 .event-text b { font-weight: 600; }
 .event-text span { color: var(--ink-3); font-size: var(--step--1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -549,8 +555,8 @@ details.more summary { cursor: pointer; color: var(--ink-2); }
 .ev-desc { margin: -6px 0 6px; }
 
 /* feed: channel events get a thin accent so they stand apart from redemptions */
-.feed-item.event { box-shadow: inset 2px 0 0 var(--led-dim); }
-.feed-item.ev-cheer, .feed-item.ev-gift, .feed-item.ev-raid, .feed-item.ev-sub, .feed-item.ev-resub { box-shadow: inset 2px 0 0 var(--led); }
+.feed-item.event { box-shadow: inset 2px 0 0 rgba(70, 209, 154, .35); }
+.feed-item.ev-cheer, .feed-item.ev-gift, .feed-item.ev-raid, .feed-item.ev-sub, .feed-item.ev-resub { box-shadow: inset 2px 0 0 var(--live); }
 .feed-item.ev-unfollow, .feed-item.ev-sub_end { box-shadow: inset 2px 0 0 var(--metal-3); }
 .test-tag {
   display: inline-block; padding: 0 5px; border-radius: 4px; border: 1px solid var(--metal-3);
