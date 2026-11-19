@@ -855,3 +855,11 @@ func TestIsDeprecated(t *testing.T) {
 		t.Fatal("only Twitch's 400 deprecated answer is lasting")
 	}
 }
+
+func TestEveryKindHasACategory(t *testing.T) {
+	for _, k := range EventKinds {
+		if c := Category(k); !slices.Contains(EventCategories, c) {
+			t.Errorf("%s has no category (%q)", k, c)
+		}
+	}
+}

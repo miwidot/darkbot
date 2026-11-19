@@ -1,3 +1,12 @@
+2026-11-19 12:33 +08 — "Events" tab is now "Alerts", with category sub-tabs
+- The tab is called Alerts and groups its events in sub-tabs: Support (follows, subs, gifts,
+  Bits, Power-ups, raids, watch streaks), Hype & goals, Polls & predictions, Channel (live,
+  ads, shoutouts). A category without events yet has no tab; the number on a tab counts the
+  alerts switched on there. The chosen tab is remembered (local storage, optional).
+- Categories come from Go (twitch.Category), so a new event kind can't be left without one
+  (test). Unfollow detection shows under Support.
+- Fixed on the way: the main view switch matched every .views button; scoped to the top nav.
+
 2026-11-19 12:31 +08 — Shared Chat: darkbot writes nothing in chat during a session
 - Twitch (Send Chat Message, checked 2026-11-19): with a user access token, messages go to
   every channel of a Shared Chat session and this can't be changed; only an app access token

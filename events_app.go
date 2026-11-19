@@ -47,13 +47,15 @@ type EventInfo struct {
 	Kind      string `json:"kind"`
 	HasAmount bool   `json:"hasAmount"`
 	HasChat   bool   `json:"hasChat"`
+	// Category groups kinds into the Alerts tab's sub-tabs.
+	Category string `json:"category"`
 }
 
 // GetEventKinds lists the event kinds in display order.
 func (a *App) GetEventKinds() []EventInfo {
 	out := make([]EventInfo, 0, len(twitch.EventKinds))
 	for _, k := range twitch.EventKinds {
-		out = append(out, EventInfo{Kind: k, HasAmount: slices.Contains(amountKinds, k), HasChat: !slices.Contains(noChatKinds, k)})
+		out = append(out, EventInfo{Kind: k, HasAmount: slices.Contains(amountKinds, k), HasChat: !slices.Contains(noChatKinds, k), Category: twitch.Category(k)})
 	}
 	return out
 }

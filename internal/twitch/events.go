@@ -53,6 +53,29 @@ const (
 	EvSharedChatEnd   = "shared_chat_end"
 )
 
+// Event categories: the Alerts tab groups kinds by them, in this order.
+const (
+	CatSupport = "support" // viewers giving: follows, subs, Bits, raids, ...
+	CatHype    = "hype"    // hype trains and goals
+	CatVotes   = "votes"   // polls and predictions
+	CatChannel = "channel" // the channel itself: live, ads, shoutouts, ...
+)
+
+// EventCategories lists the categories in display order.
+var EventCategories = []string{CatSupport, CatHype, CatVotes, CatChannel}
+
+// eventCategory maps each kind in EventKinds to its category.
+var eventCategory = map[string]string{
+	EvFollow: CatSupport, EvUnfollow: CatSupport, EvSub: CatSupport, EvResub: CatSupport,
+	EvGift: CatSupport, EvCheer: CatSupport, EvPowerUp: CatSupport, EvRaid: CatSupport,
+	EvWatchStreak: CatSupport, EvSubEnd: CatSupport,
+	EvHypeBegin: CatHype, EvHypeLevel: CatHype, EvHypeEnd: CatHype,
+	EvShoutout: CatChannel, EvAdBreak: CatChannel, EvOnline: CatChannel, EvOffline: CatChannel,
+}
+
+// Category returns the category of an event kind.
+func Category(kind string) string { return eventCategory[kind] }
+
 // EventKinds lists every kind in the order the UI shows them.
 var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvPowerUp, EvRaid, EvWatchStreak, EvHypeBegin, EvHypeLevel, EvHypeEnd, EvShoutout, EvAdBreak, EvSubEnd, EvOnline, EvOffline}
 

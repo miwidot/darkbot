@@ -135,7 +135,7 @@ function render() {
   $('onboard').classList.toggle('hidden', loggedIn);
   $('reconnect').classList.toggle('hidden', !loggedIn || !state.needsReconnect);
   // Before login there is nothing to count or play: only the welcome card.
-  document.querySelector('.views').classList.toggle('hidden', !loggedIn);
+  document.querySelector('.views:not(.subtabs)').classList.toggle('hidden', !loggedIn);
   $('dashBody').classList.toggle('hidden', !loggedIn);
   $('dashReset').classList.toggle('hidden', !loggedIn);
   $('dashSince').classList.toggle('hidden', !loggedIn);
@@ -246,7 +246,7 @@ function tickCooldowns() {
 // ---------- views ----------
 
 function showView(name) {
-  for (const b of document.querySelectorAll('.views button')) {
+  for (const b of document.querySelectorAll('.views:not(.subtabs) button')) {
     const on = b.dataset.view === name;
     b.classList.toggle('active', on);
     b.setAttribute('aria-current', on ? 'page' : 'false');
@@ -258,7 +258,7 @@ function showView(name) {
   $('viewNp').classList.toggle('hidden', name !== 'np');
   npSetOpen(name === 'np');
 }
-for (const b of document.querySelectorAll('.views button')) {
+for (const b of document.querySelectorAll('.views:not(.subtabs) button')) {
   b.addEventListener('click', () => {
     view = b.dataset.view;
     try { localStorage.setItem(VIEW_KEY, view); } catch (e) { /* storage blocked: the view just isn't remembered */ }
@@ -689,13 +689,43 @@ function actionSummary(act) {
   return bits.join(' + ') + (act.min_amount > 0 ? ', ' + t('events.from', { n: num(act.min_amount) }) : '');
 }
 
+// The Alerts tab shows one category at a time (categories come from Go;
+// one without kinds yet has no tab). The choice is a per-viewer
+// convenience, kept in localStorage when it works.
+const EVCAT_KEY = 'darkbot.eventCategory';
+let eventCat = '';
+try { eventCat = localStorage.getItem(EVCAT_KEY) || ''; } catch (e) { /* storage blocked: start on the first tab */ }
+
+function eventIsOn(act) {
+  return !!(act && act.enabled && (act.sound || act.chat || act.visual || act.overlay_text));
+}
+
+function renderEventTabs(actions) {
+  const cats = [...new Set(eventKinds.map((k) => k.category))];
+  if (!cats.includes(eventCat)) eventCat = cats[0] || '';
+  $('eventCats').replaceChildren(...cats.map((c) => {
+    const on = eventKinds.filter((k) => k.category === c && eventIsOn(actions[k.kind])).length;
+    return el('button', {
+      role: 'tab', 'aria-selected': c === eventCat ? 'true' : 'false', class: c === eventCat ? 'active' : '',
+      onclick: () => {
+        eventCat = c;
+        try { localStorage.setItem(EVCAT_KEY, c); } catch (e) { /* not kept, fine */ }
+        renderEvents();
+      },
+    }, t('evcat.' + c), on ? el('span', { class: 'tab-count' }, String(on)) : null);
+  }));
+}
+
 function renderEvents() {
   if (!state) return;
   const actions = state.config.events || {};
   $('eventsReconnect').classList.toggle('hidden', !state.needsReconnect);
-  $('eventList').replaceChildren(...eventKinds.map((k) => {
+  renderEventTabs(actions);
+  // Unfollow detection belongs to follows.
+  $('unfollowBox').classList.toggle('hidden', !eventKinds.some((k) => k.kind === 'unfollow' && k.category === eventCat));
+  $('eventList').replaceChildren(...eventKinds.filter((k) => k.category === eventCat).map((k) => {
     const act = actions[k.kind];
-    const on = !!(act && act.enabled && (act.sound || act.chat || act.visual || act.overlay_text));
+    const on = eventIsOn(act);
     return el('li', { class: 'event-row' + (on ? ' on' : '') },
       el('span', { class: 'event-led', 'aria-hidden': 'true' }),
       el('div', { class: 'event-text' },
