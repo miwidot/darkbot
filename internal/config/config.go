@@ -350,6 +350,9 @@ type Config struct {
 	Snooze BuiltinCommand `json:"snooze"`
 	// Overlays: the goal and poll/prediction overlays in OBS.
 	Overlays Overlays `json:"overlays"`
+	// IgnoredChatters: Twitch logins the statistics never count (the
+	// streamer's own bots), on top of stats.KnownBots.
+	IgnoredChatters []string `json:"ignored_chatters"`
 }
 
 // Overlays switches darkbot's OBS overlays besides Now Playing.

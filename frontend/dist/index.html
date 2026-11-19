@@ -21,6 +21,7 @@
     <div class="brand">darkbot</div>
     <nav class="views" data-i18n-aria-label="view.nav">
       <button data-view="dash" data-i18n="view.dash"></button>
+      <button data-view="insights" data-i18n="view.insights"></button>
       <button data-view="sounds" data-i18n="view.sounds"></button>
       <button data-view="events" data-i18n="view.events"></button>
       <button data-view="chat" data-i18n="view.chat"></button>
@@ -78,6 +79,62 @@
           <div class="logins" id="logins"></div>
         </section>
       </div>
+    </section>
+
+    <section class="board view hidden" id="viewInsights" aria-labelledby="insTitle">
+      <div class="board-head">
+        <h1 id="insTitle" data-i18n="ins.title"></h1>
+        <span class="count" id="insSince"></span>
+      </div>
+      <div class="views subtabs" id="insRange" role="tablist" data-i18n-aria-label="ins.range">
+        <button role="tab" data-range="session" data-i18n="ins.rangeSession"></button>
+        <button role="tab" data-range="week" data-i18n="ins.rangeWeek"></button>
+      </div>
+      <div class="meters" id="insMeters"></div>
+      <div class="ranks ins-ranks">
+        <section class="rank">
+          <h2 data-i18n="ins.topChatters"></h2>
+          <ol class="rank-list" id="insChatters"></ol>
+          <p class="rank-empty" id="insChattersEmpty" data-i18n="ins.topChattersEmpty"></p>
+        </section>
+        <section class="rank">
+          <h2 data-i18n="ins.topSubs"></h2>
+          <ol class="rank-list" id="insSubs"></ol>
+          <p class="rank-empty" id="insSubsEmpty" data-i18n="ins.topSubsEmpty"></p>
+        </section>
+        <section class="rank">
+          <h2 data-i18n="ins.topBits"></h2>
+          <ol class="rank-list" id="insBits"></ol>
+          <p class="rank-empty" id="insBitsEmpty" data-i18n="ins.topBitsEmpty"></p>
+        </section>
+        <section class="rank">
+          <h2 data-i18n="ins.topRaiders"></h2>
+          <ol class="rank-list" id="insRaiders"></ol>
+          <p class="rank-empty" id="insRaidersEmpty" data-i18n="ins.topRaidersEmpty"></p>
+        </section>
+      </div>
+
+      <section class="activity" aria-labelledby="actTitle">
+        <h2 id="actTitle"><span data-i18n="ins.activity"></span> <span class="count" id="actTotal"></span></h2>
+        <div class="act-chart" id="actChart">
+          <div class="act-tip hidden" id="actTip" role="status"></div>
+        </div>
+        <ol class="act-days" id="actDays" data-i18n-aria-label="ins.days"></ol>
+        <p class="rank-empty hidden" id="actEmpty" data-i18n="ins.activityEmpty"></p>
+      </section>
+
+      <section class="unfollow-box ignore-box" aria-labelledby="ignTitle">
+        <h2 id="ignTitle" data-i18n="ins.ignoredTitle"></h2>
+        <p class="hint" data-i18n="ins.ignoredText"></p>
+        <p class="hint" id="ignBuiltin"></p>
+        <div class="field">
+          <label for="ignList" data-i18n="ins.ignoredLabel"></label>
+          <div class="ign-row">
+            <input id="ignList" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="ins.ignoredPlaceholder">
+            <button class="btn" id="ignSave" data-i18n="ins.ignoredSave"></button>
+          </div>
+        </div>
+      </section>
     </section>
 
     <section class="board view hidden" id="viewSounds" aria-labelledby="boardTitle">

@@ -75,6 +75,7 @@ func (a *App) isClipCommand(m twitch.ChatMessage) bool {
 // handleChat routes one chat message; EventSub delivers on its read loop,
 // so Twitch, Spotify and chat calls must not block it.
 func (a *App) handleChat(ctx context.Context, m twitch.ChatMessage) {
+	a.countChat(m)
 	switch {
 	case songs.IsCommand(m.Text):
 		go a.sr.Handle(ctx, m)

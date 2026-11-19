@@ -140,15 +140,15 @@ func (a *App) countEvent(ev twitch.ChannelEvent) {
 	case twitch.EvUnfollow:
 		a.st.Unfollow()
 	case twitch.EvSub:
-		a.st.Sub(ev.User) // gift recipients never get here, see handleEvent
+		a.st.Sub(ev.UserID, ev.User) // gift recipients never get here, see handleEvent
 	case twitch.EvResub:
-		a.st.Sub(ev.User)
+		a.st.Sub(ev.UserID, ev.User)
 	case twitch.EvGift:
-		a.st.Gift(ev.User, ev.Amount)
+		a.st.Gift(ev.UserID, ev.User, ev.Amount)
 	case twitch.EvCheer, twitch.EvPowerUp:
-		a.st.Cheer(ev.User, ev.Amount) // Bits are Bits, cheered or spent on a Power-up
+		a.st.Cheer(ev.UserID, ev.User, ev.Amount) // Bits are Bits, cheered or spent on a Power-up
 	case twitch.EvRaid:
-		a.st.Raid(ev.Amount)
+		a.st.Raid(ev.UserID, ev.User, ev.Amount)
 	}
 }
 

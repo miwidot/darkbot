@@ -1,3 +1,17 @@
+2026-11-19 15:15 +08 — Statistics view: top chatters, subs, Bits, raiders and 7-day chat activity
+- New "Statistics" tab next to the dashboard: messages, chatters, subs and Bits plus top 5
+  chatters, subs (gifted subs count for the gifter), Bits and raiders, for this stream or the
+  last 7 days; a chart of chat messages per hour over 7 days with messages/chatters per day.
+- internal/stats/people.go: per-session and per-day people (keyed by Twitch user ID), hourly
+  message buckets, days outside the last 7 dropped; at most 1,000 people per day and session
+  (least active dropped first, chatter count shown as a floor); stats.json now compact.
+- Bots never count: built-in list (Nightbot, StreamElements, Streamlabs, ...) plus the
+  streamer's own list (config ignored_chatters, validated as Twitch logins); the broadcaster's
+  own messages (darkbot's replies) don't count. Twitch has no bot flag in channel.chat.message
+  (docs checked: the Chat Bot Badge needs an app token), so it goes by name.
+- Sub/Gift/Cheer/Raid stats calls now carry the user ID; tests for ranking, ignore list,
+  rolling history and persistence, cap, login validation, DST day keys.
+
 2026-11-19 13:24 +08 — Release v0.7.1
 - Shared Chat silence, "Alerts" tab with categories, Bits via channel.bits.use (Power-ups),
   new alerts (Twitch rewards, title/category, ad warning, goals, polls, predictions), raid

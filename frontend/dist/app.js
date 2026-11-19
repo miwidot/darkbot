@@ -141,6 +141,7 @@ function render() {
   $('dashSince').classList.toggle('hidden', !loggedIn);
   showView(loggedIn ? view : 'dash');
   renderDash();
+  renderIgnored();
   renderEvents();
   renderChat();
   renderLogins();
@@ -252,6 +253,8 @@ function showView(name) {
     b.setAttribute('aria-current', on ? 'page' : 'false');
   }
   $('viewDash').classList.toggle('hidden', name !== 'dash');
+  $('viewInsights').classList.toggle('hidden', name !== 'insights');
+  if (name === 'insights') loadInsights();
   $('viewSounds').classList.toggle('hidden', name !== 'sounds');
   $('viewEvents').classList.toggle('hidden', name !== 'events');
   $('viewChat').classList.toggle('hidden', name !== 'chat');
@@ -265,7 +268,7 @@ for (const b of document.querySelectorAll('.views:not(.subtabs) button')) {
     showView(view);
   });
 }
-const VIEWS = ['dash', 'sounds', 'events', 'chat', 'np'];
+const VIEWS = ['dash', 'insights', 'sounds', 'events', 'chat', 'np'];
 try { const v = localStorage.getItem(VIEW_KEY); view = VIEWS.includes(v) ? v : 'dash'; } catch (e) { view = 'dash'; }
 
 // ---------- now playing ----------
@@ -507,8 +510,152 @@ function loadStats() {
   requestAnimationFrame(async () => {
     statsQueued = false;
     try { stats = await App().GetStats(); renderDash(); } catch (e) { /* the next event fetches again */ }
+    if (view === 'insights') loadInsights();
   });
 }
+
+// ---------- statistics view ----------
+
+// Top lists for this stream or the last seven days, and the chat activity
+// per hour. The numbers come from GetInsights (internal/stats/people.go);
+// the range choice is a convenience kept in localStorage when it works.
+const INS_RANGE_KEY = 'darkbot.insightsRange';
+const INS_RANGES = ['session', 'week'];
+// INS_TICKS: about how many gridlines the activity chart gets.
+const INS_TICKS = 3;
+let insights = null;
+let insRange = 'session';
+try { const r = localStorage.getItem(INS_RANGE_KEY); if (INS_RANGES.includes(r)) insRange = r; } catch (e) { /* not kept, fine */ }
+
+let insQueued = false;
+function loadInsights() {
+  if (insQueued) return;
+  insQueued = true;
+  requestAnimationFrame(async () => {
+    insQueued = false;
+    try { insights = await App().GetInsights(); renderInsights(); } catch (e) { /* the next stats event fetches again */ }
+  });
+}
+
+for (const b of $('insRange').querySelectorAll('button')) {
+  b.addEventListener('click', () => {
+    insRange = b.dataset.range;
+    try { localStorage.setItem(INS_RANGE_KEY, insRange); } catch (e) { /* not kept, fine */ }
+    renderInsights();
+  });
+}
+
+// A day key (YYYY-MM-DD, local) as a local date at noon.
+const dayKeyDate = (key) => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d, 12); };
+const dayName = (key, long) => dayKeyDate(key).toLocaleDateString(I18N.lang || undefined, long
+  ? { weekday: 'long', day: 'numeric', month: 'long' } : { weekday: 'short', day: 'numeric', month: 'numeric' });
+
+function renderInsights() {
+  if (!insights) return;
+  for (const b of $('insRange').querySelectorAll('button')) {
+    const on = b.dataset.range === insRange;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  }
+  const since = new Date(insights.since);
+  const sameDay = since.toDateString() === new Date().toDateString();
+  $('insSince').textContent = insRange === 'session'
+    ? t('ins.since', { time: sameDay ? clock(since) : since.toLocaleString(I18N.lang || undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) })
+    : t('ins.sinceWeek', { date: dayName(insights.days[0].date, false) });
+
+  const b = insights[insRange];
+  const tiles = [
+    { label: 'ins.messages', value: b.messages, detail: t('ins.messagesDetail') },
+    { label: 'ins.chatters', value: b.chatters, detail: t('ins.chattersDetail'), floor: b.capped },
+    { label: 'ins.subs', value: b.subs, detail: t('ins.subsDetail') },
+    { label: 'ins.bits', value: b.bits, detail: t('ins.bitsDetail') },
+  ];
+  $('insMeters').replaceChildren(...tiles.map((m) => el('div', { class: 'meter' },
+    el('div', { class: 'meter-head' }, el('span', { class: 'meter-label' }, t(m.label))),
+    el('div', { class: 'meter-value' }, (m.floor ? '≥ ' : '') + num(m.value)),
+    el('div', { class: 'meter-detail' }, m.detail))));
+
+  renderRank('insChatters', b.topChatters || []);
+  renderRank('insSubs', b.topSubs || []);
+  renderRank('insBits', b.topBits || []);
+  renderRank('insRaiders', b.topRaiders || []);
+  renderActivity(insights.days || []);
+  if (state) renderIgnored();
+}
+
+// niceStep: a round gridline step (1, 2 or 5 times a power of ten).
+function niceStep(max) {
+  const raw = Math.max(1, max / INS_TICKS);
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  for (const f of [1, 2, 5, 10]) if (f * pow >= raw) return f * pow;
+  return 10 * pow;
+}
+
+// renderActivity draws messages per hour, one column per day, with the
+// days as a list below (that list is also the chart's text version).
+function renderActivity(days) {
+  const chart = $('actChart');
+  const tip = $('actTip');
+  const max = Math.max(0, ...days.flatMap((d) => d.hours));
+  const step = niceStep(max);
+  const top = Math.max(step, Math.ceil(max / step) * step);
+  const total = days.reduce((n, d) => n + d.messages, 0);
+  $('actTotal').textContent = t('ins.activityTotal', { n: num(total) });
+
+  const grid = el('div', { class: 'act-grid', 'aria-hidden': 'true' });
+  for (let v = step; v <= top; v += step) {
+    const line = el('div', { class: 'act-line' }, el('span', {}, num(v)));
+    line.style.bottom = (v / top * 100) + '%';
+    grid.append(line);
+  }
+  const cols = el('div', { class: 'act-cols', 'aria-hidden': 'true' });
+  for (const d of days) {
+    const col = el('div', { class: 'act-day' });
+    d.hours.forEach((n, h) => {
+      const bar = el('i');
+      bar.style.setProperty('--h', (n / top).toFixed(4));
+      const hit = el('span', { class: 'act-h' + (n ? '' : ' zero') }, bar);
+      hit.addEventListener('mouseenter', () => {
+        tip.textContent = t('ins.hourTip', { day: dayName(d.date, true), from: String(h).padStart(2, '0'), to: String((h + 1) % 24).padStart(2, '0'), n: num(n) });
+        tip.classList.remove('hidden');
+        const box = chart.getBoundingClientRect();
+        const r = hit.getBoundingClientRect();
+        const x = r.left + r.width / 2 - box.left;
+        tip.style.left = Math.min(Math.max(x, tip.offsetWidth / 2), box.width - tip.offsetWidth / 2) + 'px';
+      });
+      col.append(hit);
+    });
+    cols.append(col);
+  }
+  cols.addEventListener('mouseleave', () => tip.classList.add('hidden'));
+  chart.replaceChildren(grid, cols, tip);
+  $('actEmpty').classList.toggle('hidden', max > 0);
+
+  const today = days.length ? days[days.length - 1].date : '';
+  $('actDays').replaceChildren(...days.map((d) => el('li', { class: d.date === today ? 'today' : '' },
+    el('span', { class: 'act-day-name' }, d.date === today ? t('ins.today') : dayName(d.date, false)),
+    el('span', { class: 'act-day-n' }, t('ins.dayMessages', { n: num(d.messages) })),
+    el('span', { class: 'act-day-c' }, t('ins.dayChatters', { n: (d.capped ? '≥ ' : '') + num(d.chatters) })))));
+}
+
+// The streamer's own list of accounts the statistics leave out.
+function renderIgnored() {
+  if (document.activeElement !== $('ignList')) $('ignList').value = (state.config.ignored_chatters || []).join(', ');
+  // The built-in bot list comes with the numbers (loaded with the view).
+  $('ignBuiltin').textContent = insights ? t('ins.ignoredBuiltin', { list: (insights.bots || []).join(', ') }) : '';
+}
+async function saveIgnored() {
+  const names = $('ignList').value.split(/[\s,;]+/).filter(Boolean);
+  try {
+    await call('SaveIgnoredChatters', names);
+    toast(t('ins.ignoredSaved'));
+    $('ignList').blur();
+    await refresh();
+    loadInsights();
+  } catch (e) { /* shown by call */ }
+}
+$('ignSave').addEventListener('click', saveIgnored);
+$('ignList').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveIgnored(); });
 
 // Two-step reset like delete: native confirm dialogs would block the web view.
 let resetArmed = 0;

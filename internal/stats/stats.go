@@ -41,6 +41,8 @@ type Counts struct {
 	Bits          int `json:"bits"`
 	Raids         int `json:"raids"`
 	RaidViewers   int `json:"raidViewers"` // viewers brought by raids
+	// ChatMessages: viewers' chat messages (not the broadcaster's, not bots').
+	ChatMessages int `json:"chatMessages"`
 }
 
 // Entry is one ranked name.
@@ -66,6 +68,8 @@ type persisted struct {
 	Since   time.Time         `json:"since"`
 	Total   Counts            `json:"total"`
 	Session *persistedSession `json:"session,omitempty"`
+	// Days: the history of the statistics view (people.go).
+	Days []*day `json:"days,omitempty"`
 }
 
 // persistedSession is the running session (files from before v0.2.8
@@ -75,6 +79,8 @@ type persistedSession struct {
 	Counts  Counts         `json:"counts"`
 	Sounds  map[string]int `json:"sounds"`
 	Viewers map[string]int `json:"viewers"`
+	People  people         `json:"people,omitempty"`
+	Capped  bool           `json:"peopleCapped,omitempty"`
 }
 
 // Logger is the minimal logging interface this package needs.
@@ -96,13 +102,22 @@ type Stats struct {
 	sounds     map[string]int
 	viewers    map[string]int
 	saveTimer  *time.Timer
+
+	// people.go: this session's people, the day history and the accounts
+	// that never count.
+	people       people
+	peopleCapped bool
+	days         []*day
+	ignored      map[string]bool
+	now          func() time.Time
 }
 
 // Open loads the totals from path (missing or unreadable = start at zero;
 // lost numbers must never stop darkbot from starting).
 func Open(path string, log Logger) *Stats {
 	now := time.Now()
-	s := &Stats{path: path, log: log, since: now, totalSince: now, sounds: map[string]int{}, viewers: map[string]int{}}
+	s := &Stats{path: path, log: log, since: now, totalSince: now, sounds: map[string]int{}, viewers: map[string]int{}, people: people{}, now: time.Now}
+	s.SetIgnored(nil)
 	data, err := os.ReadFile(path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
@@ -125,7 +140,20 @@ func Open(path string, log Logger) *Stats {
 				if ps.Viewers != nil {
 					s.viewers = ps.Viewers
 				}
+				if ps.People != nil {
+					s.people, s.peopleCapped = ps.People, ps.Capped
+				}
 			}
+			for _, d := range p.Days {
+				if d == nil {
+					continue
+				}
+				if d.People == nil {
+					d.People = people{}
+				}
+				s.days = append(s.days, d)
+			}
+			slices.SortFunc(s.days, func(a, b *day) int { return cmp.Compare(a.Date, b.Date) })
 		}
 	}
 	return s
@@ -195,23 +223,37 @@ func (s *Stats) SongRejected() { s.update(func(c *Counts) { c.SongsRejected++ },
 // Skip counts a skipped song.
 func (s *Stats) Skip() { s.update(func(c *Counts) { c.Skips++ }, nil) }
 
-// Follow, Unfollow, Sub, Gift, Cheer and Raid count channel events; user
-// (may be "") ranks the viewer.
+// Follow, Unfollow, Sub, Gift, Cheer and Raid count channel events. id and
+// user (Twitch user ID and display name, "" when anonymous) rank the viewer.
 func (s *Stats) Follow(user string) {
 	s.update(func(c *Counts) { c.Follows++ }, nil)
 }
 func (s *Stats) Unfollow() { s.update(func(c *Counts) { c.Unfollows++ }, nil) }
-func (s *Stats) Sub(user string) {
-	s.update(func(c *Counts) { c.Subs++ }, func() { s.rankViewer(user) })
+func (s *Stats) Sub(id, user string) {
+	s.update(func(c *Counts) { c.Subs++ }, func() {
+		s.rankViewer(user)
+		s.todayLocked(s.now()).Subs++
+		s.touchLocked(id, "", user, func(p *Person) { p.Subs++ })
+	})
 }
-func (s *Stats) Gift(user string, n int) {
-	s.update(func(c *Counts) { c.GiftedSubs += n }, func() { s.rankViewer(user) })
+func (s *Stats) Gift(id, user string, n int) {
+	s.update(func(c *Counts) { c.GiftedSubs += n }, func() {
+		s.rankViewer(user)
+		s.todayLocked(s.now()).Subs += n
+		s.touchLocked(id, "", user, func(p *Person) { p.Subs += n })
+	})
 }
-func (s *Stats) Cheer(user string, bits int) {
-	s.update(func(c *Counts) { c.Bits += bits }, func() { s.rankViewer(user) })
+func (s *Stats) Cheer(id, user string, bits int) {
+	s.update(func(c *Counts) { c.Bits += bits }, func() {
+		s.rankViewer(user)
+		s.todayLocked(s.now()).Bits += bits
+		s.touchLocked(id, "", user, func(p *Person) { p.Bits += bits })
+	})
 }
-func (s *Stats) Raid(viewers int) {
-	s.update(func(c *Counts) { c.Raids++; c.RaidViewers += viewers }, nil)
+func (s *Stats) Raid(id, user string, viewers int) {
+	s.update(func(c *Counts) { c.Raids++; c.RaidViewers += viewers }, func() {
+		s.touchLocked(id, "", user, func(p *Person) { p.Raid += viewers })
+	})
 }
 
 // rankViewer must run under mu; anonymous gifts/cheers aren't ranked.
@@ -233,6 +275,7 @@ func (s *Stats) ResetSessionAt(since time.Time) {
 	s.session = Counts{}
 	s.sounds = map[string]int{}
 	s.viewers = map[string]int{}
+	s.people, s.peopleCapped = people{}, false
 	s.scheduleSave()
 	cb := s.onChange
 	s.mu.Unlock()
@@ -273,20 +316,25 @@ func top(m map[string]int) []Entry {
 func (s *Stats) saveNow() {
 	s.mu.Lock()
 	s.saveTimer = nil
+	s.pruneDaysLocked(s.now())
 	p := persisted{Since: s.totalSince, Total: s.total, Session: &persistedSession{
 		Since: s.since, Counts: s.session, Sounds: maps.Clone(s.sounds), Viewers: maps.Clone(s.viewers),
-	}}
+		People: s.people, Capped: s.peopleCapped,
+	}, Days: s.days}
+	// Marshalled under the lock: People and Days are shared, not copied.
+	// Compact, not indented: the history makes up most of the file.
+	data, err := json.Marshal(p)
 	s.mu.Unlock()
-	if err := s.write(p); err != nil {
+	if err != nil {
+		s.log.Warnf("Could not save statistics: %v", err)
+		return
+	}
+	if err := s.write(data); err != nil {
 		s.log.Warnf("Could not save statistics: %v", err)
 	}
 }
 
-func (s *Stats) write(p persisted) error {
-	data, err := json.MarshalIndent(p, "", "  ")
-	if err != nil {
-		return err
-	}
+func (s *Stats) write(data []byte) error {
 	if err := secret.WriteFileAtomic(s.path, data); err != nil {
 		return fmt.Errorf("write %s: %w", s.path, err)
 	}

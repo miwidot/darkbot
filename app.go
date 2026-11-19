@@ -152,6 +152,12 @@ func NewApp(log *applog.Log) (*App, error) {
 
 	a := &App{log: log, cfg: cfg, tok: tok, hx: twitch.NewHelix(tok), st: stats.Open(cfg.StatsPath(), log), act: activity.Open(cfg.ActivityPath(), log)}
 	a.ch.kick = make(chan struct{}, 1)
+	if ign, err := stats.NormalizeLogins(cfg.Get().IgnoredChatters); err != nil {
+		log.Warnf("Ignoring the list of accounts the statistics leave out: %v", i18n.Localize(err, "en"))
+		a.st.SetIgnored(nil)
+	} else {
+		a.st.SetIgnored(ign)
+	}
 	a.st.OnChange(func() {
 		if a.ctx != nil {
 			runtime.EventsEmit(a.ctx, "stats")
