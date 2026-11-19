@@ -1,3 +1,16 @@
+2026-11-19 12:36 +08 — New alerts: title/category changes, Twitch's channel point rewards; hype train state
+- "Title or category changed" (Channel): EventSub channel.update v2 (no authorization needed,
+  docs checked). It also fires for language or label changes; darkbot only reports a new title
+  or category, compared with the channel read at connect (Get Channel Information).
+  Placeholders {title} and {category} (the streamer's own text).
+- "Channel points: Twitch rewards" (Support): channel.channel_points_automatic_reward_redemption.add
+  v2 (scope channel:read:redemptions, already granted): highlighted message, emote unlocks,
+  message in sub-only mode. {reward} names it, {amount} is the price; the viewer's message is
+  not used. Minimum amount works on the price.
+- Hype train: at connect darkbot reads Get Hype Train Status, so the first level-up of a train
+  that was already running is reported (it used to become the baseline).
+- Tests: parsing (docs examples), the title/category filter, the hype seed, both Helix reads.
+
 2026-11-19 12:33 +08 — "Events" tab is now "Alerts", with category sub-tabs
 - The tab is called Alerts and groups its events in sub-tabs: Support (follows, subs, gifts,
   Bits, Power-ups, raids, watch streaks), Hype & goals, Polls & predictions, Channel (live,

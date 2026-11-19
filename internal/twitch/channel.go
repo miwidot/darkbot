@@ -87,3 +87,45 @@ func (h *Helix) InSharedChat(ctx context.Context, broadcasterID string) (bool, e
 	}
 	return len(out.Data) > 0, nil
 }
+
+// ChannelInfo is the part of Get Channel Information darkbot uses.
+type ChannelInfo struct {
+	Title    string `json:"title"`
+	Category string `json:"game_name"`
+}
+
+// ChannelInfo reads the stream title and category (Get Channel
+// Information, any user token, checked 2026-11-19).
+func (h *Helix) ChannelInfo(ctx context.Context, broadcasterID string) (ChannelInfo, error) {
+	var out struct {
+		Data []ChannelInfo `json:"data"`
+	}
+	if err := h.do(ctx, http.MethodGet, "/channels", url.Values{"broadcaster_id": {broadcasterID}}, nil, &out); err != nil {
+		return ChannelInfo{}, err
+	}
+	if len(out.Data) == 0 {
+		return ChannelInfo{}, ErrNotFound
+	}
+	return out.Data[0], nil
+}
+
+// HypeTrainNow returns the running hype train's ID and level ("" when none
+// runs). Get Hype Train Status (channel:read:hype_train, checked
+// 2026-11-19): data[].current is "Null if a Hype Train is not active".
+func (h *Helix) HypeTrainNow(ctx context.Context, broadcasterID string) (train string, level int, err error) {
+	var out struct {
+		Data []struct {
+			Current *struct {
+				ID    string `json:"id"`
+				Level int    `json:"level"`
+			} `json:"current"`
+		} `json:"data"`
+	}
+	if err := h.do(ctx, http.MethodGet, "/hypetrain/status", url.Values{"broadcaster_id": {broadcasterID}}, nil, &out); err != nil {
+		return "", 0, err
+	}
+	if len(out.Data) == 0 || out.Data[0].Current == nil {
+		return "", 0, nil
+	}
+	return out.Data[0].Current.ID, out.Data[0].Current.Level, nil
+}

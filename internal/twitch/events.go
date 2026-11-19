@@ -49,6 +49,12 @@ const (
 	// EvSharedChatBegin and EvSharedChatEnd: the channel joined or left a
 	// Shared Chat session. Not in EventKinds: they have no action, darkbot
 	// itself stops and resumes writing in chat.
+	// EvChannelUpdate: the stream title or category changed (from
+	// channel.update; other changes such as labels are dropped).
+	EvChannelUpdate = "channel_update"
+	// EvAutoReward: a viewer redeemed one of Twitch's own channel point
+	// rewards (highlighted message, emote unlock, ...).
+	EvAutoReward      = "auto_reward"
 	EvSharedChatBegin = "shared_chat_begin"
 	EvSharedChatEnd   = "shared_chat_end"
 )
@@ -68,16 +74,16 @@ var EventCategories = []string{CatSupport, CatHype, CatVotes, CatChannel}
 var eventCategory = map[string]string{
 	EvFollow: CatSupport, EvUnfollow: CatSupport, EvSub: CatSupport, EvResub: CatSupport,
 	EvGift: CatSupport, EvCheer: CatSupport, EvPowerUp: CatSupport, EvRaid: CatSupport,
-	EvWatchStreak: CatSupport, EvSubEnd: CatSupport,
+	EvWatchStreak: CatSupport, EvSubEnd: CatSupport, EvAutoReward: CatSupport,
 	EvHypeBegin: CatHype, EvHypeLevel: CatHype, EvHypeEnd: CatHype,
-	EvShoutout: CatChannel, EvAdBreak: CatChannel, EvOnline: CatChannel, EvOffline: CatChannel,
+	EvShoutout: CatChannel, EvAdBreak: CatChannel, EvChannelUpdate: CatChannel, EvOnline: CatChannel, EvOffline: CatChannel,
 }
 
 // Category returns the category of an event kind.
 func Category(kind string) string { return eventCategory[kind] }
 
 // EventKinds lists every kind in the order the UI shows them.
-var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvPowerUp, EvRaid, EvWatchStreak, EvHypeBegin, EvHypeLevel, EvHypeEnd, EvShoutout, EvAdBreak, EvSubEnd, EvOnline, EvOffline}
+var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvPowerUp, EvRaid, EvWatchStreak, EvAutoReward, EvHypeBegin, EvHypeLevel, EvHypeEnd, EvShoutout, EvAdBreak, EvChannelUpdate, EvSubEnd, EvOnline, EvOffline}
 
 // Scopes for channel events.
 const (
@@ -108,6 +114,13 @@ type ChannelEvent struct {
 	PowerUpType string `json:"power_up_type,omitempty"`
 	// PowerUpTitle: the title of a custom Power-up (set by the streamer).
 	PowerUpTitle string `json:"power_up_title,omitempty"`
+	// StreamTitle and Category: channel_update, the streamer's own title
+	// and the category (game) name.
+	StreamTitle string `json:"stream_title,omitempty"`
+	Category    string `json:"category,omitempty"`
+	// Reward: auto_reward, Twitch's reward type (e.g.
+	// "send_highlighted_message"); Amount is its price in channel points.
+	Reward string `json:"reward,omitempty"`
 	// Missed: happened while darkbot was off and was found later (follower
 	// list comparison). Shown in the feed only: no sound, chat or counting.
 	Missed bool `json:"missed"`
@@ -261,6 +274,42 @@ func (h *hypeTracker) filter(ev ChannelEvent) (ChannelEvent, bool) {
 	return ev, true
 }
 
+// channelTracker drops channel.update notifications in which neither the
+// title nor the category changed (e.g. only the language). It is seeded
+// with the channel as it is when darkbot connects.
+type channelTracker struct {
+	mu              sync.Mutex
+	known           bool
+	title, category string
+}
+
+func (c *channelTracker) seed(title, category string) {
+	c.mu.Lock()
+	c.known, c.title, c.category = true, title, category
+	c.mu.Unlock()
+}
+
+// filter returns false for a channel update that changed nothing darkbot
+// reports; other events pass.
+func (c *channelTracker) filter(ev ChannelEvent) bool {
+	if ev.Kind != EvChannelUpdate {
+		return true
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	same := c.known && ev.StreamTitle == c.title && ev.Category == c.category
+	c.known, c.title, c.category = true, ev.StreamTitle, ev.Category
+	return !same
+}
+
+// seed starts a hype train already running when darkbot connects, so its
+// next level-up is reported (not taken as the baseline).
+func (h *hypeTracker) seed(train string, level int) {
+	h.mu.Lock()
+	h.train, h.level = train, level
+	h.mu.Unlock()
+}
+
 var eventSpecs = []eventSpec{
 	{Type: "channel.follow", Version: "2", Scope: ScopeReadFollowers, condition: asModerator,
 		parse: func(raw json.RawMessage) (ChannelEvent, error) {
@@ -381,6 +430,34 @@ var eventSpecs = []eventSpec{
 			}
 			return ChannelEvent{Kind: EvWatchStreak, User: v.ChatterName, UserID: v.ChatterID,
 				Amount: v.WatchStreak.Count, Points: v.WatchStreak.Points, Anonymous: v.Anonymous}, nil
+		}},
+	// channel.update v2 (no authorization needed, checked 2026-11-19):
+	// "when a broadcaster updates the category, title, content
+	// classification labels, or broadcast language". channelTracker keeps
+	// only title and category changes.
+	{Type: "channel.update", Version: "2", Scope: "", condition: byBroadcaster,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				Title    string `json:"title"`
+				Category string `json:"category_name"`
+			}](raw)
+			return ChannelEvent{Kind: EvChannelUpdate, StreamTitle: v.Title, Category: v.Category}, err
+		}},
+	// Automatic rewards v2 (checked 2026-11-19): reward.type is
+	// single_message_bypass_sub_mode, send_highlighted_message,
+	// random_sub_emote_unlock, chosen_sub_emote_unlock or
+	// chosen_modified_sub_emote_unlock; reward.channel_points the cost.
+	// The viewer's message is not used (darkbot never repeats viewer text).
+	{Type: "channel.channel_points_automatic_reward_redemption.add", Version: "2", Scope: ScopeReadRedemptions, condition: byBroadcaster,
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				user
+				Reward struct {
+					Type   string `json:"type"`
+					Points int    `json:"channel_points"`
+				} `json:"reward"`
+			}](raw)
+			return ChannelEvent{Kind: EvAutoReward, User: v.name(), UserID: v.id(), Amount: v.Reward.Points, Reward: v.Reward.Type}, err
 		}},
 	{Type: "channel.shared_chat.begin", Version: "1", Scope: "", condition: byBroadcaster,
 		parse: func(json.RawMessage) (ChannelEvent, error) { return ChannelEvent{Kind: EvSharedChatBegin}, nil }},

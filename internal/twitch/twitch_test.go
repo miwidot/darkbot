@@ -412,6 +412,10 @@ func TestParseChannelEvents(t *testing.T) {
 		{"channel.shoutout.receive", `{"from_broadcaster_user_id":"6","from_broadcaster_user_name":"Friend","viewer_count":300}`,
 			ChannelEvent{Kind: EvShoutout, User: "Friend", UserID: "6", Amount: 300}},
 		{"stream.online", `{"id":"1","type":"live"}`, ChannelEvent{Kind: EvOnline}},
+		{"channel.update", `{"broadcaster_user_id":"1337","title":"Best Stream Ever","language":"en","category_id":"12453","category_name":"Grand Theft Auto","content_classification_labels":["MatureGame"]}`,
+			ChannelEvent{Kind: EvChannelUpdate, StreamTitle: "Best Stream Ever", Category: "Grand Theft Auto"}},
+		{"channel.channel_points_automatic_reward_redemption.add", `{"broadcaster_user_id":"12826","user_id":"141981764","user_login":"twitchdev","user_name":"TwitchDev","id":"f024099a","reward":{"type":"send_highlighted_message","channel_points":100,"emote":null},"message":{"text":"Hello world! VoHiYo","fragments":[]},"redeemed_at":"2024-08-12T21:14:34.260398045Z"}`,
+			ChannelEvent{Kind: EvAutoReward, User: "TwitchDev", UserID: "141981764", Amount: 100, Reward: "send_highlighted_message"}},
 		// A rerun or premiere is not the streamer going live.
 		{"stream.online", `{"id":"1","type":"rerun"}`, ChannelEvent{}},
 		{"stream.online", `{"id":"1","type":"premiere"}`, ChannelEvent{}},
@@ -861,5 +865,64 @@ func TestEveryKindHasACategory(t *testing.T) {
 		if c := Category(k); !slices.Contains(EventCategories, c) {
 			t.Errorf("%s has no category (%q)", k, c)
 		}
+	}
+}
+
+func TestChannelTracker(t *testing.T) {
+	var c channelTracker
+	up := func(title, cat string) bool {
+		return c.filter(ChannelEvent{Kind: EvChannelUpdate, StreamTitle: title, Category: cat})
+	}
+	c.seed("Old", "Chess")
+	if up("Old", "Chess") {
+		t.Error("only the language or labels changed: must be dropped")
+	}
+	if !up("New", "Chess") || !up("New", "Art") {
+		t.Error("a new title or category must be reported")
+	}
+	if !c.filter(ChannelEvent{Kind: EvFollow}) {
+		t.Error("other events must pass")
+	}
+	var fresh channelTracker // not seeded (reading the channel failed)
+	if !fresh.filter(ChannelEvent{Kind: EvChannelUpdate, StreamTitle: "x"}) {
+		t.Error("without a known state the first update is reported")
+	}
+}
+
+func TestHypeSeed(t *testing.T) {
+	var h hypeTracker
+	h.seed("train", 2)
+	if ev, ok := h.filter(ChannelEvent{Kind: evHypeProgress, TrainID: "train", Amount: 3}); !ok || ev.Kind != EvHypeLevel {
+		t.Fatalf("level-up after a restart lost: %+v %v", ev, ok)
+	}
+}
+
+func TestChannelInfoAndHypeNow(t *testing.T) {
+	train := true
+	fakeTwitch(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/helix/channels":
+			writeJSON(w, 200, map[string]any{"data": []map[string]any{{"broadcaster_id": "42", "title": "T", "game_name": "G", "game_id": "1"}}})
+		case "/helix/hypetrain/status":
+			var cur any
+			if train {
+				cur = map[string]any{"id": "h1", "level": 3, "total": 900}
+			}
+			writeJSON(w, 200, map[string]any{"data": []map[string]any{{"current": cur, "all_time_high": nil}}})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	m, _ := NewTokenManager("cid", &memStore{tok: &Token{AccessToken: "A1", RefreshToken: "R1", UserID: "42"}}, nopLog{})
+	h := NewHelix(m)
+	if c, err := h.ChannelInfo(context.Background(), "42"); err != nil || c.Title != "T" || c.Category != "G" {
+		t.Fatalf("channel: %+v %v", c, err)
+	}
+	if id, lvl, err := h.HypeTrainNow(context.Background(), "42"); err != nil || id != "h1" || lvl != 3 {
+		t.Fatalf("train: %s %d %v", id, lvl, err)
+	}
+	train = false
+	if id, _, err := h.HypeTrainNow(context.Background(), "42"); err != nil || id != "" {
+		t.Fatalf("no train: %q %v", id, err)
 	}
 }

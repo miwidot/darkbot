@@ -104,6 +104,7 @@ type EventSub struct {
 
 	seenMu sync.Mutex
 	hype   hypeTracker
+	chanUp channelTracker
 	seen   map[string]time.Time
 	pruned time.Time // last walk over seen
 }
@@ -292,6 +293,7 @@ func (e *EventSub) subscribeEvents(ctx context.Context, sessionID string, tok *T
 		ok = append(ok, s.Type)
 	}
 	e.log.Infof("Listening for %d channel event types", len(ok))
+	e.seedTrackers(ctx, tok)
 	if len(missing) > 0 {
 		e.log.Warnf("Reconnect Twitch once to also receive: %s", strings.Join(missing, ", "))
 	}
@@ -453,7 +455,7 @@ func (e *EventSub) handleChannelEvent(msg *wsMessage) {
 	}
 	ev.MessageID = msg.Metadata.MessageID
 	ev, report := e.hype.filter(ev)
-	if !report {
+	if !report || !e.chanUp.filter(ev) {
 		return
 	}
 	e.onChannelEvent(ev)
@@ -486,4 +488,26 @@ func (e *EventSub) isDuplicate(id string) bool {
 func isDeprecated(err error) bool {
 	e, ok := errors.AsType[*APIError](err)
 	return ok && e.Status == http.StatusBadRequest && strings.Contains(strings.ToLower(e.Message), "deprecated")
+}
+
+// seedTrackers reads the channel and a running hype train as they are now,
+// so the first update after connecting compares with the real state.
+// Failures only cost that comparison (logged).
+func (e *EventSub) seedTrackers(ctx context.Context, tok *Token) {
+	if c, err := e.helix.ChannelInfo(ctx, tok.UserID); err == nil {
+		e.chanUp.seed(c.Title, c.Category)
+	} else {
+		e.log.Warnf("Could not read the stream title and category: %v", err)
+	}
+	if !tok.HasScope(ScopeReadHypeTrain) {
+		return
+	}
+	if train, level, err := e.helix.HypeTrainNow(ctx, tok.UserID); err == nil {
+		if train != "" {
+			e.hype.seed(train, level)
+			e.log.Infof("A hype train is running, level %d", level)
+		}
+	} else {
+		e.log.Warnf("Could not read the hype train: %v", err)
+	}
 }

@@ -205,7 +205,7 @@ func TestChannelEventsRefreshTotals(t *testing.T) {
 // and suggestions only use placeholders darkbot fills.
 func TestChatSuggestions(t *testing.T) {
 	placeholder := regexp.MustCompile(`\{[a-z]+\}`)
-	known := map[string]bool{"{user}": true, "{amount}": true, "{tier}": true, "{months}": true, "{top}": true, "{points}": true, "{powerup}": true}
+	known := map[string]bool{"{user}": true, "{amount}": true, "{tier}": true, "{months}": true, "{top}": true, "{points}": true, "{powerup}": true, "{reward}": true, "{title}": true, "{category}": true}
 	a, _ := newEventApp(t, nil)
 	for _, lang := range i18n.Supported {
 		dict := i18n.Dict(lang)

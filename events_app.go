@@ -28,7 +28,7 @@ const eventSoundPrefix = "ev-"
 
 // amountKinds have a number worth a threshold (bits, raid viewers, gifted
 // subs, hype train level).
-var amountKinds = []string{twitch.EvCheer, twitch.EvPowerUp, twitch.EvRaid, twitch.EvGift, twitch.EvHypeLevel, twitch.EvWatchStreak}
+var amountKinds = []string{twitch.EvCheer, twitch.EvPowerUp, twitch.EvAutoReward, twitch.EvRaid, twitch.EvGift, twitch.EvHypeLevel, twitch.EvWatchStreak}
 
 // noChatKinds never post in chat: naming people who unfollowed would put
 // them on the spot in front of the whole chat.
@@ -168,7 +168,9 @@ func (a *App) runAction(ev twitch.ChannelEvent) {
 }
 
 // renderTemplate fills {user}, {amount}, {tier}, {months}, {top} (biggest
-// hype train contributor, "everyone" if Twitch names none) and {powerup}. Viewer text
+// hype train contributor, "everyone" if Twitch names none), {powerup},
+// {reward} (Twitch's own channel point reward) and, for a channel update,
+// {title} and {category} (the streamer's own text). Viewer text
 // (cheer and resub messages) is deliberately not available: darkbot must
 // never post what a viewer wrote under the streamer's name.
 func renderTemplate(tpl string, ev twitch.ChannelEvent, lang string) string {
@@ -188,7 +190,18 @@ func renderTemplate(tpl string, ev twitch.ChannelEvent, lang string) string {
 		"{months}", strconv.Itoa(ev.Months),
 		"{points}", strconv.Itoa(ev.Points),
 		"{powerup}", powerUpName(ev, lang),
+		"{reward}", autoRewardName(ev, lang),
+		"{title}", ev.StreamTitle,
+		"{category}", ev.Category,
 	).Replace(tpl)
+}
+
+// autoRewardName names one of Twitch's own channel point rewards.
+func autoRewardName(ev twitch.ChannelEvent, lang string) string {
+	if key := "autoreward." + ev.Reward; ev.Reward != "" && i18n.Has(key) {
+		return i18n.T(lang, key)
+	}
+	return i18n.T(lang, "autoreward.other")
 }
 
 // powerUpName names a Power-up: a custom one by the title the streamer gave
@@ -261,11 +274,16 @@ func (a *App) sampleEvent(kind string) twitch.ChannelEvent {
 	const sampleBits, sampleViewers, sampleGifts, sampleMonths, sampleLevel, sampleAdSeconds = 100, 25, 5, 12, 3, 90
 	const sampleStreak, sampleStreakPoints = 5, 450
 	const samplePowerUpBits, samplePowerUp = 50, "gigantify_an_emote"
+	const sampleRewardPoints, sampleReward, sampleCategory = 300, "send_highlighted_message", "Just Chatting"
 	switch kind {
 	case twitch.EvCheer:
 		ev.Amount = sampleBits
 	case twitch.EvPowerUp:
 		ev.Amount, ev.PowerUpType = samplePowerUpBits, samplePowerUp
+	case twitch.EvAutoReward:
+		ev.Amount, ev.Reward = sampleRewardPoints, sampleReward
+	case twitch.EvChannelUpdate:
+		ev.User, ev.StreamTitle, ev.Category = "", i18n.T(a.lang(), "event.sampleTitle"), sampleCategory
 	case twitch.EvRaid, twitch.EvShoutout:
 		ev.Amount = sampleViewers
 	case twitch.EvGift:

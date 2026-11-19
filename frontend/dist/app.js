@@ -658,6 +658,12 @@ setInterval(() => { if (!$('viewDash').classList.contains('hidden')) renderLogin
 let eventKinds = [];   // [{kind, hasAmount, hasChat}] from Go
 let evEditing = null;  // kind open in the editor
 
+// autoRewardName: Twitch's own channel point reward by name (as in Go).
+function autoRewardName(ev) {
+  const key = 'autoreward.' + ev.reward;
+  return ev.reward && Object.prototype.hasOwnProperty.call(I18N.dict, key) ? t(key) : t('autoreward.other');
+}
+
 // powerUpName: a custom Power-up by its title, Twitch's own by name (same
 // rule as powerUpName in events_app.go).
 function powerUpName(ev) {
@@ -670,7 +676,7 @@ function powerUpName(ev) {
 function eventLine(ev) {
   const key = 'feed.ev.' + ev.kind;
   const who = ev.anonymous || !ev.user ? t('event.anonymous') : ev.user;
-  const parts = t(key, { amount: num(ev.amount), tier: ev.tier, months: ev.months, powerup: powerUpName(ev) }).split('{user}');
+  const parts = t(key, { amount: num(ev.amount), tier: ev.tier, months: ev.months, powerup: powerUpName(ev), reward: autoRewardName(ev), title: ev.stream_title || '', category: ev.category || '' }).split('{user}');
   const nodes = [];
   parts.forEach((p, i) => {
     if (i > 0) nodes.push(el('b', {}, who));
