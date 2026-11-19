@@ -1,3 +1,14 @@
+2026-11-19 12:43 +08 — Raid shoutouts and an ad warning
+- Raid alert: new option "Give the raider a Twitch shoutout automatically" (Send a Shoutout,
+  moderator:manage:shoutouts). Twitch's limits (every 2 minutes, same channel once an hour,
+  only live) are explained in the tip; a refusal is logged. The raid's minimum viewers apply.
+- New alert "Ad coming up" (Channel): Twitch has no event for it, so while live and switched
+  on darkbot reads Get Ad Schedule every 15 s and warns a set time before the ad (default 60 s,
+  15-600; {amount} = seconds left). It sleeps exactly until the warning when that comes before
+  the next read, warns once per ad, and again after a snooze moved the ad.
+- Tests: when to warn (late read, snooze, ad running, already warned), when to look again,
+  kind-only settings dropped elsewhere and range-checked.
+
 2026-11-19 12:40 +08 — !marker and !snooze, new Twitch permissions
 - Twitch login now also asks for channel:manage:ads, moderator:manage:shoutouts,
   channel:manage:broadcast, channel:read:goals, channel:read:polls, channel:read:predictions

@@ -249,6 +249,7 @@ func (a *App) startup(wailsCtx context.Context) {
 	a.startOBS(ctx)
 	a.startNowPlaying(ctx)
 	a.startChannelTotals(ctx)
+	a.startAdWatch(ctx)
 	go a.updateLoop(ctx)
 	a.startTray()
 	// darkbot may have been moved since autostart was switched on.

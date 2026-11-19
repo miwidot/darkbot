@@ -703,7 +703,7 @@ let eventCat = '';
 try { eventCat = localStorage.getItem(EVCAT_KEY) || ''; } catch (e) { /* storage blocked: start on the first tab */ }
 
 function eventIsOn(act) {
-  return !!(act && act.enabled && (act.sound || act.chat || act.visual || act.overlay_text));
+  return !!(act && act.enabled && (act.sound || act.chat || act.visual || act.overlay_text || act.shoutout));
 }
 
 function renderEventTabs(actions) {
@@ -789,12 +789,23 @@ function openEventEditor(k) {
   $('evChatField').classList.toggle('hidden', !k.hasChat);
   $('evSuggest').classList.toggle('hidden', !suggestedChat(k.kind));
   $('evMinField').classList.toggle('hidden', !k.hasAmount);
+  $('evShoutoutField').classList.toggle('hidden', k.extra !== 'shoutout');
+  $('evShoutout').checked = !!act.shoutout;
+  $('evLeadField').classList.toggle('hidden', k.extra !== 'lead');
+  $('evLead').value = act.lead_seconds || AD_LEAD_DEFAULT;
+  evExtra = k.extra || '';
   $('evError').classList.add('hidden');
   $('evEditor').showModal();
 }
 
+// AD_LEAD_DEFAULT mirrors config.DefaultAdLead (seconds before an ad).
+const AD_LEAD_DEFAULT = 60;
+let evExtra = '';
+
 function evAction() {
   return {
+    shoutout: evExtra === 'shoutout' && $('evShoutout').checked,
+    lead_seconds: evExtra === 'lead' ? (parseInt($('evLead').value, 10) || 0) : 0,
     enabled: $('evEnabled').checked,
     sound: $('evSound').value,
     volume: +$('evVolume').value,

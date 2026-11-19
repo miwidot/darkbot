@@ -756,5 +756,14 @@
   "builtin.edit": "Befehl bearbeiten",
   "builtin.enabled": "Befehl ist an",
   "builtin.missing": "Verbinde Twitch einmal neu (Einstellungen, Twitch), damit darkbot das darf.",
-  "builtin.saved": "Befehl gespeichert."
+  "builtin.saved": "Befehl gespeichert.",
+  "event.ad_soon": "Werbung kommt gleich",
+  "eventdesc.ad_soon": "Kurz bevor die nächste automatische Werbung startet. Die Zahl sind die Sekunden bis dahin. Mit !snooze verschiebt ein Mod sie um 5 Minuten.",
+  "feed.ev.ad_soon": "Werbung in {amount} Sekunden",
+  "evdefault.ad_soon": "In {amount} Sekunden kommt Werbung. Zeit für Wasser!",
+  "evedit.shoutout": "Dem Raider automatisch einen Twitch-Shoutout geben",
+  "tip.evShoutout": "Twitchs echter Shoutout mit Folgen-Knopf für deine Zuschauer. Twitch erlaubt einen Shoutout alle 2 Minuten und denselben Kanal einmal pro Stunde, nur während du live bist. Die Mindestzahl unten gilt auch dafür.",
+  "evedit.lead": "Sekunden vorher warnen",
+  "tip.evLead": "So lange vor der Werbung kommt die Warnung (15 bis 600). darkbot fragt Twitch alle 15 Sekunden nach dem Werbeplan, solange du live bist.",
+  "err.adLead": "die Vorwarnung muss zwischen {min} und {max} Sekunden liegen"
 }

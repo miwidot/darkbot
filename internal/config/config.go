@@ -180,7 +180,21 @@ type EventAction struct {
 	Visual      string `json:"visual,omitempty"`
 	OverlayText string `json:"overlay_text,omitempty"`
 	Seconds     int    `json:"seconds,omitempty"`
+	// Shoutout (raids only): give the raider Twitch's shoutout.
+	Shoutout bool `json:"shoutout,omitempty"`
+	// LeadSeconds (ad warning only): warn this long before the ad;
+	// 0 = DefaultAdLead.
+	LeadSeconds int `json:"lead_seconds,omitempty"`
 }
+
+// Ad warning lead time: Get Ad Schedule is read every few seconds while
+// live (internal app), so the warning is at most that late; a minute ahead
+// is the usual "ad in 60 seconds" announcement.
+const (
+	DefaultAdLead = 60
+	MinAdLead     = 15
+	MaxAdLead     = 600
+)
 
 // Permission says who may use a chat command. Each level includes the
 // ones above it in this list (a moderator may use a VIP command).

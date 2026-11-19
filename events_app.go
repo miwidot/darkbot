@@ -49,13 +49,24 @@ type EventInfo struct {
 	HasChat   bool   `json:"hasChat"`
 	// Category groups kinds into the Alerts tab's sub-tabs.
 	Category string `json:"category"`
+	// Extra names a setting only this kind has: "shoutout" (raid) or
+	// "lead" (ad warning).
+	Extra string `json:"extra,omitempty"`
 }
+
+// Kind-only settings (EventInfo.Extra).
+const (
+	extraShoutout = "shoutout"
+	extraLead     = "lead"
+)
+
+var eventExtras = map[string]string{twitch.EvRaid: extraShoutout, twitch.EvAdSoon: extraLead}
 
 // GetEventKinds lists the event kinds in display order.
 func (a *App) GetEventKinds() []EventInfo {
 	out := make([]EventInfo, 0, len(twitch.EventKinds))
 	for _, k := range twitch.EventKinds {
-		out = append(out, EventInfo{Kind: k, HasAmount: slices.Contains(amountKinds, k), HasChat: !slices.Contains(noChatKinds, k), Category: twitch.Category(k)})
+		out = append(out, EventInfo{Kind: k, HasAmount: slices.Contains(amountKinds, k), HasChat: !slices.Contains(noChatKinds, k), Category: twitch.Category(k), Extra: eventExtras[k]})
 	}
 	return out
 }
@@ -158,6 +169,9 @@ func (a *App) runAction(ev twitch.ChannelEvent) {
 			File: act.Sound, Volume: act.Volume, Enabled: true,
 		}, alert, ev.User)
 	}
+	if act.Shoutout && ev.Kind == twitch.EvRaid {
+		go a.shoutout(ev)
+	}
 	if act.Chat != "" && !slices.Contains(noChatKinds, ev.Kind) {
 		if ok, first := eventChatBudget.Allow(time.Now()); ok {
 			go a.sendChat(a.ctx, renderTemplate(act.Chat, ev, lang), "")
@@ -248,6 +262,14 @@ func (a *App) SaveEventAction(kind string, act config.EventAction) error {
 	if utf8.RuneCountInString(act.OverlayText) > config.MaxOverlayText {
 		return a.uiErr(i18n.E("err.overlayTooLong", "max", config.MaxOverlayText))
 	}
+	if eventExtras[kind] != extraShoutout {
+		act.Shoutout = false
+	}
+	if eventExtras[kind] != extraLead {
+		act.LeadSeconds = 0
+	} else if act.LeadSeconds != 0 && (act.LeadSeconds < config.MinAdLead || act.LeadSeconds > config.MaxAdLead) { // 0 = default
+		return a.uiErr(i18n.E("err.adLead", "min", config.MinAdLead, "max", config.MaxAdLead))
+	}
 	if act.Seconds < 0 || act.Seconds > config.MaxAlertSeconds {
 		return a.uiErr(i18n.E("err.alertSeconds", "max", config.MaxAlertSeconds))
 	}
@@ -282,6 +304,8 @@ func (a *App) sampleEvent(kind string) twitch.ChannelEvent {
 		ev.Amount, ev.PowerUpType = samplePowerUpBits, samplePowerUp
 	case twitch.EvAutoReward:
 		ev.Amount, ev.Reward = sampleRewardPoints, sampleReward
+	case twitch.EvAdSoon:
+		ev.Amount, ev.User = config.DefaultAdLead, ""
 	case twitch.EvChannelUpdate:
 		ev.User, ev.StreamTitle, ev.Category = "", i18n.T(a.lang(), "event.sampleTitle"), sampleCategory
 	case twitch.EvRaid, twitch.EvShoutout:

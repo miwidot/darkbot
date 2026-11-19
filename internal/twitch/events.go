@@ -54,7 +54,10 @@ const (
 	EvChannelUpdate = "channel_update"
 	// EvAutoReward: a viewer redeemed one of Twitch's own channel point
 	// rewards (highlighted message, emote unlock, ...).
-	EvAutoReward      = "auto_reward"
+	EvAutoReward = "auto_reward"
+	// EvAdSoon: the next automatic ad starts soon (from Get Ad Schedule,
+	// not EventSub; Amount is the seconds until it starts).
+	EvAdSoon          = "ad_soon"
 	EvSharedChatBegin = "shared_chat_begin"
 	EvSharedChatEnd   = "shared_chat_end"
 )
@@ -76,14 +79,14 @@ var eventCategory = map[string]string{
 	EvGift: CatSupport, EvCheer: CatSupport, EvPowerUp: CatSupport, EvRaid: CatSupport,
 	EvWatchStreak: CatSupport, EvSubEnd: CatSupport, EvAutoReward: CatSupport,
 	EvHypeBegin: CatHype, EvHypeLevel: CatHype, EvHypeEnd: CatHype,
-	EvShoutout: CatChannel, EvAdBreak: CatChannel, EvChannelUpdate: CatChannel, EvOnline: CatChannel, EvOffline: CatChannel,
+	EvShoutout: CatChannel, EvAdSoon: CatChannel, EvAdBreak: CatChannel, EvChannelUpdate: CatChannel, EvOnline: CatChannel, EvOffline: CatChannel,
 }
 
 // Category returns the category of an event kind.
 func Category(kind string) string { return eventCategory[kind] }
 
 // EventKinds lists every kind in the order the UI shows them.
-var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvPowerUp, EvRaid, EvWatchStreak, EvAutoReward, EvHypeBegin, EvHypeLevel, EvHypeEnd, EvShoutout, EvAdBreak, EvChannelUpdate, EvSubEnd, EvOnline, EvOffline}
+var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvPowerUp, EvRaid, EvWatchStreak, EvAutoReward, EvHypeBegin, EvHypeLevel, EvHypeEnd, EvShoutout, EvAdSoon, EvAdBreak, EvChannelUpdate, EvSubEnd, EvOnline, EvOffline}
 
 // Scopes for channel events.
 const (

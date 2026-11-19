@@ -756,5 +756,14 @@
   "builtin.edit": "Edit command",
   "builtin.enabled": "Command is on",
   "builtin.missing": "Reconnect Twitch once (Settings, Twitch) so darkbot is allowed to do this.",
-  "builtin.saved": "Command saved."
+  "builtin.saved": "Command saved.",
+  "event.ad_soon": "Ad coming up",
+  "eventdesc.ad_soon": "Shortly before the next automatic ad starts. The number is the seconds until then. A mod can push it back 5 minutes with !snooze.",
+  "feed.ev.ad_soon": "Ad in {amount} seconds",
+  "evdefault.ad_soon": "Ad break in {amount} seconds. Time for some water!",
+  "evedit.shoutout": "Give the raider a Twitch shoutout automatically",
+  "tip.evShoutout": "Twitch's real shoutout with a follow button for your viewers. Twitch allows one shoutout every 2 minutes and the same channel once an hour, only while you're live. The minimum below applies to it too.",
+  "evedit.lead": "Warn seconds before",
+  "tip.evLead": "How long before the ad the warning comes (15 to 600). darkbot asks Twitch for the ad schedule every 15 seconds while you're live.",
+  "err.adLead": "the warning must be between {min} and {max} seconds ahead"
 }
