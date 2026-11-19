@@ -1,3 +1,7 @@
+2026-11-19 11:48 +08 — Release v0.7.0
+- !clips: viewers make a clip of the last 60 seconds from chat, link posted in chat and the
+  activity feed; Twitch login asks for clips:edit (reconnect once); macOS bundle 0.7.0.
+
 2026-11-19 11:38 +08 — !clips: viewers make a clip of the last 60 seconds from chat
 - New built-in chat command !clips (Chat tab, own block and editor; off until turned on): makes
   a clip of the last 60 seconds of the live stream with Helix Create Clip (docs checked:
