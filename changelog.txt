@@ -1,3 +1,7 @@
+2026-11-19 16:20 +08 — Release v0.7.2
+- Statistics tab: top chatters, subs, Bits and raiders (this stream / last 7 days), chat
+  activity per hour over 7 days, bots and own accounts left out; macOS bundle 0.7.2.
+
 2026-11-19 15:15 +08 — Statistics view: top chatters, subs, Bits, raiders and 7-day chat activity
 - New "Statistics" tab next to the dashboard: messages, chatters, subs and Bits plus top 5
   chatters, subs (gifted subs count for the gifter), Bits and raiders, for this stream or the
