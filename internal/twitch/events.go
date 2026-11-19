@@ -46,6 +46,11 @@ const (
 	// EvWatchStreak: a viewer shared their watch streak in chat (from
 	// channel.chat.notification, notice_type watch_streak).
 	EvWatchStreak = "watch_streak"
+	// EvSharedChatBegin and EvSharedChatEnd: the channel joined or left a
+	// Shared Chat session. Not in EventKinds: they have no action, darkbot
+	// itself stops and resumes writing in chat.
+	EvSharedChatBegin = "shared_chat_begin"
+	EvSharedChatEnd   = "shared_chat_end"
 )
 
 // EventKinds lists every kind in the order the UI shows them.
@@ -354,6 +359,10 @@ var eventSpecs = []eventSpec{
 			return ChannelEvent{Kind: EvWatchStreak, User: v.ChatterName, UserID: v.ChatterID,
 				Amount: v.WatchStreak.Count, Points: v.WatchStreak.Points, Anonymous: v.Anonymous}, nil
 		}},
+	{Type: "channel.shared_chat.begin", Version: "1", Scope: "", condition: byBroadcaster,
+		parse: func(json.RawMessage) (ChannelEvent, error) { return ChannelEvent{Kind: EvSharedChatBegin}, nil }},
+	{Type: "channel.shared_chat.end", Version: "1", Scope: "", condition: byBroadcaster,
+		parse: func(json.RawMessage) (ChannelEvent, error) { return ChannelEvent{Kind: EvSharedChatEnd}, nil }},
 	// stream.online "type" is live, playlist, watch_party, premiere or
 	// rerun (checked 2026-11-19); only a live stream counts, as in
 	// LiveSince (Get Streams type=live).

@@ -863,6 +863,7 @@ function renderChat() {
   const cmds = c.commands || [];
   const timers = c.timers || [];
   $('chatMissing').classList.toggle('hidden', !state.twitchLogin || state.chatReady);
+  $('sharedChatNotice').classList.toggle('hidden', !state.sharedChat);
   $('cmdsEnabled').checked = !!c.commands_enabled;
   $('timersEnabled').checked = !!c.timers_enabled;
   $('cmdEmpty').classList.toggle('hidden', cmds.length > 0);

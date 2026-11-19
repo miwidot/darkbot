@@ -65,3 +65,25 @@ func (h *Helix) GetSubscriptionTotals(ctx context.Context, broadcasterID string)
 	}
 	return out.Total, out.Points, nil
 }
+
+// Shared Chat (checked 2026-11-19): while a channel is in a Shared Chat
+// session, every message sent with a user access token "will be sent to
+// all channels in the shared chat session ... This behavior cannot be
+// changed with this token type" (Send Chat Message). Get Shared Chat
+// Session "Returns an empty array if the broadcaster_id ... isn't in an
+// active shared chat session"; channel.shared_chat.begin/end v1 need no
+// authorization.
+
+// InSharedChat reports whether the broadcaster is in a Shared Chat session.
+func (h *Helix) InSharedChat(ctx context.Context, broadcasterID string) (bool, error) {
+	var out struct {
+		Data []struct {
+			SessionID string `json:"session_id"`
+		} `json:"data"`
+	}
+	q := url.Values{"broadcaster_id": {broadcasterID}}
+	if err := h.do(ctx, http.MethodGet, "/shared_chat/session", q, nil, &out); err != nil {
+		return false, err
+	}
+	return len(out.Data) > 0, nil
+}

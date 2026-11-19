@@ -86,6 +86,11 @@ func (a *App) readChannelTotals(ctx context.Context) {
 	defer cancel()
 	var t ChannelTotals
 	firstErr := a.readLive(ctx, tok.UserID)
+	if on, err := a.hx.InSharedChat(ctx, tok.UserID); err == nil {
+		a.setSharedChat(on)
+	} else if firstErr == nil {
+		firstErr = err
+	}
 	if tok.HasScope(twitch.ScopeReadFollowers) {
 		if n, err := a.hx.GetFollowerCount(ctx, tok.UserID); err == nil {
 			t.Followers = &n

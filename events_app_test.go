@@ -347,3 +347,20 @@ func TestPowerUpName(t *testing.T) {
 		}
 	}
 }
+
+// Shared Chat: Twitch would send darkbot's messages to every channel of
+// the session, so nothing is sent until it ends.
+func TestSharedChatSilencesChat(t *testing.T) {
+	a, _ := newEventApp(t, nil)
+	a.handleEvent(twitch.ChannelEvent{Kind: twitch.EvSharedChatBegin}, false)
+	if !a.shared.Load() {
+		t.Fatal("Shared Chat begin not noticed")
+	}
+	// Returns before touching the Twitch login (a.tok is nil here and
+	// would panic if postChat went on).
+	a.postChat(context.Background(), "hello", "")
+	a.handleEvent(twitch.ChannelEvent{Kind: twitch.EvSharedChatEnd}, false)
+	if a.shared.Load() {
+		t.Fatal("Shared Chat end not noticed")
+	}
+}

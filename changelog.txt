@@ -1,3 +1,13 @@
+2026-11-19 12:31 +08 — Shared Chat: darkbot writes nothing in chat during a session
+- Twitch (Send Chat Message, checked 2026-11-19): with a user access token, messages go to
+  every channel of a Shared Chat session and this can't be changed; only an app access token
+  (needs a client secret, impossible for a desktop app) can send to the own channel only.
+- So while the channel is in a session darkbot sends nothing in chat (command answers, clip
+  links, event thanks); the log names each message that wasn't sent. Sounds, alerts and clips
+  keep working. Detected with channel.shared_chat.begin/end v1 (no authorization needed) and
+  Get Shared Chat Session at start and with the channel numbers, so a session that began while
+  darkbot was off is noticed too. The Chat tab says why, the activity feed shows start and end.
+
 2026-11-19 12:15 +08 — Twitch API audit against the current docs: fixes
 - Full check of every Twitch API darkbot uses (auth, EventSub WebSocket, all 16 event
   types and versions, all Helix calls) against dev.twitch.tv and its changelog: nothing

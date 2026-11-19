@@ -722,5 +722,8 @@
   "powerup.gigantify_an_emote": "a giant emote",
   "powerup.message_effect": "a message effect",
   "powerup.celebration": "a celebration",
-  "powerup.other": "a Power-up"
+  "powerup.other": "a Power-up",
+  "feed.ev.shared_chat_begin": "Shared Chat started: darkbot writes nothing in chat until it ends",
+  "feed.ev.shared_chat_end": "Shared Chat ended: darkbot writes in chat again",
+  "cmds.sharedChat": "Shared Chat is on. darkbot writes nothing in chat meanwhile, because Twitch sends every message from your account to all channels of the session. Sounds and alerts keep running, clips are still made and listed in the activity feed."
 }

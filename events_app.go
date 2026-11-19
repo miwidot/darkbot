@@ -63,6 +63,11 @@ func (a *App) onChannelEvent(ev twitch.ChannelEvent) {
 }
 
 func (a *App) handleEvent(ev twitch.ChannelEvent, test bool) {
+	if ev.Kind == twitch.EvSharedChatBegin || ev.Kind == twitch.EvSharedChatEnd {
+		a.setSharedChat(ev.Kind == twitch.EvSharedChatBegin)
+		a.keepActivity(EventActivity{Kind: "event", Event: ev, At: time.Now()})
+		return
+	}
 	if ev.Kind == twitch.EvSub && ev.Gift {
 		// A recipient of a gifted sub. Twitch sends one per recipient right
 		// after the gift event, so a sub bomb of 50 would mean 50 sounds, 50

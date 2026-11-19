@@ -212,3 +212,17 @@ func (a *App) updateChat(fn func(c *config.Chat) error) error {
 	a.emitState()
 	return a.uiErr(err)
 }
+
+// setSharedChat records whether the channel is in a Shared Chat session;
+// while it is, darkbot writes nothing in chat (see postChat).
+func (a *App) setSharedChat(on bool) {
+	if a.shared.Swap(on) == on {
+		return
+	}
+	if on {
+		a.log.Warnf("Shared Chat started: darkbot writes nothing in chat until it ends, Twitch would send it to every channel of the session")
+	} else {
+		a.log.Infof("Shared Chat ended: darkbot writes in chat again")
+	}
+	a.emitState()
+}

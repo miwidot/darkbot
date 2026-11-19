@@ -96,6 +96,7 @@ type App struct {
 	bot      *bot.Bot
 	cb       *chatbot.Bot
 	live     atomic.Bool // the stream is live (chat_app.go)
+	shared   atomic.Bool // in a Shared Chat session: darkbot doesn't write in chat
 	web      *webOutput
 	obsO     *obs.Output
 	sp       *spotify.Client
@@ -404,6 +405,9 @@ type State struct {
 	Language string `json:"language"`
 	// ChatReady: the Twitch login may read and write chat (song requests).
 	ChatReady bool `json:"chatReady"`
+	// SharedChat: the channel is in a Shared Chat session, so darkbot
+	// writes nothing in chat (it would reach every channel).
+	SharedChat bool `json:"sharedChat"`
 	// ClipsReady: the Twitch login may make clips (!clips).
 	ClipsReady bool `json:"clipsReady"`
 	// SpotifyUser is the connected Spotify account ("" = not connected).
@@ -431,7 +435,7 @@ type State struct {
 
 // GetState returns the current UI state.
 func (a *App) GetState() State {
-	s := State{Config: a.cfg.Get(), OBSConnected: a.obs.Connected(), SupportedFormats: audio.Extensions, Version: version.Version, Language: a.lang()}
+	s := State{Config: a.cfg.Get(), OBSConnected: a.obs.Connected(), SupportedFormats: audio.Extensions, Version: version.Version, Language: a.lang(), SharedChat: a.shared.Load()}
 	s.Config.OBS.Password = "" // never send secrets back to the UI
 	if t := a.tok.Current(); t != nil {
 		s.TwitchLogin = t.Login
@@ -1040,6 +1044,12 @@ func (a *App) sendChat(ctx context.Context, text, replyTo string) {
 
 // postChat posts a message darkbot already remembered.
 func (a *App) postChat(ctx context.Context, text, replyTo string) {
+	if a.shared.Load() {
+		// With darkbot's (user) token Twitch sends to every channel of the
+		// session and that can't be changed, so nothing is sent.
+		a.log.Infof("Not sent in chat, Shared Chat is on: %s", text)
+		return
+	}
 	if ok, first := chatBudget.Allow(time.Now()); !ok {
 		if first {
 			a.log.Warnf("Chat messages paused: darkbot sent %d in the last %s (Twitch mutes accounts that send 100)", chatBudgetMax, chatBudgetWindow)
