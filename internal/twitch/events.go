@@ -9,15 +9,18 @@ import (
 )
 
 // Channel events (verified 2026-11-17, Bits 2026-11-19, https://dev.twitch.tv/docs/eventsub/reference/):
-// every type darkbot listens to besides redemptions and chat. Subscriptions
-// authorized by the broadcaster's scopes cost 0; the ones without a scope
-// (raid, stream online/offline) cost 1 each against max_total_cost 10.
+// every type darkbot listens to besides redemptions and chat. A type that
+// needs no scope but names a user (raid, stream online/offline) costs 1
+// only when that user has not authorized the app; the broadcaster has, so
+// all cost 0 ("there is no cost if that user has authorized your
+// application", subscription limits, checked 2026-11-19).
+// maxUnscopedCost stays as a safety limit in case that ever changes.
 //
 // Twitch has no unfollow event; FollowerWatcher detects unfollows by
 // comparing the follower list (opt-in).
 
 // maxUnscopedCost: EventSub WebSocket allows a total subscription cost of
-// 10; every subscription without an authorizing scope costs 1.
+// 10; at worst each subscription without a scope would cost 1.
 const maxUnscopedCost = 10
 
 // Event kinds darkbot reports and can attach actions to.
@@ -145,6 +148,26 @@ func tierNumber(t string) string {
 		return t
 	}
 	return strconv.Itoa(n / 1000)
+}
+
+// streamLive is stream.online's type for a live stream.
+const streamLive = "live"
+
+// flexInt reads a number Twitch documents as Integer but shows as a string
+// in its own example ("duration_seconds": "60" in channel.ad_break.begin,
+// checked 2026-11-19), so either form decodes.
+type flexInt int
+
+func (n *flexInt) UnmarshalJSON(b []byte) error {
+	if s, err := strconv.Unquote(string(b)); err == nil {
+		b = []byte(s)
+	}
+	v, err := strconv.Atoi(string(b))
+	if err != nil {
+		return fmt.Errorf("not a whole number: %s", b)
+	}
+	*n = flexInt(v)
+	return nil
 }
 
 func decode[T any](raw json.RawMessage) (T, error) {
@@ -299,9 +322,9 @@ var eventSpecs = []eventSpec{
 	{Type: "channel.ad_break.begin", Version: "1", Scope: ScopeReadAds, condition: byBroadcaster,
 		parse: func(raw json.RawMessage) (ChannelEvent, error) {
 			v, err := decode[struct {
-				Seconds int `json:"duration_seconds"`
+				Seconds flexInt `json:"duration_seconds"`
 			}](raw)
-			return ChannelEvent{Kind: EvAdBreak, Amount: v.Seconds}, err
+			return ChannelEvent{Kind: EvAdBreak, Amount: int(v.Seconds)}, err
 		}},
 	// Chat notices (https://dev.twitch.tv/docs/eventsub/reference/chat,
 	// checked 2026-11-18): Twitch added Watch Streaks on 2026-04-02;
@@ -331,8 +354,19 @@ var eventSpecs = []eventSpec{
 			return ChannelEvent{Kind: EvWatchStreak, User: v.ChatterName, UserID: v.ChatterID,
 				Amount: v.WatchStreak.Count, Points: v.WatchStreak.Points, Anonymous: v.Anonymous}, nil
 		}},
+	// stream.online "type" is live, playlist, watch_party, premiere or
+	// rerun (checked 2026-11-19); only a live stream counts, as in
+	// LiveSince (Get Streams type=live).
 	{Type: "stream.online", Version: "1", Scope: "", condition: byBroadcaster,
-		parse: func(json.RawMessage) (ChannelEvent, error) { return ChannelEvent{Kind: EvOnline}, nil }},
+		parse: func(raw json.RawMessage) (ChannelEvent, error) {
+			v, err := decode[struct {
+				Type string `json:"type"`
+			}](raw)
+			if err != nil || v.Type != streamLive {
+				return ChannelEvent{}, err
+			}
+			return ChannelEvent{Kind: EvOnline}, nil
+		}},
 	{Type: "stream.offline", Version: "1", Scope: "", condition: byBroadcaster,
 		parse: func(json.RawMessage) (ChannelEvent, error) { return ChannelEvent{Kind: EvOffline}, nil }},
 }

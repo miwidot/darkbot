@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -165,6 +166,9 @@ func (e *EventSub) session(ctx context.Context) error {
 		// Lasting: channel points need Affiliate/Partner. Chat commands,
 		// song requests and events still work, so carry on without them.
 		e.log.Warnf("Connected to Twitch EventSub without channel point redemptions: %v", err)
+	case isDeprecated(err):
+		// Lasting: retrying can't help, the rest still works.
+		e.log.Errorf("Connected to Twitch EventSub without channel point redemptions, Twitch refused the subscription (update darkbot): %v", err)
 	case err != nil:
 		return fmt.Errorf("subscribe to redemptions: %w", err) // retried with backoff
 	default:
@@ -220,6 +224,9 @@ type revocationPayload struct {
 const (
 	revokedAuthorization = "authorization_revoked"
 	revokedUserRemoved   = "user_removed"
+	// revokedVersionRemoved: "The subscribed to subscription type and
+	// version is no longer supported" (WebSocket guide, checked 2026-11-19).
+	revokedVersionRemoved = "version_removed"
 )
 
 // revoked handles a revocation: a withdrawn login stops EventSub (the user
@@ -235,6 +242,10 @@ func (e *EventSub) revoked(payload json.RawMessage) error {
 	case s.Status == revokedAuthorization || s.Status == revokedUserRemoved:
 		e.log.Errorf("Twitch revoked darkbot's access (%s). Please log in again.", s.Status)
 		return ErrTokenRejected
+	case s.Type == redemptionAddType && s.Status == revokedVersionRemoved:
+		// Lasting: subscribing again would fail every time.
+		e.log.Errorf("Twitch no longer supports the redemption subscription darkbot uses; update darkbot. Chat, songs and events keep running")
+		return nil
 	case s.Type == redemptionAddType:
 		return fmt.Errorf("twitch ended the redemption subscription (%s)", s.Status)
 	}
@@ -467,4 +478,12 @@ func (e *EventSub) isDuplicate(id string) bool {
 	}
 	e.seen[id] = now
 	return false
+}
+
+// isDeprecated: Create EventSub Subscription's 400 "The subscription type
+// and version combination is deprecated" (checked 2026-11-19). Other 400s
+// (e.g. a session that just ended) are retried as before.
+func isDeprecated(err error) bool {
+	e, ok := errors.AsType[*APIError](err)
+	return ok && e.Status == http.StatusBadRequest && strings.Contains(strings.ToLower(e.Message), "deprecated")
 }

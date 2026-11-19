@@ -407,9 +407,14 @@ func TestParseChannelEvents(t *testing.T) {
 			ChannelEvent{Kind: EvRaid, User: "Raider", UserID: "5", Amount: 42}},
 		{"channel.hype_train.begin", `{"id":"x","level":2,"total":700}`, ChannelEvent{Kind: EvHypeBegin, Amount: 2, TrainID: "x"}},
 		{"channel.ad_break.begin", `{"duration_seconds":90,"is_automatic":true}`, ChannelEvent{Kind: EvAdBreak, Amount: 90}},
+		// The reference's own example sends the numbers as strings.
+		{"channel.ad_break.begin", `{"duration_seconds":"60","started_at":"2019-11-16T10:11:12.634234626Z","is_automatic":"false"}`, ChannelEvent{Kind: EvAdBreak, Amount: 60}},
 		{"channel.shoutout.receive", `{"from_broadcaster_user_id":"6","from_broadcaster_user_name":"Friend","viewer_count":300}`,
 			ChannelEvent{Kind: EvShoutout, User: "Friend", UserID: "6", Amount: 300}},
 		{"stream.online", `{"id":"1","type":"live"}`, ChannelEvent{Kind: EvOnline}},
+		// A rerun or premiere is not the streamer going live.
+		{"stream.online", `{"id":"1","type":"rerun"}`, ChannelEvent{}},
+		{"stream.online", `{"id":"1","type":"premiere"}`, ChannelEvent{}},
 		{"channel.chat.notification", `{"broadcaster_user_id":"9","chatter_user_id":"7","chatter_user_name":"Eva","chatter_is_anonymous":false,"notice_type":"watch_streak","source_broadcaster_user_id":null,"watch_streak":{"streak_count":5,"channel_points_awarded":450}}`,
 			ChannelEvent{Kind: EvWatchStreak, User: "Eva", UserID: "7", Amount: 5, Points: 450}},
 		// Other notices come through their own subscriptions: ignored.
@@ -767,8 +772,13 @@ func TestRevocation(t *testing.T) {
 	if err := e.revoked(msg("channel.follow", "version_removed")); err != nil {
 		t.Fatalf("one event type ending must not stop EventSub: %v", err)
 	}
-	if err := e.revoked(msg(redemptionAddType, "version_removed")); err == nil || errors.Is(err, ErrTokenRejected) {
+	if err := e.revoked(msg(redemptionAddType, "websocket_disconnected")); err == nil || errors.Is(err, ErrTokenRejected) {
 		t.Fatalf("lost redemptions must reconnect, not log out: %v", err)
+	}
+	// A version Twitch no longer supports: subscribing again would fail
+	// forever, so no reconnect loop.
+	if err := e.revoked(msg(redemptionAddType, revokedVersionRemoved)); err != nil {
+		t.Fatalf("a removed version must not reconnect: %v", err)
 	}
 	if err := e.revoked(msg("channel.follow", revokedAuthorization)); !errors.Is(err, ErrTokenRejected) {
 		t.Fatalf("a revoked login must stop EventSub: %v", err)
@@ -820,5 +830,28 @@ func TestLogoutRevokes(t *testing.T) {
 	}
 	if got, _ := revoked.Load().(string); got != "cid|A" {
 		t.Fatalf("revoked %q", got)
+	}
+}
+
+func TestFlexInt(t *testing.T) {
+	for raw, want := range map[string]int{`60`: 60, `"60"`: 60, `0`: 0} {
+		var n flexInt
+		if err := json.Unmarshal([]byte(raw), &n); err != nil || int(n) != want {
+			t.Errorf("%s: %d %v", raw, n, err)
+		}
+	}
+	for _, raw := range []string{`"abc"`, `1.5`, `true`} {
+		var n flexInt
+		if err := json.Unmarshal([]byte(raw), &n); err == nil {
+			t.Errorf("%s was accepted", raw)
+		}
+	}
+}
+
+func TestIsDeprecated(t *testing.T) {
+	dep := &APIError{Status: 400, Message: "The subscription type and version combination is deprecated."}
+	other := &APIError{Status: 400, Message: "websocket transport session does not exist or has already disconnected"}
+	if !isDeprecated(dep) || isDeprecated(other) || isDeprecated(&APIError{Status: 500, Message: "deprecated"}) {
+		t.Fatal("only Twitch's 400 deprecated answer is lasting")
 	}
 }

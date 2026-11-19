@@ -1,3 +1,17 @@
+2026-11-19 12:15 +08 — Twitch API audit against the current docs: fixes
+- Full check of every Twitch API darkbot uses (auth, EventSub WebSocket, all 16 event
+  types and versions, all Helix calls) against dev.twitch.tv and its changelog: nothing
+  deprecated, all versions current (hype train already on v2). Fixed what differed:
+- Ad break: the reference's own example sends duration_seconds as a string ("60"), the
+  schema says Integer; darkbot now reads both instead of dropping the event.
+- stream.online: only type "live" starts a session (not rerun, premiere, playlist,
+  watch party), as Get Streams type=live already did.
+- A redemption subscription Twitch revokes as version_removed, or refuses as deprecated,
+  no longer makes darkbot reconnect forever: it logs "update darkbot" and the rest runs.
+- Corrected a comment: subscriptions without a scope cost 0 when the broadcaster
+  authorized darkbot (subscription limits page).
+- Tests for each case.
+
 2026-11-19 12:09 +08 — Bits: channel.bits.use instead of channel.cheer, new event Power-ups
 - darkbot now listens to EventSub channel.bits.use v1 (docs and changelog checked: reports
   cheers, Power-ups and custom Power-ups; Combos were removed in 2026-04) instead of
