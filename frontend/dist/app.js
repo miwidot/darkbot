@@ -863,10 +863,51 @@ function renderChat() {
     c.commands_enabled && cmd.enabled, cmdNames(cmd), cmdAnswer(cmd), cmdSummary(cmd), () => openCommandEditor(cmd))));
   $('timerList').replaceChildren(...timers.map((tm) => chatRow(
     c.timers_enabled && tm.enabled, timerSummary(tm), tm.message, '', () => openTimerEditor(tm))));
+  renderClips();
   let st = t('cmds.timersOff');
   if (c.timers_enabled) st = state.live ? t('cmds.timersLive') : t('cmds.timersWaiting');
   $('timersState').textContent = st;
 }
+
+// ---------- clip command ----------
+
+function renderClips() {
+  const cl = state.config.clips || {};
+  $('clipsMissing').classList.toggle('hidden', !state.twitchLogin || state.clipsReady);
+  const bits = [t('perm.' + cl.permission)];
+  if (cl.cooldown_seconds > 0) bits.push(t('cmds.cooldown', { n: num(cl.cooldown_seconds) }));
+  $('clipList').replaceChildren(chatRow(!!cl.enabled, '!' + cl.name, t('clips.summary'), bits.join(', '), openClipEditor));
+}
+
+$('clipPermission').replaceChildren(...PERMISSIONS.map((p) => el('option', { value: p }, '')));
+function openClipEditor() {
+  const cl = state.config.clips || {};
+  for (const o of $('clipPermission').options) o.textContent = t('perm.' + o.value);
+  $('clipEnabled').checked = !!cl.enabled;
+  $('clipName').value = cl.name || '';
+  $('clipPermission').value = cl.permission;
+  $('clipCooldown').value = cl.cooldown_seconds || 0;
+  $('clipTitleTpl').value = cl.title || '';
+  $('clipError').classList.add('hidden');
+  $('clipEditor').showModal();
+  $('clipName').focus();
+}
+$('clipCancel').addEventListener('click', () => $('clipEditor').close());
+$('clipSave').addEventListener('click', async () => {
+  $('clipSave').disabled = true;
+  try {
+    await App().SaveClips({
+      enabled: $('clipEnabled').checked,
+      name: $('clipName').value,
+      permission: $('clipPermission').value,
+      cooldown_seconds: intIn('clipCooldown'),
+      title: $('clipTitleTpl').value,
+    });
+    $('clipEditor').close();
+    toast(t('clips.saved'));
+    refresh();
+  } catch (e) { editorFailed('clipError', e); } finally { $('clipSave').disabled = false; }
+});
 
 $('cmdsEnabled').addEventListener('change', async () => {
   try { await call('SetCommandsEnabled', $('cmdsEnabled').checked); } catch (e) { /* toast shown */ }
@@ -1066,8 +1107,18 @@ const FEED_TEXT = {
   song_added: (a) => [a.user, ' ' + t('feed.requested') + ' ', a.title, null],
   song_rejected: (a) => [a.user, ' ' + t('feed.requested') + ' ', a.title, a.message],
   song_skipped: (a) => [a.user, ' ' + t('feed.skippedSong') + ' ', a.title, null],
+  clip_made: (a) => [a.user, ' ' + t('feed.clipped') + ' ', clipLink(a), null],
 };
-const FEED_CLASS = { queued: 'played', song_added: 'played', error: 'error' };
+
+// clipLink: the clip opens in the browser; only Twitch https links count.
+function clipLink(a) {
+  let u;
+  try { u = new URL(a.url); } catch (e) { return a.title || a.url || ''; }
+  const host = u.hostname;
+  if (u.protocol !== 'https:' || !(host === 'twitch.tv' || host.endsWith('.twitch.tv'))) return a.title || '';
+  return el('a', { href: u.href, title: t('feed.clipOpen'), onclick: (e) => { e.preventDefault(); window.runtime.BrowserOpenURL(u.href); } }, a.title || u.href);
+}
+const FEED_CLASS = { queued: 'played', song_added: 'played', clip_made: 'played', error: 'error' };
 
 function onActivity(a) {
   if (a.kind === 'event') { addFeed(a); return; }

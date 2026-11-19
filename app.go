@@ -19,6 +19,7 @@ import (
 	"github.com/miwidot/darkbot/internal/autostart"
 	"github.com/miwidot/darkbot/internal/bot"
 	"github.com/miwidot/darkbot/internal/chatbot"
+	"github.com/miwidot/darkbot/internal/clips"
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/i18n"
 	"github.com/miwidot/darkbot/internal/obs"
@@ -100,6 +101,7 @@ type App struct {
 	sp       *spotify.Client
 	yt       *ytmusic.Client // YouTube Music through Pear Desktop
 	sr       *songs.Handler
+	clip     *clips.Handler // the !clips command (clips_app.go)
 	st       *stats.Stats
 	act      *activity.Log // the activity feed, kept on disk
 	np       nowPlaying    // the Now Playing overlay (nowplaying_app.go)
@@ -169,6 +171,7 @@ func NewApp(log *applog.Log) (*App, error) {
 	a.bot.SetOverlay(a.overlay)
 	a.bot.SetLocalizer(func(err error) string { return i18n.Localize(err, a.lang()) })
 	a.cb = a.newChatBot()
+	a.clip = a.newClips()
 
 	spStore := &spotify.KeyringStore{FallbackPath: cfg.SpotifyTokenPath(), Log: log}
 	if a.sp, err = spotify.NewClient(cfg.Get().Songs.SpotifyClientID, spStore, log); err != nil {
@@ -401,6 +404,8 @@ type State struct {
 	Language string `json:"language"`
 	// ChatReady: the Twitch login may read and write chat (song requests).
 	ChatReady bool `json:"chatReady"`
+	// ClipsReady: the Twitch login may make clips (!clips).
+	ClipsReady bool `json:"clipsReady"`
 	// SpotifyUser is the connected Spotify account ("" = not connected).
 	SpotifyUser         string `json:"spotifyUser"`
 	SpotifyLoginPending bool   `json:"spotifyLoginPending"`
@@ -432,6 +437,7 @@ func (a *App) GetState() State {
 		s.TwitchLogin = t.Login
 		s.NeedsReconnect = !t.HasScopes()
 		s.ChatReady = t.HasScope(twitch.ScopeReadChat) && t.HasScope(twitch.ScopeWriteChat)
+		s.ClipsReady = t.HasScope(twitch.ScopeEditClips)
 	}
 	if st := a.sp.Current(); st != nil {
 		s.SpotifyUser = st.DisplayName
@@ -630,16 +636,7 @@ func (a *App) startEventSub() {
 		a.emitState()
 	})
 	es.OnChannelEvent(a.onChannelEvent)
-	es.OnChat(func(m twitch.ChatMessage) {
-		// EventSub delivers on its read loop; Spotify and chat calls must
-		// not block it.
-		if songs.IsCommand(m.Text) {
-			go a.sr.Handle(ctx, m)
-		}
-		// Every message counts for the timers; song commands are reserved
-		// names, so the chat bot never answers them.
-		go a.cb.Handle(ctx, m)
-	})
+	es.OnChat(func(m twitch.ChatMessage) { a.handleChat(ctx, m) })
 	go es.Run(ctx)
 	a.startFollowerWatcherLocked()
 }

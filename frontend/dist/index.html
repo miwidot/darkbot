@@ -159,6 +159,15 @@
         <p class="hint" id="timerEmpty" data-i18n="cmds.noTimers"></p>
         <ul class="event-list" id="timerList"></ul>
       </div>
+
+      <div class="chat-block">
+        <div class="chat-head">
+          <h2 data-i18n="clips.title"></h2>
+        </div>
+        <p class="hint" data-i18n="clips.lede"></p>
+        <p class="notice hidden" id="clipsMissing" data-i18n="clips.missing"></p>
+        <ul class="event-list" id="clipList"></ul>
+      </div>
     </section>
 
     <aside class="feed" aria-labelledby="feedTitle">
@@ -605,6 +614,38 @@
     <span class="spacer"></span>
     <button type="button" class="btn quiet" id="cmdCancel" data-i18n="editor.cancel"></button>
     <button type="button" class="btn primary" id="cmdSave" data-i18n="evedit.save"></button>
+  </div>
+</dialog>
+
+<dialog class="modal" id="clipEditor" aria-labelledby="clipTitle">
+  <h2 id="clipTitle" data-i18n="clips.edit"></h2>
+  <label class="check"><input type="checkbox" id="clipEnabled"> <span data-i18n="clips.enabled"></span></label>
+  <div class="grid2 wide-first">
+    <div class="field">
+      <label for="clipName"><span data-i18n="clips.name"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdName" data-i18n-aria-label="tip.more"></span></label>
+      <div class="cmd-name"><span aria-hidden="true">!</span><input id="clipName" type="text" maxlength="26" autocomplete="off" spellcheck="false"></div>
+    </div>
+    <div class="field">
+      <label for="clipPermission" data-i18n="cmdedit.permission"></label>
+      <select id="clipPermission"></select>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="field">
+      <label for="clipCooldown"><span data-i18n="clips.cooldown"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.clipCooldown" data-i18n-aria-label="tip.more"></span></label>
+      <input id="clipCooldown" type="number" min="0" max="3600" step="1">
+    </div>
+  </div>
+  <div class="field">
+    <label for="clipTitleTpl" data-i18n="clips.clipTitle"></label>
+    <input id="clipTitleTpl" type="text" maxlength="100" autocomplete="off" data-i18n-placeholder="clips.titlePlaceholder">
+    <p class="hint" data-i18n="clips.titleHint"></p>
+  </div>
+  <p class="error hidden" id="clipError" role="alert"></p>
+  <div class="modal-actions">
+    <span class="spacer"></span>
+    <button type="button" class="btn quiet" id="clipCancel" data-i18n="editor.cancel"></button>
+    <button type="button" class="btn primary" id="clipSave" data-i18n="evedit.save"></button>
   </div>
 </dialog>
 

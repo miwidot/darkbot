@@ -12,7 +12,6 @@ import (
 	"github.com/miwidot/darkbot/internal/chatbot"
 	"github.com/miwidot/darkbot/internal/config"
 	"github.com/miwidot/darkbot/internal/i18n"
-	"github.com/miwidot/darkbot/internal/songs"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -142,8 +141,9 @@ func (a *App) SaveCommand(cmd config.ChatCommand) error {
 			return a.uiErr(readErr(err))
 		}
 	}
+	reserved := a.reservedCommands()
 	return a.updateChat(func(c *config.Chat) error {
-		norm, err := chatbot.NormalizeCommand(cmd, c.Commands, songs.CommandNames())
+		norm, err := chatbot.NormalizeCommand(cmd, c.Commands, reserved)
 		if err != nil {
 			return err
 		}

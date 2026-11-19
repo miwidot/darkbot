@@ -87,3 +87,10 @@ func NormalizeTimer(t config.ChatTimer) (config.ChatTimer, error) {
 	}
 	return t, nil
 }
+
+// CleanName turns what the streamer typed ("!Clips ") into a command name
+// ("clips"); ok reports whether it is a valid one.
+func CleanName(s string) (name string, ok bool) {
+	name = cleanName(s)
+	return name, namePattern.MatchString(name)
+}

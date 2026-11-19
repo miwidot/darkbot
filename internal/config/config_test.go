@@ -151,3 +151,16 @@ func TestNowPlayingDefaults(t *testing.T) {
 		t.Fatalf("theme fallback must keep the switches: %+v", c.NowPlaying)
 	}
 }
+
+func TestClipsDefaults(t *testing.T) {
+	c := Config{} // from before the clip command
+	c.normalize()
+	if c.Clips != DefaultClips() || c.Clips.Enabled || c.Clips.Name != "clips" {
+		t.Fatalf("got %+v", c.Clips)
+	}
+	c.Clips = Clips{Name: "clip", Permission: "admin", CooldownSeconds: MaxCommandCooldown + 1, Enabled: true}
+	c.normalize()
+	if c.Clips.Permission != PermBroadcaster || c.Clips.CooldownSeconds != MaxCommandCooldown || !c.Clips.Enabled {
+		t.Fatalf("got %+v", c.Clips)
+	}
+}

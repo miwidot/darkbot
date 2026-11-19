@@ -33,6 +33,20 @@ var ErrNotFound = errors.New("not found on Twitch")
 // Client-Id mismatch), so darkbot may not change it.
 var ErrNotOwner = errors.New("this reward was created outside darkbot, so darkbot can't change it")
 
+// APIError is a Helix error response that has no meaning of its own here;
+// callers that care about the status (e.g. Create Clip) read it with
+// errors.AsType.
+type APIError struct {
+	Method, Path string
+	// Status is the HTTP status code.
+	Status  int
+	Message string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("%s %s: status %d: %s", e.Method, e.Path, e.Status, e.Message)
+}
+
 // Helix is a minimal Helix client that refreshes the token on 401.
 type Helix struct {
 	tokens *TokenManager
@@ -96,7 +110,7 @@ func (h *Helix) do(ctx context.Context, method, path string, query url.Values, b
 			case resp.StatusCode == http.StatusForbidden && strings.Contains(strings.ToLower(te.Message), "partner"):
 				return ErrNotAffiliate
 			}
-			return fmt.Errorf("%s %s: status %d: %s", method, path, te.Status, te.Message)
+			return &APIError{Method: method, Path: path, Status: resp.StatusCode, Message: te.Message}
 		}
 		if out == nil {
 			_, _ = io.Copy(io.Discard, resp.Body)

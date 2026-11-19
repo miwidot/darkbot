@@ -111,3 +111,32 @@ func TestLiveStartsSessionOfMissedStream(t *testing.T) {
 		t.Fatalf("clock skew wiped the session: %+v", snap.Session)
 	}
 }
+
+func TestSaveClips(t *testing.T) {
+	a := newChatApp(t)
+	if err := a.SaveCommand(config.ChatCommand{Name: "discord", Response: "x", Permission: config.PermEveryone}); err != nil {
+		t.Fatal(err)
+	}
+	s := config.DefaultClips()
+	s.Enabled, s.Title = true, " Clip  by {user} "
+	if err := a.SaveClips(s); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.cfg.Get().Clips; !got.Enabled || got.Name != "clips" || got.Title != "Clip by {user}" {
+		t.Fatalf("got %+v", got)
+	}
+	// The clip command's name is taken for the streamer's own commands ...
+	if err := a.SaveCommand(config.ChatCommand{Name: "clips", Response: "x", Permission: config.PermEveryone}); err == nil {
+		t.Fatal("!clips belongs to the clip command")
+	}
+	// ... and theirs and the song commands for the clip command.
+	for _, name := range []string{"discord", "sr"} {
+		s.Name = name
+		if err := a.SaveClips(s); err == nil {
+			t.Fatalf("!%s was accepted for clips", name)
+		}
+	}
+	if got := a.cfg.Get().Clips.Name; got != "clips" {
+		t.Fatalf("a refused save changed the name to %q", got)
+	}
+}

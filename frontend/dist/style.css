@@ -209,6 +209,8 @@ button { font: inherit; color: inherit; }
 .feed-item time { color: var(--ink-3); font-size: var(--step--1); font-variant-numeric: tabular-nums; padding-top: 1px; }
 .feed-item .what { color: var(--ink-2); }
 .feed-item .what b { color: var(--ink); font-weight: 600; }
+.feed-item .what a { color: inherit; text-decoration: underline; text-decoration-color: var(--led); text-underline-offset: 2px; }
+.feed-item .what a:hover, .feed-item .what a:focus-visible { color: var(--led); }
 .feed-item .why { grid-column: 2; color: var(--ink-3); font-size: var(--step--1); }
 .feed-item.played { box-shadow: inset 2px 0 0 var(--led); }
 .feed-item.error { box-shadow: inset 2px 0 0 var(--fault); }

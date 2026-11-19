@@ -328,6 +328,38 @@ type Config struct {
 	Chat Chat `json:"chat"`
 	// NowPlaying is the song overlay for OBS.
 	NowPlaying NowPlaying `json:"now_playing"`
+	// Clips is the built-in clip command.
+	Clips Clips `json:"clips"`
+}
+
+// Clips is the built-in "!clips" command: a viewer makes a clip of the
+// last ClipSeconds of the stream and darkbot posts its link.
+type Clips struct {
+	Enabled bool `json:"enabled"`
+	// Name without "!", lowercase (DefaultClipName).
+	Name       string     `json:"name"`
+	Permission Permission `json:"permission"`
+	// CooldownSeconds: after a clip, nobody (except the broadcaster and
+	// moderators) can make the next one this long.
+	CooldownSeconds int `json:"cooldown_seconds"`
+	// Title template, placeholder {user}; "" keeps Twitch's default title
+	// (the stream title).
+	Title string `json:"title"`
+}
+
+// Clip command defaults and limits.
+const (
+	DefaultClipName = "clips"
+	// DefaultClipCooldown: one clip a minute, so a chat can't flood the
+	// channel with clips of the same moment.
+	DefaultClipCooldown = 60
+	// MaxClipTitle keeps a title as short as Twitch's clip editor does.
+	MaxClipTitle = 100
+)
+
+// DefaultClips are the clip command's settings for a new config.
+func DefaultClips() Clips {
+	return Clips{Name: DefaultClipName, Permission: PermEveryone, CooldownSeconds: DefaultClipCooldown}
 }
 
 // Default returns a config with sensible defaults.
@@ -336,6 +368,7 @@ func Default() Config {
 		OutputMode:   OutputDevice,
 		MasterVolume: DefaultMasterVolume,
 		NowPlaying:   DefaultNowPlaying(),
+		Clips:        DefaultClips(),
 		AutoUpdate:   true,
 		OBS: OBS{
 			Host:      DefaultOBSHost,
@@ -406,6 +439,14 @@ func (c *Config) normalize() {
 	} else if !slices.Contains(NowPlayingThemes, c.NowPlaying.Theme) {
 		c.NowPlaying.Theme = NowPlayingThemes[0]
 	}
+	// No name: settings from before the clip command get its defaults.
+	if c.Clips.Name == "" {
+		c.Clips = DefaultClips()
+	}
+	if !slices.Contains(Permissions, c.Clips.Permission) {
+		c.Clips.Permission = PermBroadcaster // unknown level: fail closed
+	}
+	c.Clips.CooldownSeconds = min(max(c.Clips.CooldownSeconds, 0), MaxCommandCooldown)
 	if c.Songs.SearchService != ServiceSpotify && c.Songs.SearchService != ServiceYTMusic {
 		c.Songs.SearchService = ServiceSpotify
 	}

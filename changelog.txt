@@ -1,3 +1,25 @@
+2026-11-19 11:38 +08 — !clips: viewers make a clip of the last 60 seconds from chat
+- New built-in chat command !clips (Chat tab, own block and editor; off until turned on): makes
+  a clip of the last 60 seconds of the live stream with Helix Create Clip (docs checked:
+  clips:edit, duration 5-60 s, asynchronous), then asks Get Clips every 3 s until the clip is
+  listed (Twitch: not listed after 60 s = failed) and posts "Clip by {user}: <link>" in chat
+  as a reply; the clip also goes into the activity feed with a link that opens in the browser
+  (only https twitch.tv links; anything else becomes clips.twitch.tv/<id>).
+- Settings: name (default "clips", can't be a song command or one of your own ! commands, and
+  your own commands can't take it), who may use it, cooldown for everyone (default 60 s; you
+  and moderators skip it, their clip restarts it), optional title with {user} (empty = Twitch's
+  default, the stream title; max 100 characters). Only one clip at a time.
+- Errors named in chat by Twitch's documented cases: not live (404), category not clippable or
+  title refused by AutoMod (400; with a title darkbot retries once without it), clips off or
+  limited in the channel (403), anything else a short "try again". Details go to the log.
+- Twitch login now also asks for clips:edit: older logins see "reconnect Twitch" once; the
+  Chat tab says why when clips can't be made yet.
+- Helix errors now carry their HTTP status (APIError), so callers can tell the cases apart.
+- Tests: Create/Get Clip against a fake Twitch (params, docs example response, 404/400/403),
+  handler (link posted, permissions, cooldown and mod bypass, one clip at a time, title retry,
+  every error text, never listed, missing scope, link and title cleaning, settings checks),
+  config defaults for old configs, name clashes both ways; UI checked in the browser mock.
+
 2026-11-19 02:50 +08 — Release v0.6.0
 - Now Playing overlay for OBS (six designs, own tab with live previews); OBS keep-alive test
   fix; macOS bundle 0.6.0.
