@@ -28,7 +28,7 @@ const eventSoundPrefix = "ev-"
 
 // amountKinds have a number worth a threshold (bits, raid viewers, gifted
 // subs, hype train level).
-var amountKinds = []string{twitch.EvCheer, twitch.EvRaid, twitch.EvGift, twitch.EvHypeLevel, twitch.EvWatchStreak}
+var amountKinds = []string{twitch.EvCheer, twitch.EvPowerUp, twitch.EvRaid, twitch.EvGift, twitch.EvHypeLevel, twitch.EvWatchStreak}
 
 // noChatKinds never post in chat: naming people who unfollowed would put
 // them on the spot in front of the whole chat.
@@ -121,8 +121,8 @@ func (a *App) countEvent(ev twitch.ChannelEvent) {
 		a.st.Sub(ev.User)
 	case twitch.EvGift:
 		a.st.Gift(ev.User, ev.Amount)
-	case twitch.EvCheer:
-		a.st.Cheer(ev.User, ev.Amount)
+	case twitch.EvCheer, twitch.EvPowerUp:
+		a.st.Cheer(ev.User, ev.Amount) // Bits are Bits, cheered or spent on a Power-up
 	case twitch.EvRaid:
 		a.st.Raid(ev.Amount)
 	}
@@ -160,8 +160,8 @@ func (a *App) runAction(ev twitch.ChannelEvent) {
 	}
 }
 
-// renderTemplate fills {user}, {amount}, {tier}, {months} and {top} (biggest
-// hype train contributor, "everyone" if Twitch names none). Viewer text
+// renderTemplate fills {user}, {amount}, {tier}, {months}, {top} (biggest
+// hype train contributor, "everyone" if Twitch names none) and {powerup}. Viewer text
 // (cheer and resub messages) is deliberately not available: darkbot must
 // never post what a viewer wrote under the streamer's name.
 func renderTemplate(tpl string, ev twitch.ChannelEvent, lang string) string {
@@ -180,7 +180,20 @@ func renderTemplate(tpl string, ev twitch.ChannelEvent, lang string) string {
 		"{tier}", ev.Tier,
 		"{months}", strconv.Itoa(ev.Months),
 		"{points}", strconv.Itoa(ev.Points),
+		"{powerup}", powerUpName(ev, lang),
 	).Replace(tpl)
+}
+
+// powerUpName names a Power-up: a custom one by the title the streamer gave
+// it, Twitch's own by their name in the UI language.
+func powerUpName(ev twitch.ChannelEvent, lang string) string {
+	if ev.PowerUpType == twitch.PowerUpCustom && ev.PowerUpTitle != "" {
+		return ev.PowerUpTitle
+	}
+	if key := "powerup." + ev.PowerUpType; ev.PowerUpType != "" && i18n.Has(key) {
+		return i18n.T(lang, key)
+	}
+	return i18n.T(lang, "powerup.other")
 }
 
 // SaveEventAction stores the action of one event kind.
@@ -240,9 +253,12 @@ func (a *App) sampleEvent(kind string) twitch.ChannelEvent {
 	ev := twitch.ChannelEvent{Kind: kind, User: "darkbot", Tier: "1"}
 	const sampleBits, sampleViewers, sampleGifts, sampleMonths, sampleLevel, sampleAdSeconds = 100, 25, 5, 12, 3, 90
 	const sampleStreak, sampleStreakPoints = 5, 450
+	const samplePowerUpBits, samplePowerUp = 50, "gigantify_an_emote"
 	switch kind {
 	case twitch.EvCheer:
 		ev.Amount = sampleBits
+	case twitch.EvPowerUp:
+		ev.Amount, ev.PowerUpType = samplePowerUpBits, samplePowerUp
 	case twitch.EvRaid, twitch.EvShoutout:
 		ev.Amount = sampleViewers
 	case twitch.EvGift:

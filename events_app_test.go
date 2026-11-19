@@ -121,6 +121,16 @@ func TestEventActionThresholdAndCounting(t *testing.T) {
 	if got := a.st.Snapshot().Session.Bits; got != 550 {
 		t.Fatalf("bits counted %d, want 550 (thresholds only limit the action)", got)
 	}
+	// Bits spent on a Power-up count too, but don't play the cheer sound.
+	a.handleEvent(twitch.ChannelEvent{Kind: twitch.EvPowerUp, User: "Ben", Amount: 300, PowerUpType: "celebration"}, false)
+	select {
+	case s := <-out.played:
+		t.Fatalf("a Power-up played the cheer sound: %+v", s)
+	case <-time.After(200 * time.Millisecond):
+	}
+	if got := a.st.Snapshot().Session.Bits; got != 850 {
+		t.Fatalf("bits counted %d, want 850", got)
+	}
 }
 
 func TestTestEventsAreNotCountedAndGiftRecipientsNotDoubled(t *testing.T) {
@@ -195,7 +205,7 @@ func TestChannelEventsRefreshTotals(t *testing.T) {
 // and suggestions only use placeholders darkbot fills.
 func TestChatSuggestions(t *testing.T) {
 	placeholder := regexp.MustCompile(`\{[a-z]+\}`)
-	known := map[string]bool{"{user}": true, "{amount}": true, "{tier}": true, "{months}": true, "{top}": true}
+	known := map[string]bool{"{user}": true, "{amount}": true, "{tier}": true, "{months}": true, "{top}": true, "{points}": true, "{powerup}": true}
 	a, _ := newEventApp(t, nil)
 	for _, lang := range i18n.Supported {
 		dict := i18n.Dict(lang)
@@ -319,5 +329,21 @@ func TestMissedEventsOnlyInFeed(t *testing.T) {
 	}
 	if oldest.Event.User != "Nachts" || !oldest.Event.Missed || !oldest.At.Equal(when) {
 		t.Fatalf("missed follow kept as %+v", oldest)
+	}
+}
+
+func TestPowerUpName(t *testing.T) {
+	for _, tt := range []struct {
+		ev   twitch.ChannelEvent
+		want string
+	}{
+		{twitch.ChannelEvent{PowerUpType: "gigantify_an_emote"}, "ein riesiges Emote"},
+		{twitch.ChannelEvent{PowerUpType: twitch.PowerUpCustom, PowerUpTitle: "Hydrate!"}, "Hydrate!"},
+		{twitch.ChannelEvent{PowerUpType: "brand_new"}, "ein Power-up"},
+		{twitch.ChannelEvent{}, "ein Power-up"},
+	} {
+		if got := powerUpName(tt.ev, "de"); got != tt.want {
+			t.Errorf("%+v: %q, want %q", tt.ev, got, tt.want)
+		}
 	}
 }

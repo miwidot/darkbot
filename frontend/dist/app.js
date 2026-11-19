@@ -658,11 +658,19 @@ setInterval(() => { if (!$('viewDash').classList.contains('hidden')) renderLogin
 let eventKinds = [];   // [{kind, hasAmount, hasChat}] from Go
 let evEditing = null;  // kind open in the editor
 
+// powerUpName: a custom Power-up by its title, Twitch's own by name (same
+// rule as powerUpName in events_app.go).
+function powerUpName(ev) {
+  if (ev.power_up_type === 'custom' && ev.power_up_title) return ev.power_up_title;
+  const key = 'powerup.' + ev.power_up_type;
+  return ev.power_up_type && Object.prototype.hasOwnProperty.call(I18N.dict, key) ? t(key) : t('powerup.other');
+}
+
 // "{user} cheered {amount} Bits" -> text nodes with the name in bold.
 function eventLine(ev) {
   const key = 'feed.ev.' + ev.kind;
   const who = ev.anonymous || !ev.user ? t('event.anonymous') : ev.user;
-  const parts = t(key, { amount: num(ev.amount), tier: ev.tier, months: ev.months }).split('{user}');
+  const parts = t(key, { amount: num(ev.amount), tier: ev.tier, months: ev.months, powerup: powerUpName(ev) }).split('{user}');
   const nodes = [];
   parts.forEach((p, i) => {
     if (i > 0) nodes.push(el('b', {}, who));

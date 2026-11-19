@@ -427,7 +427,7 @@
   "evedit.clear": "Entfernen",
   "evedit.chat": "Chat-Nachricht",
   "evedit.chatPlaceholder": "z. B. Danke {user}!",
-  "evedit.chatHint": "Platzhalter: {user} Name, {amount} Menge (Bits, Zuschauer, Abos, Level, Streams der Watch-Streak), {tier} Abo-Stufe, {months} Monate, {top} größter Hype-Train-Unterstützer, {points} Kanalpunkte für die Watch-Streak. Kommt von deinem Konto. Leer lassen für keine Nachricht.",
+  "evedit.chatHint": "Platzhalter: {user} Name, {amount} Menge (Bits, Zuschauer, Abos, Level, Streams der Watch-Streak), {tier} Abo-Stufe, {months} Monate, {top} größter Hype-Train-Unterstützer, {points} Kanalpunkte für die Watch-Streak, {powerup} das Power-up. Kommt von deinem Konto. Leer lassen für keine Nachricht.",
   "evdefault.follow": "Danke fürs Folgen, {user}!",
   "evdefault.sub": "Danke für dein Abo, {user}! Willkommen in der Crew!",
   "evdefault.resub": "{user} ist seit {months} Monaten dabei, danke für die Treue!",
@@ -714,5 +714,13 @@
   "clips.missing": "Verbinde Twitch einmal neu (Einstellungen, Twitch), damit darkbot Clips erstellen darf.",
   "clips.saved": "Clip-Befehl gespeichert.",
   "feed.clipped": "hat einen Clip erstellt:",
-  "feed.clipOpen": "Clip im Browser öffnen"
+  "feed.clipOpen": "Clip im Browser öffnen",
+  "event.power_up": "Power-ups",
+  "eventdesc.power_up": "Ein Zuschauer gibt Bits für ein Power-up aus, zum Beispiel ein riesiges Emote oder eines deiner eigenen Power-ups.",
+  "feed.ev.power_up": "{user} hat {amount} Bits für {powerup} ausgegeben",
+  "evdefault.power_up": "Danke für {powerup}, {user}!",
+  "powerup.gigantify_an_emote": "ein riesiges Emote",
+  "powerup.message_effect": "einen Nachrichten-Effekt",
+  "powerup.celebration": "eine Celebration",
+  "powerup.other": "ein Power-up"
 }

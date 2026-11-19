@@ -80,6 +80,12 @@ func Dict(lang string) map[string]string {
 	return out
 }
 
+// Has reports whether key exists (in English, which has every key).
+func Has(key string) bool {
+	_, ok := dicts[Default][key]
+	return ok
+}
+
 // T translates key and fills {name} placeholders from args, given as
 // alternating name, value pairs: T("de", "err.price", "min", 1, "max", 9).
 // A missing key falls back to English, then to the key itself, so a

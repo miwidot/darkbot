@@ -1,3 +1,16 @@
+2026-11-19 12:09 +08 — Bits: channel.bits.use instead of channel.cheer, new event Power-ups
+- darkbot now listens to EventSub channel.bits.use v1 (docs and changelog checked: reports
+  cheers, Power-ups and custom Power-ups; Combos were removed in 2026-04) instead of
+  channel.cheer, which only reports cheers. Not both: cheers would arrive twice.
+- Cheers keep their event "Bits" and its settings. New event "Power-ups": Bits spent on a
+  giant emote, a message effect, a celebration or one of the channel's own Power-ups, with
+  sound, chat message, OBS alert and a minimum amount; {powerup} names it (custom Power-ups by
+  their title). An unknown future kind of Bits use is still shown as a Power-up.
+- Power-up Bits count into the dashboard's Bits. Same scope bits:read: no reconnect.
+- channel.bits.use has no anonymous flag, so cheers can no longer be marked anonymous.
+- Tests: parsing (cheer with fragments, built-in, custom, unknown type), names, counting,
+  chat suggestions use only known placeholders.
+
 2026-11-19 12:01 +08 — Status colors: green = on, red = off, amber = problem
 - On/off lights now read as everyone expects: commands, timers, events and the clip command
   light green when on and red when off (were amber/grey); sound pads green, red when switched

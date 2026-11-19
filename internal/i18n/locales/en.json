@@ -427,7 +427,7 @@
   "evedit.clear": "Remove",
   "evedit.chat": "Chat message",
   "evedit.chatPlaceholder": "e.g. Thanks {user}!",
-  "evedit.chatHint": "Placeholders: {user} name, {amount} amount (Bits, viewers, subs, level, streams of a watch streak), {tier} sub tier, {months} months, {top} biggest hype train contributor, {points} channel points for a watch streak. Sent from your account. Leave empty for no message.",
+  "evedit.chatHint": "Placeholders: {user} name, {amount} amount (Bits, viewers, subs, level, streams of a watch streak), {tier} sub tier, {months} months, {top} biggest hype train contributor, {points} channel points for a watch streak, {powerup} the Power-up. Sent from your account. Leave empty for no message.",
   "evdefault.follow": "Thanks for the follow, {user}!",
   "evdefault.sub": "Thanks for subscribing, {user}! Welcome to the crew!",
   "evdefault.resub": "{user} has been here for {months} months, thank you for sticking around!",
@@ -714,5 +714,13 @@
   "clips.missing": "Reconnect Twitch once (Settings, Twitch) so darkbot may make clips.",
   "clips.saved": "Clip command saved.",
   "feed.clipped": "made a clip:",
-  "feed.clipOpen": "Open the clip in your browser"
+  "feed.clipOpen": "Open the clip in your browser",
+  "event.power_up": "Power-ups",
+  "eventdesc.power_up": "A viewer spends Bits on a Power-up, such as a giant emote or one of your own Power-ups.",
+  "feed.ev.power_up": "{user} spent {amount} Bits on {powerup}",
+  "evdefault.power_up": "Thanks for {powerup}, {user}!",
+  "powerup.gigantify_an_emote": "a giant emote",
+  "powerup.message_effect": "a message effect",
+  "powerup.celebration": "a celebration",
+  "powerup.other": "a Power-up"
 }

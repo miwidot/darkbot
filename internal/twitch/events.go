@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Channel events (verified 2026-11-17, https://dev.twitch.tv/docs/eventsub/reference/):
+// Channel events (verified 2026-11-17, Bits 2026-11-19, https://dev.twitch.tv/docs/eventsub/reference/):
 // every type darkbot listens to besides redemptions and chat. Subscriptions
 // authorized by the broadcaster's scopes cost 0; the ones without a scope
 // (raid, stream online/offline) cost 1 each against max_total_cost 10.
@@ -28,6 +28,9 @@ const (
 	EvResub     = "resub"
 	EvGift      = "gift"
 	EvCheer     = "cheer"
+	// EvPowerUp: a viewer spent Bits on a Power-up (built-in or the
+	// channel's own), from channel.bits.use.
+	EvPowerUp = "power_up"
 	EvRaid      = "raid"
 	EvHypeBegin = "hype_begin"
 	EvHypeLevel = "hype_level" // derived from channel.hype_train.progress, see hypeTracker
@@ -43,7 +46,7 @@ const (
 )
 
 // EventKinds lists every kind in the order the UI shows them.
-var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvRaid, EvWatchStreak, EvHypeBegin, EvHypeLevel, EvHypeEnd, EvShoutout, EvAdBreak, EvSubEnd, EvOnline, EvOffline}
+var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvPowerUp, EvRaid, EvWatchStreak, EvHypeBegin, EvHypeLevel, EvHypeEnd, EvShoutout, EvAdBreak, EvSubEnd, EvOnline, EvOffline}
 
 // Scopes for channel events.
 const (
@@ -69,6 +72,11 @@ type ChannelEvent struct {
 	Gift      bool   `json:"gift"`   // sub/sub_end was a gifted sub
 	Top       string `json:"top"`    // hype_end: biggest contributor ("" if unknown)
 	Points    int    `json:"points"` // watch_streak: channel points Twitch awarded
+	// PowerUpType: power_up only, PowerUpCustom for the channel's own
+	// Power-ups, else Twitch's power_up.type (e.g. "gigantify_an_emote").
+	PowerUpType string `json:"power_up_type,omitempty"`
+	// PowerUpTitle: the title of a custom Power-up (set by the streamer).
+	PowerUpTitle string `json:"power_up_title,omitempty"`
 	// Missed: happened while darkbot was off and was found later (follower
 	// list comparison). Shown in the feed only: no sound, chat or counting.
 	Missed bool `json:"missed"`
@@ -248,16 +256,10 @@ var eventSpecs = []eventSpec{
 			}](raw)
 			return ChannelEvent{Kind: EvSubEnd, User: v.name(), UserID: v.id(), Tier: tierNumber(v.Tier), Gift: v.IsGift}, err
 		}},
-	{Type: "channel.cheer", Version: "1", Scope: ScopeReadBits, condition: byBroadcaster,
-		parse: func(raw json.RawMessage) (ChannelEvent, error) {
-			v, err := decode[struct {
-				user
-				Anonymous bool   `json:"is_anonymous"`
-				Message   string `json:"message"`
-				Bits      int    `json:"bits"`
-			}](raw)
-			return ChannelEvent{Kind: EvCheer, User: v.name(), UserID: v.id(), Amount: v.Bits, Message: v.Message, Anonymous: v.Anonymous}, err
-		}},
+	// channel.bits.use replaces channel.cheer: it reports cheers too, plus
+	// Bits spent on Power-ups (subscribing to both would count cheers
+	// twice). It has no is_anonymous field.
+	{Type: "channel.bits.use", Version: "1", Scope: ScopeReadBits, condition: byBroadcaster, parse: parseBitsUse},
 	{Type: "channel.raid", Version: "1", Scope: "",
 		condition: func(id string) map[string]string { return map[string]string{"to_broadcaster_user_id": id} },
 		parse: func(raw json.RawMessage) (ChannelEvent, error) {
@@ -352,4 +354,60 @@ func parseChannelEvent(subType string, raw json.RawMessage) (ChannelEvent, error
 		return ChannelEvent{}, fmt.Errorf("unknown event type %q", subType)
 	}
 	return s.parse(raw)
+}
+
+// channel.bits.use (https://dev.twitch.tv/docs/eventsub/reference/channel/,
+// checked 2026-11-19): "type" is cheer, power_up or custom_power_up;
+// "message" is null when there is none; power_up.type is message_effect,
+// celebration or gigantify_an_emote; custom_power_up has title and
+// reward_id.
+const (
+	bitsCheer         = "cheer"
+	bitsPowerUp       = "power_up"
+	bitsCustomPowerUp = "custom_power_up"
+	// PowerUpCustom is ChannelEvent.PowerUpType for the channel's own
+	// Power-ups.
+	PowerUpCustom = "custom"
+)
+
+func parseBitsUse(raw json.RawMessage) (ChannelEvent, error) {
+	v, err := decode[struct {
+		user
+		Bits    int    `json:"bits"`
+		Type    string `json:"type"`
+		Message *struct {
+			Text string `json:"text"`
+		} `json:"message"`
+		PowerUp *struct {
+			Type string `json:"type"`
+		} `json:"power_up"`
+		CustomPowerUp *struct {
+			Title string `json:"title"`
+		} `json:"custom_power_up"`
+	}](raw)
+	if err != nil {
+		return ChannelEvent{}, err
+	}
+	ev := ChannelEvent{Kind: EvCheer, User: v.name(), UserID: v.id(), Amount: v.Bits}
+	if v.Message != nil {
+		ev.Message = v.Message.Text
+	}
+	switch v.Type {
+	case bitsCheer:
+	case bitsCustomPowerUp:
+		ev.Kind, ev.PowerUpType = EvPowerUp, PowerUpCustom
+		if v.CustomPowerUp != nil {
+			ev.PowerUpTitle = v.CustomPowerUp.Title
+		}
+	case bitsPowerUp:
+		ev.Kind = EvPowerUp
+		if v.PowerUp != nil {
+			ev.PowerUpType = v.PowerUp.Type
+		}
+	default:
+		// "an all-purpose event" that may grow: a new kind of Bits use is
+		// still Bits the viewer spent, shown as a Power-up of unknown type.
+		ev.Kind = EvPowerUp
+	}
+	return ev, nil
 }
