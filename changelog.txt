@@ -1,3 +1,9 @@
+2026-11-19 13:24 +08 — Release v0.7.1
+- Shared Chat silence, "Alerts" tab with categories, Bits via channel.bits.use (Power-ups),
+  new alerts (Twitch rewards, title/category, ad warning, goals, polls, predictions), raid
+  shoutout, goal and poll overlays, !marker and !snooze, API audit fixes, status colors;
+  macOS bundle 0.7.1. Twitch asks for new permissions: reconnect once.
+
 2026-11-19 12:51 +08 — README: Alerts tab, new alerts, overlays, built-in commands, Shared Chat
 
 2026-11-19 12:51 +08 — Goals, polls and predictions: alerts and OBS overlays
