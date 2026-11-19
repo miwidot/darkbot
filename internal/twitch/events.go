@@ -200,6 +200,10 @@ const streamLive = "live"
 type flexInt int
 
 func (n *flexInt) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" {
+		*n = 0 // as for a missing field
+		return nil
+	}
 	if s, err := strconv.Unquote(string(b)); err == nil {
 		b = []byte(s)
 	}

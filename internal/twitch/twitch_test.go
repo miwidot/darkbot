@@ -838,7 +838,7 @@ func TestLogoutRevokes(t *testing.T) {
 }
 
 func TestFlexInt(t *testing.T) {
-	for raw, want := range map[string]int{`60`: 60, `"60"`: 60, `0`: 0} {
+	for raw, want := range map[string]int{`60`: 60, `"60"`: 60, `0`: 0, `null`: 0} {
 		var n flexInt
 		if err := json.Unmarshal([]byte(raw), &n); err != nil || int(n) != want {
 			t.Errorf("%s: %d %v", raw, n, err)

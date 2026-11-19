@@ -916,17 +916,31 @@ function renderChat() {
 
 // ---------- clip command ----------
 
+// Built-in commands: !clips (with a title) and !marker, !snooze. key is
+// the settings key in the config ("clips", "marker", "snooze").
+const BUILTINS = [
+  { key: 'clips', summary: 'clips.summary' },
+  { key: 'marker', summary: 'builtin.marker' },
+  { key: 'snooze', summary: 'builtin.snooze' },
+];
+let builtinEditing = 'clips';
+
 function renderClips() {
-  const cl = state.config.clips || {};
-  $('clipsMissing').classList.toggle('hidden', !state.twitchLogin || state.clipsReady);
-  const bits = [t('perm.' + cl.permission)];
-  if (cl.cooldown_seconds > 0) bits.push(t('cmds.cooldown', { n: num(cl.cooldown_seconds) }));
-  $('clipList').replaceChildren(chatRow(!!cl.enabled, '!' + cl.name, t('clips.summary'), bits.join(', '), openClipEditor));
+  $('clipsMissing').classList.toggle('hidden', !state.twitchLogin || !state.needsReconnect);
+  $('clipList').replaceChildren(...BUILTINS.map((b) => {
+    const c = state.config[b.key] || {};
+    const bits = [t('perm.' + c.permission)];
+    if (c.cooldown_seconds > 0) bits.push(t('cmds.cooldown', { n: num(c.cooldown_seconds) }));
+    return chatRow(!!c.enabled, '!' + c.name, t(b.summary), bits.join(', '), () => openClipEditor(b.key));
+  }));
 }
 
 $('clipPermission').replaceChildren(...PERMISSIONS.map((p) => el('option', { value: p }, '')));
-function openClipEditor() {
-  const cl = state.config.clips || {};
+function openClipEditor(key) {
+  builtinEditing = key;
+  const cl = state.config[key] || {};
+  $('clipTitle').textContent = '!' + (cl.name || key);
+  $('clipTitleField').classList.toggle('hidden', key !== 'clips');
   for (const o of $('clipPermission').options) o.textContent = t('perm.' + o.value);
   $('clipEnabled').checked = !!cl.enabled;
   $('clipName').value = cl.name || '';
@@ -941,15 +955,16 @@ $('clipCancel').addEventListener('click', () => $('clipEditor').close());
 $('clipSave').addEventListener('click', async () => {
   $('clipSave').disabled = true;
   try {
-    await App().SaveClips({
+    const s = {
       enabled: $('clipEnabled').checked,
       name: $('clipName').value,
       permission: $('clipPermission').value,
       cooldown_seconds: intIn('clipCooldown'),
-      title: $('clipTitleTpl').value,
-    });
+    };
+    if (builtinEditing === 'clips') await App().SaveClips({ ...s, title: $('clipTitleTpl').value });
+    else await App().SaveBuiltin(builtinEditing, s);
     $('clipEditor').close();
-    toast(t('clips.saved'));
+    toast(t('builtin.saved'));
     refresh();
   } catch (e) { editorFailed('clipError', e); } finally { $('clipSave').disabled = false; }
 });

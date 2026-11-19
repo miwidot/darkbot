@@ -13,7 +13,6 @@ import (
 	"errors"
 	"net/url"
 	"regexp"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -266,27 +265,18 @@ func (h *Handler) errText(err error) string {
 	return h.t("chat.clipFailed")
 }
 
-// Normalize cleans up and checks the clip settings. The name may not be a
-// song command (reserved) or one of the streamer's "!" commands.
+// Normalize cleans up and checks the clip settings. The name may not be
+// reserved (song and other built-in commands) or one of the streamer's
+// "!" commands.
 func Normalize(c config.Clips, cmds []config.ChatCommand, reserved []string) (config.Clips, error) {
-	name, ok := chatbot.CleanName(c.Name)
-	c.Name = name
 	c.Title = strings.Join(strings.Fields(c.Title), " ")
-	shown := chatbot.Prefix + name
-	switch {
-	case !ok:
-		return c, i18n.E("err.cmdName", "name", name)
-	case slices.Contains(reserved, name):
-		return c, i18n.E("err.cmdReserved", "name", shown)
-	case utf8.RuneCountInString(c.Title) > config.MaxClipTitle:
-		return c, i18n.E("err.clipTitle", "max", config.MaxClipTitle)
-	case !slices.Contains(config.Permissions, c.Permission):
-		return c, i18n.E("err.cmdPermission")
-	case c.CooldownSeconds < 0 || c.CooldownSeconds > config.MaxCommandCooldown:
-		return c, i18n.E("err.cmdCooldown", "max", config.MaxCommandCooldown)
+	b, err := chatbot.NormalizeBuiltin(config.BuiltinCommand{Name: c.Name, Permission: c.Permission, CooldownSeconds: c.CooldownSeconds}, cmds, reserved)
+	c.Name = b.Name
+	if err != nil {
+		return c, err
 	}
-	if _, taken := chatbot.Find(cmds, config.TriggerCommand, name); taken {
-		return c, i18n.E("err.cmdTaken", "name", shown)
+	if utf8.RuneCountInString(c.Title) > config.MaxClipTitle {
+		return c, i18n.E("err.clipTitle", "max", config.MaxClipTitle)
 	}
 	return c, nil
 }

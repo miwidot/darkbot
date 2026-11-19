@@ -94,3 +94,26 @@ func CleanName(s string) (name string, ok bool) {
 	name = cleanName(s)
 	return name, namePattern.MatchString(name)
 }
+
+// NormalizeBuiltin cleans up a built-in command's name, who may use it and
+// its cooldown. The name may not be reserved (song commands, the other
+// built-in commands) or one of the streamer's own "!" commands.
+func NormalizeBuiltin(c config.BuiltinCommand, cmds []config.ChatCommand, reserved []string) (config.BuiltinCommand, error) {
+	name, ok := CleanName(c.Name)
+	c.Name = name
+	shown := Prefix + name
+	switch {
+	case !ok:
+		return c, i18n.E("err.cmdName", "name", name)
+	case slices.Contains(reserved, name):
+		return c, i18n.E("err.cmdReserved", "name", shown)
+	case !slices.Contains(config.Permissions, c.Permission):
+		return c, i18n.E("err.cmdPermission")
+	case c.CooldownSeconds < 0 || c.CooldownSeconds > config.MaxCommandCooldown:
+		return c, i18n.E("err.cmdCooldown", "max", config.MaxCommandCooldown)
+	}
+	if _, taken := Find(cmds, config.TriggerCommand, name); taken {
+		return c, i18n.E("err.cmdTaken", "name", shown)
+	}
+	return c, nil
+}

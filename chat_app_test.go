@@ -140,3 +140,28 @@ func TestSaveClips(t *testing.T) {
 		t.Fatalf("a refused save changed the name to %q", got)
 	}
 }
+
+func TestSaveBuiltin(t *testing.T) {
+	a := newChatApp(t)
+	m := config.DefaultMarker()
+	m.Enabled = true
+	if err := a.SaveBuiltin("marker", m); err != nil {
+		t.Fatal(err)
+	}
+	if !a.cfg.Get().Marker.Enabled {
+		t.Fatal("not saved")
+	}
+	// Names can't clash among built-ins, with songs or with own commands.
+	for _, name := range []string{"clips", "snooze", "sr"} {
+		m.Name = name
+		if err := a.SaveBuiltin("marker", m); err == nil {
+			t.Errorf("!%s accepted for marker", name)
+		}
+	}
+	if err := a.SaveCommand(config.ChatCommand{Name: "snooze", Response: "x", Permission: config.PermEveryone}); err == nil {
+		t.Error("!snooze belongs to the built-in command")
+	}
+	if err := a.SaveBuiltin("nope", m); err == nil {
+		t.Error("unknown key accepted")
+	}
+}

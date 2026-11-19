@@ -18,6 +18,7 @@ import (
 	"github.com/miwidot/darkbot/internal/audio"
 	"github.com/miwidot/darkbot/internal/autostart"
 	"github.com/miwidot/darkbot/internal/bot"
+	"github.com/miwidot/darkbot/internal/builtin"
 	"github.com/miwidot/darkbot/internal/chatbot"
 	"github.com/miwidot/darkbot/internal/clips"
 	"github.com/miwidot/darkbot/internal/config"
@@ -102,7 +103,8 @@ type App struct {
 	sp       *spotify.Client
 	yt       *ytmusic.Client // YouTube Music through Pear Desktop
 	sr       *songs.Handler
-	clip     *clips.Handler // the !clips command (clips_app.go)
+	clip     *clips.Handler   // the !clips command (clips_app.go)
+	builtins *builtin.Handler // !marker and !snooze (clips_app.go)
 	st       *stats.Stats
 	act      *activity.Log // the activity feed, kept on disk
 	np       nowPlaying    // the Now Playing overlay (nowplaying_app.go)
@@ -173,6 +175,7 @@ func NewApp(log *applog.Log) (*App, error) {
 	a.bot.SetLocalizer(func(err error) string { return i18n.Localize(err, a.lang()) })
 	a.cb = a.newChatBot()
 	a.clip = a.newClips()
+	a.builtins = a.newBuiltins()
 
 	spStore := &spotify.KeyringStore{FallbackPath: cfg.SpotifyTokenPath(), Log: log}
 	if a.sp, err = spotify.NewClient(cfg.Get().Songs.SpotifyClientID, spStore, log); err != nil {

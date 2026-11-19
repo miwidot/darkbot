@@ -55,6 +55,10 @@ const (
 //     channel events (follows, subs, bits, hype train, ads, shoutouts),
 //     see events.go
 //   - clips:edit: the !clips chat command (Create Clip), see clips.go
+//   - channel:manage:ads (!snooze), moderator:manage:shoutouts (shoutout
+//     on raid), channel:manage:broadcast (!marker), channel:read:goals,
+//     channel:read:polls, channel:read:predictions (alerts and overlays),
+//     see manage.go and events.go
 const (
 	ScopeReadRedemptions   = "channel:read:redemptions"
 	ScopeManageRedemptions = "channel:manage:redemptions"
@@ -67,6 +71,7 @@ var Scopes = []string{
 	ScopeReadRedemptions, ScopeManageRedemptions, ScopeReadChat, ScopeWriteChat,
 	ScopeReadFollowers, ScopeReadSubs, ScopeReadBits, ScopeReadHypeTrain, ScopeReadAds, ScopeReadShoutouts,
 	ScopeEditClips,
+	ScopeManageAds, ScopeManageShoutouts, ScopeManageBroadcast, ScopeReadGoals, ScopeReadPolls, ScopeReadPredictions,
 }
 
 // HasScope reports whether the token was granted scope.

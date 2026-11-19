@@ -1,3 +1,20 @@
+2026-11-19 12:40 +08 — !marker and !snooze, new Twitch permissions
+- Twitch login now also asks for channel:manage:ads, moderator:manage:shoutouts,
+  channel:manage:broadcast, channel:read:goals, channel:read:polls, channel:read:predictions
+  (one reconnect for everything that follows). Helix calls added, each checked against the
+  reference: Get Ad Schedule, Snooze Next Ad, Send a Shoutout, Create Stream Marker, Get
+  Creator Goals (its "follower" type is the events' "follow", normalized).
+- !marker (built-in, off until turned on; moderators by default, 10 s cooldown): sets a
+  stream marker, the text after it is the description (else "Marker by {user}"), answers
+  with the position (h:mm:ss). Explains when markers can't be set (not live, VODs off, first
+  seconds, rerun/premiere).
+- !snooze (built-in, moderators by default): pushes the next automatic ad back 5 minutes and
+  says how many snoozes are left; explains "no snoozes left" and "no ad scheduled".
+- Chat tab: "Built-in commands" lists !clips, !marker and !snooze with one editor. Names
+  can't clash with each other, the song commands or the streamer's own commands.
+- Tests: Helix calls and their errors, both commands (permissions, cooldown, errors,
+  missing permission), name clashes.
+
 2026-11-19 12:36 +08 — New alerts: title/category changes, Twitch's channel point rewards; hype train state
 - "Title or category changed" (Channel): EventSub channel.update v2 (no authorization needed,
   docs checked). It also fires for language or label changes; darkbot only reports a new title

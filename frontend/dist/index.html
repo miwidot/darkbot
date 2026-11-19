@@ -164,10 +164,10 @@
 
       <div class="chat-block">
         <div class="chat-head">
-          <h2 data-i18n="clips.title"></h2>
+          <h2 data-i18n="builtin.title"></h2>
         </div>
-        <p class="hint" data-i18n="clips.lede"></p>
-        <p class="notice hidden" id="clipsMissing" data-i18n="clips.missing"></p>
+        <p class="hint" data-i18n="builtin.lede"></p>
+        <p class="notice hidden" id="clipsMissing" data-i18n="builtin.missing"></p>
         <ul class="event-list" id="clipList"></ul>
       </div>
     </section>
@@ -620,8 +620,8 @@
 </dialog>
 
 <dialog class="modal" id="clipEditor" aria-labelledby="clipTitle">
-  <h2 id="clipTitle" data-i18n="clips.edit"></h2>
-  <label class="check"><input type="checkbox" id="clipEnabled"> <span data-i18n="clips.enabled"></span></label>
+  <h2 id="clipTitle"></h2>
+  <label class="check"><input type="checkbox" id="clipEnabled"> <span data-i18n="builtin.enabled"></span></label>
   <div class="grid2 wide-first">
     <div class="field">
       <label for="clipName"><span data-i18n="clips.name"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdName" data-i18n-aria-label="tip.more"></span></label>
@@ -638,7 +638,7 @@
       <input id="clipCooldown" type="number" min="0" max="3600" step="1">
     </div>
   </div>
-  <div class="field">
+  <div class="field" id="clipTitleField">
     <label for="clipTitleTpl" data-i18n="clips.clipTitle"></label>
     <input id="clipTitleTpl" type="text" maxlength="100" autocomplete="off" data-i18n-placeholder="clips.titlePlaceholder">
     <p class="hint" data-i18n="clips.titleHint"></p>

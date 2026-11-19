@@ -330,6 +330,51 @@ type Config struct {
 	NowPlaying NowPlaying `json:"now_playing"`
 	// Clips is the built-in clip command.
 	Clips Clips `json:"clips"`
+	// Marker (!marker: a stream marker for editing the VOD) and Snooze
+	// (!snooze: push the next ad back) are built-in commands.
+	Marker BuiltinCommand `json:"marker"`
+	Snooze BuiltinCommand `json:"snooze"`
+}
+
+// BuiltinCommand is a built-in chat command's settings.
+type BuiltinCommand struct {
+	Enabled bool `json:"enabled"`
+	// Name without "!", lowercase.
+	Name       string     `json:"name"`
+	Permission Permission `json:"permission"`
+	// CooldownSeconds for everyone; the broadcaster and moderators skip it.
+	CooldownSeconds int `json:"cooldown_seconds"`
+}
+
+// Built-in command defaults: both act on the stream itself, so only
+// moderators and the broadcaster may use them unless the streamer opens
+// them up.
+const (
+	DefaultMarkerName = "marker"
+	DefaultSnoozeName = "snooze"
+	// DefaultMarkerCooldown keeps a chat from setting a marker per message.
+	DefaultMarkerCooldown = 10
+)
+
+// DefaultMarker and DefaultSnooze are the settings of a new config.
+func DefaultMarker() BuiltinCommand {
+	return BuiltinCommand{Name: DefaultMarkerName, Permission: PermModerator, CooldownSeconds: DefaultMarkerCooldown}
+}
+
+func DefaultSnooze() BuiltinCommand {
+	return BuiltinCommand{Name: DefaultSnoozeName, Permission: PermModerator}
+}
+
+// normalizeBuiltin gives settings from before the command its defaults and
+// keeps the rest in range.
+func normalizeBuiltin(c *BuiltinCommand, def BuiltinCommand) {
+	if c.Name == "" {
+		*c = def
+	}
+	if !slices.Contains(Permissions, c.Permission) {
+		c.Permission = PermBroadcaster // unknown level: fail closed
+	}
+	c.CooldownSeconds = min(max(c.CooldownSeconds, 0), MaxCommandCooldown)
 }
 
 // Clips is the built-in "!clips" command: a viewer makes a clip of the
@@ -369,6 +414,8 @@ func Default() Config {
 		MasterVolume: DefaultMasterVolume,
 		NowPlaying:   DefaultNowPlaying(),
 		Clips:        DefaultClips(),
+		Marker:       DefaultMarker(),
+		Snooze:       DefaultSnooze(),
 		AutoUpdate:   true,
 		OBS: OBS{
 			Host:      DefaultOBSHost,
@@ -447,6 +494,8 @@ func (c *Config) normalize() {
 		c.Clips.Permission = PermBroadcaster // unknown level: fail closed
 	}
 	c.Clips.CooldownSeconds = min(max(c.Clips.CooldownSeconds, 0), MaxCommandCooldown)
+	normalizeBuiltin(&c.Marker, DefaultMarker())
+	normalizeBuiltin(&c.Snooze, DefaultSnooze())
 	if c.Songs.SearchService != ServiceSpotify && c.Songs.SearchService != ServiceYTMusic {
 		c.Songs.SearchService = ServiceSpotify
 	}
