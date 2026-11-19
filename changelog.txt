@@ -1,3 +1,21 @@
+2026-11-19 12:51 +08 — Goals, polls and predictions: alerts and OBS overlays
+- EventSub channel.goal.begin/progress/end, channel.poll.begin/progress/end and
+  channel.prediction.begin/progress/lock/end v1 (docs and their example payloads checked).
+- New alerts: Goal started, Goal reached (Hype & goals); Poll started, Poll ended, Prediction
+  started, locked, resolved (Polls & predictions). {title} is the question or goal, {winner} the
+  leading choice / winning outcome, {amount} its votes or points. Progress messages never reach
+  the feed. A canceled poll or prediction has no winner.
+- Two new OBS overlays, switched on in their Alerts tab: goals as progress bars (top left,
+  "[darkbot] goals"; reached goals and ended ones stay 20 s) and the running poll or
+  prediction (top right, "[darkbot] poll"; countdown, leader green, Twitch's blue/pink for
+  predictions, winner marked; the result stays 30 s). Goals set before darkbot started are read
+  with Get Creator Goals. "Test" on these alerts shows a sample for 15 s.
+- OBS: the Now Playing source code became a generic browser overlay (corner placement,
+  emit_event per page); Now Playing works as before; Remove takes all overlays out.
+- Pages build their DOM with textContent only (checked with HTML in a goal description).
+- Tests: parsing with Twitch's examples (prediction example even has user_id as a number),
+  overlay state (show, linger, clear, re-read), placement and removal in the fake OBS.
+
 2026-11-19 12:43 +08 — Raid shoutouts and an ad warning
 - Raid alert: new option "Give the raider a Twitch shoutout automatically" (Send a Shoutout,
   moderator:manage:shoutouts). Twitch's limits (every 2 minutes, same channel once an hour,

@@ -25,15 +25,15 @@ const maxUnscopedCost = 10
 
 // Event kinds darkbot reports and can attach actions to.
 const (
-	EvFollow    = "follow"
-	EvUnfollow  = "unfollow" // from FollowerWatcher, not EventSub
-	EvSub       = "sub"
-	EvResub     = "resub"
-	EvGift      = "gift"
-	EvCheer     = "cheer"
+	EvFollow   = "follow"
+	EvUnfollow = "unfollow" // from FollowerWatcher, not EventSub
+	EvSub      = "sub"
+	EvResub    = "resub"
+	EvGift     = "gift"
+	EvCheer    = "cheer"
 	// EvPowerUp: a viewer spent Bits on a Power-up (built-in or the
 	// channel's own), from channel.bits.use.
-	EvPowerUp = "power_up"
+	EvPowerUp   = "power_up"
 	EvRaid      = "raid"
 	EvHypeBegin = "hype_begin"
 	EvHypeLevel = "hype_level" // derived from channel.hype_train.progress, see hypeTracker
@@ -78,7 +78,8 @@ var eventCategory = map[string]string{
 	EvFollow: CatSupport, EvUnfollow: CatSupport, EvSub: CatSupport, EvResub: CatSupport,
 	EvGift: CatSupport, EvCheer: CatSupport, EvPowerUp: CatSupport, EvRaid: CatSupport,
 	EvWatchStreak: CatSupport, EvSubEnd: CatSupport, EvAutoReward: CatSupport,
-	EvHypeBegin: CatHype, EvHypeLevel: CatHype, EvHypeEnd: CatHype,
+	EvHypeBegin: CatHype, EvHypeLevel: CatHype, EvHypeEnd: CatHype, EvGoalBegin: CatHype, EvGoalAchieved: CatHype,
+	EvPollBegin: CatVotes, EvPollEnd: CatVotes, EvPredictionBegin: CatVotes, EvPredictionLock: CatVotes, EvPredictionEnd: CatVotes,
 	EvShoutout: CatChannel, EvAdSoon: CatChannel, EvAdBreak: CatChannel, EvChannelUpdate: CatChannel, EvOnline: CatChannel, EvOffline: CatChannel,
 }
 
@@ -86,7 +87,7 @@ var eventCategory = map[string]string{
 func Category(kind string) string { return eventCategory[kind] }
 
 // EventKinds lists every kind in the order the UI shows them.
-var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvPowerUp, EvRaid, EvWatchStreak, EvAutoReward, EvHypeBegin, EvHypeLevel, EvHypeEnd, EvShoutout, EvAdSoon, EvAdBreak, EvChannelUpdate, EvSubEnd, EvOnline, EvOffline}
+var EventKinds = []string{EvFollow, EvUnfollow, EvSub, EvResub, EvGift, EvCheer, EvPowerUp, EvRaid, EvWatchStreak, EvAutoReward, EvHypeBegin, EvHypeLevel, EvHypeEnd, EvGoalBegin, EvGoalAchieved, EvPollBegin, EvPollEnd, EvPredictionBegin, EvPredictionLock, EvPredictionEnd, EvShoutout, EvAdSoon, EvAdBreak, EvChannelUpdate, EvSubEnd, EvOnline, EvOffline}
 
 // Scopes for channel events.
 const (
@@ -117,13 +118,22 @@ type ChannelEvent struct {
 	PowerUpType string `json:"power_up_type,omitempty"`
 	// PowerUpTitle: the title of a custom Power-up (set by the streamer).
 	PowerUpTitle string `json:"power_up_title,omitempty"`
-	// StreamTitle and Category: channel_update, the streamer's own title
-	// and the category (game) name.
-	StreamTitle string `json:"stream_title,omitempty"`
-	Category    string `json:"category,omitempty"`
+	// Title: channel_update the stream title, polls and predictions their
+	// question, goals their description (all set by the streamer).
+	// Category: channel_update, the category (game) name.
+	Title    string `json:"title,omitempty"`
+	Category string `json:"category,omitempty"`
 	// Reward: auto_reward, Twitch's reward type (e.g.
 	// "send_highlighted_message"); Amount is its price in channel points.
 	Reward string `json:"reward,omitempty"`
+	// Winner: poll_end the leading choice, prediction_end the winning
+	// outcome ("" when canceled). Amount is its votes or channel points.
+	Winner string `json:"winner,omitempty"`
+	// GoalType: goals, GoalFollow, "subscription", "new_bit", ...
+	GoalType string `json:"goal_type,omitempty"`
+	// Goal and Vote carry the full state for the OBS overlays only.
+	Goal *Goal `json:"-"`
+	Vote *Vote `json:"-"`
 	// Missed: happened while darkbot was off and was found later (follower
 	// list comparison). Shown in the feed only: no sound, chat or counting.
 	Missed bool `json:"missed"`
@@ -304,8 +314,8 @@ func (c *channelTracker) filter(ev ChannelEvent) bool {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	same := c.known && ev.StreamTitle == c.title && ev.Category == c.category
-	c.known, c.title, c.category = true, ev.StreamTitle, ev.Category
+	same := c.known && ev.Title == c.title && ev.Category == c.category
+	c.known, c.title, c.category = true, ev.Title, ev.Category
 	return !same
 }
 
@@ -448,7 +458,7 @@ var eventSpecs = []eventSpec{
 				Title    string `json:"title"`
 				Category string `json:"category_name"`
 			}](raw)
-			return ChannelEvent{Kind: EvChannelUpdate, StreamTitle: v.Title, Category: v.Category}, err
+			return ChannelEvent{Kind: EvChannelUpdate, Title: v.Title, Category: v.Category}, err
 		}},
 	// Automatic rewards v2 (checked 2026-11-19): reward.type is
 	// single_message_bypass_sub_mode, send_highlighted_message,

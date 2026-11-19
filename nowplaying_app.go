@@ -46,6 +46,8 @@ const (
 	// Files darkbot writes for OBS (the page loads the font next to it).
 	overlayDir   = "overlay"
 	overlayPage  = "overlay/nowplaying.html"
+	goalsPage    = "overlay/goals.html"
+	votePage     = "overlay/vote.html"
 	overlayFont  = "fonts/archivo-latin-wdth-normal.woff2"
 	assetsPrefix = "frontend/dist/"
 )
@@ -103,11 +105,15 @@ type nowPlaying struct {
 	coverCT  string
 }
 
-// writeOverlayFiles copies the page and its font into darkbot's settings
-// folder, where OBS can open them; unchanged files are left alone. It
-// returns the page's path and whether anything was rewritten.
+// overlayFiles are the OBS overlay pages and the font they share.
+var overlayFiles = []string{overlayPage, goalsPage, votePage, overlayFont}
+
+// writeOverlayFiles copies the overlay pages and their font into darkbot's
+// settings folder, where OBS can open them; unchanged files are left
+// alone. It returns the Now Playing page's path (the others sit next to
+// it, see overlayPath) and whether anything was rewritten.
 func writeOverlayFiles(dir string, files fs.FS) (page string, changed bool, err error) {
-	for _, name := range []string{overlayPage, overlayFont} {
+	for _, name := range overlayFiles {
 		data, err := fs.ReadFile(files, assetsPrefix+name)
 		if err != nil {
 			return "", false, fmt.Errorf("read the embedded %s: %w", name, err)
@@ -124,8 +130,11 @@ func writeOverlayFiles(dir string, files fs.FS) (page string, changed bool, err 
 		}
 		changed = true
 	}
-	return filepath.Join(dir, filepath.FromSlash(overlayPage)), changed, nil
+	return overlayPath(dir, overlayPage), changed, nil
 }
+
+// overlayPath is where writeOverlayFiles put an overlay file.
+func overlayPath(dir, name string) string { return filepath.Join(dir, filepath.FromSlash(name)) }
 
 // startNowPlaying writes the page for OBS and starts asking the services
 // while the overlay is on or its tab is open.
@@ -139,6 +148,7 @@ func (a *App) startNowPlaying(ctx context.Context) {
 		a.np.page = page
 		a.np.refreshed = !changed // a new page must be reloaded in OBS once
 		a.np.mu.Unlock()
+		a.ov.setPages(dir, changed)
 	}
 	if err != nil {
 		a.log.Errorf("Now Playing: could not write the overlay page: %v", err)

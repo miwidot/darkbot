@@ -108,6 +108,7 @@ type App struct {
 	st       *stats.Stats
 	act      *activity.Log // the activity feed, kept on disk
 	np       nowPlaying    // the Now Playing overlay (nowplaying_app.go)
+	ov       overlays      // the goal and poll overlays (overlays_app.go)
 
 	mu          sync.Mutex
 	esCancel    context.CancelFunc

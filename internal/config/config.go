@@ -348,6 +348,16 @@ type Config struct {
 	// (!snooze: push the next ad back) are built-in commands.
 	Marker BuiltinCommand `json:"marker"`
 	Snooze BuiltinCommand `json:"snooze"`
+	// Overlays: the goal and poll/prediction overlays in OBS.
+	Overlays Overlays `json:"overlays"`
+}
+
+// Overlays switches darkbot's OBS overlays besides Now Playing.
+type Overlays struct {
+	// Goals shows the channel's creator goals as progress bars.
+	Goals bool `json:"goals"`
+	// Votes shows a running poll or prediction.
+	Votes bool `json:"votes"`
 }
 
 // BuiltinCommand is a built-in chat command's settings.

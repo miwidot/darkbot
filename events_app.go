@@ -76,6 +76,12 @@ func (a *App) onChannelEvent(ev twitch.ChannelEvent) {
 }
 
 func (a *App) handleEvent(ev twitch.ChannelEvent, test bool) {
+	if ev.Goal != nil || ev.Vote != nil {
+		a.overlayEvent(ev, test)
+	}
+	if twitch.IsOverlayOnly(ev.Kind) {
+		return // progress: overlays only, no feed line, no alert
+	}
 	if ev.Kind == twitch.EvSharedChatBegin || ev.Kind == twitch.EvSharedChatEnd {
 		a.setSharedChat(ev.Kind == twitch.EvSharedChatBegin)
 		a.keepActivity(EventActivity{Kind: "event", Event: ev, At: time.Now()})
@@ -205,8 +211,9 @@ func renderTemplate(tpl string, ev twitch.ChannelEvent, lang string) string {
 		"{points}", strconv.Itoa(ev.Points),
 		"{powerup}", powerUpName(ev, lang),
 		"{reward}", autoRewardName(ev, lang),
-		"{title}", ev.StreamTitle,
+		"{title}", ev.Title,
 		"{category}", ev.Category,
+		"{winner}", ev.Winner,
 	).Replace(tpl)
 }
 
@@ -306,8 +313,12 @@ func (a *App) sampleEvent(kind string) twitch.ChannelEvent {
 		ev.Amount, ev.Reward = sampleRewardPoints, sampleReward
 	case twitch.EvAdSoon:
 		ev.Amount, ev.User = config.DefaultAdLead, ""
+	case twitch.EvGoalBegin, twitch.EvGoalAchieved:
+		ev = sampleGoal(kind, a.lang())
+	case twitch.EvPollBegin, twitch.EvPollEnd, twitch.EvPredictionBegin, twitch.EvPredictionLock, twitch.EvPredictionEnd:
+		ev = sampleVote(kind, a.lang())
 	case twitch.EvChannelUpdate:
-		ev.User, ev.StreamTitle, ev.Category = "", i18n.T(a.lang(), "event.sampleTitle"), sampleCategory
+		ev.User, ev.Title, ev.Category = "", i18n.T(a.lang(), "event.sampleTitle"), sampleCategory
 	case twitch.EvRaid, twitch.EvShoutout:
 		ev.Amount = sampleViewers
 	case twitch.EvGift:
@@ -403,4 +414,45 @@ func (a *App) eventSoundFile(id string) (string, bool) {
 		return "", false
 	}
 	return act.Sound, true
+}
+
+// sampleGoal is a goal for the "Test" button: half way, or reached. It
+// also shows on the goal overlay for a moment.
+func sampleGoal(kind, lang string) twitch.ChannelEvent {
+	const sampleTarget = 100
+	g := &twitch.Goal{ID: "sample-goal", Type: twitch.GoalFollow, Description: i18n.T(lang, "sample.goal"), Current: sampleTarget / 2, Target: sampleTarget}
+	if kind == twitch.EvGoalAchieved {
+		g.Current = sampleTarget
+	}
+	return twitch.ChannelEvent{Kind: kind, Title: g.Description, Amount: g.Target, Goal: g, GoalType: g.Type}
+}
+
+// sampleVote is a poll or prediction for the "Test" button (also shown on
+// the poll overlay for a moment).
+func sampleVote(kind, lang string) twitch.ChannelEvent {
+	prediction := kind == twitch.EvPredictionBegin || kind == twitch.EvPredictionLock || kind == twitch.EvPredictionEnd
+	v := &twitch.Vote{ID: "sample-vote", Prediction: prediction, State: twitch.VoteActive, Until: time.Now().Add(testLinger)}
+	if prediction {
+		v.Title = i18n.T(lang, "sample.prediction")
+		v.Options = []twitch.VoteOption{
+			{ID: "a", Title: i18n.T(lang, "sample.yes"), Votes: 12500, Users: 14, Color: "blue"},
+			{ID: "b", Title: i18n.T(lang, "sample.no"), Votes: 4200, Users: 6, Color: "pink"},
+		}
+	} else {
+		v.Title = i18n.T(lang, "sample.poll")
+		v.Options = []twitch.VoteOption{
+			{ID: "a", Title: i18n.T(lang, "sample.option1"), Votes: 21},
+			{ID: "b", Title: i18n.T(lang, "sample.option2"), Votes: 13},
+			{ID: "c", Title: i18n.T(lang, "sample.option3"), Votes: 5},
+		}
+	}
+	ev := twitch.ChannelEvent{Kind: kind, Title: v.Title, Vote: v}
+	switch kind {
+	case twitch.EvPredictionLock:
+		v.State = twitch.VoteLocked
+	case twitch.EvPollEnd, twitch.EvPredictionEnd:
+		lead, _ := v.Leader()
+		v.State, v.Winner, ev.Winner, ev.Amount = twitch.VoteEnded, lead.ID, lead.Title, lead.Votes
+	}
+	return ev
 }

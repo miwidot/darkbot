@@ -101,6 +101,7 @@ func (a *App) connectOBS() (string, error) {
 		a.emitState()
 		go a.refreshOBSScene()
 		go a.nowPlayingOnOBSConnect()
+		go a.overlaysOnOBSConnect()
 		go func() {
 			// An alert of a dropped connection may still be on screen.
 			if err := a.obs.HideAlerts(); err != nil {

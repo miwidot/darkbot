@@ -39,7 +39,7 @@ func TestNowPlayingSource(t *testing.T) {
 		}
 		return
 	}
-	if it := item(); !it.on || it.x != nowPlayingMargin || it.y != 1080-nowPlayingMargin {
+	if it := item(); !it.on || it.x != overlayMargin || it.y != 1080-overlayMargin {
 		t.Fatalf("placed %+v: bottom-left, shown", it)
 	}
 	if ready, _ := o.NowPlayingReady(); !ready {
@@ -88,5 +88,38 @@ func TestNowPlayingWithoutBrowserSource(t *testing.T) {
 	}
 	if slices.Contains(sources(f.State.Snapshot(SceneName)), NowPlayingInput) {
 		t.Fatal("nothing created")
+	}
+}
+
+// The goal and poll overlays go into the other corners; Remove takes them
+// out with darkbot's other sources.
+func TestOverlayCorners(t *testing.T) {
+	o, f := connected(t)
+	if _, err := o.Setup(testSound); err != nil {
+		t.Fatal(err)
+	}
+	for _, ov := range []Overlay{GoalOverlay, VoteOverlay} {
+		if created, err := o.SetupOverlay(ov, "/a/"+ov.Input+".html", true); err != nil || !created {
+			t.Fatalf("%s: %v %v", ov.Input, created, err)
+		}
+	}
+	pos := map[string][2]float64{}
+	for _, i := range f.State.Snapshot(SceneName) {
+		pos[i.Source] = [2]float64{i.X, i.Y}
+	}
+	if pos[GoalInput] != [2]float64{overlayMargin, overlayMargin} {
+		t.Errorf("goals at %v, want top left", pos[GoalInput])
+	}
+	if pos[VoteInput] != [2]float64{1920 - overlayMargin, overlayMargin} {
+		t.Errorf("poll at %v, want top right", pos[VoteInput])
+	}
+	if err := o.Emit(GoalEvent, map[string]any{"goals": []any{}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.Remove(testSound); err != nil {
+		t.Fatal(err)
+	}
+	if f.State.Input(GoalInput) != nil || f.State.Input(VoteInput) != nil {
+		t.Fatal("Remove left the overlays in OBS")
 	}
 }

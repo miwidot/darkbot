@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>darkbot goals</title>
+<!--
+  darkbot's goal overlay: the channel's creator goals as progress bars.
+  It runs in OBS as a local-file browser source and gets its data through
+  obs-browser's "darkbot-goals" event (emitted over obs-websocket):
+    { goals: [{id, type, description, current, target, achieved, ended}],
+      labels: {follow, subscription, ..., other, achieved, ended} }
+  Descriptions are the streamer's text: they only ever go in as textContent.
+-->
+<style>
+@font-face {
+  font-family: "Archivo";
+  src: url("../fonts/archivo-latin-wdth-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+}
+:root {
+  --card: #1a1e26;
+  --edge: #2e3544;
+  --ink: #e8ebf0;
+  --ink-2: #b4bccb;
+  --ink-3: #8c95a8;
+  --fill: #46d19a;
+  --fill-glow: rgba(70, 209, 154, .45);
+}
+html, body { margin: 0; background: transparent; overflow: hidden; }
+body { width: 640px; height: 320px; position: relative; font-family: "Archivo", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+
+/* Goals stack in the top-left corner; room around them for shadows. */
+#goals { position: absolute; left: 16px; top: 16px; display: grid; gap: 10px; width: 480px; }
+.goal {
+  padding: 14px 18px 16px; border-radius: 12px; background: var(--card); border: 1px solid var(--edge);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  opacity: 0; transform: translateY(-8px); transition: opacity .45s ease, transform .45s ease;
+}
+.goal.show { opacity: 1; transform: none; }
+.goal.gone { opacity: 0; }
+.head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+.desc { flex: 1; min-width: 0; color: var(--ink); font-size: 19px; font-weight: 650; font-stretch: 92%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kind { flex: none; color: var(--ink-3); font-size: 14px; font-weight: 550; }
+.bar { position: relative; height: 12px; border-radius: 6px; background: #2a303c; overflow: hidden; }
+.bar > i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 6px; background: var(--fill); box-shadow: 0 0 10px var(--fill-glow); transition: width .8s cubic-bezier(.2, .8, .2, 1); }
+.nums { display: flex; justify-content: space-between; margin-top: 8px; color: var(--ink-2); font-size: 15px; font-variant-numeric: tabular-nums; }
+.nums b { color: var(--ink); font-weight: 650; }
+.badge { color: var(--fill); font-weight: 700; }
+.goal.ended:not(.achieved) .bar > i { background: var(--ink-3); box-shadow: none; }
+.goal.achieved { border-color: rgba(70, 209, 154, .55); }
+@media (prefers-reduced-motion: reduce) { .goal, .bar > i { transition: none; } }
+</style>
+</head>
+<body>
+<div id="goals"></div>
+<script>
+'use strict';
+(function () {
+  const box = document.getElementById('goals');
+  const fmt = new Intl.NumberFormat();
+  let labels = {};
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = String(text);
+    return e;
+  }
+
+  // card builds one goal's card; existing cards are updated in place so
+  // the bar animates from its old width.
+  function card(g) {
+    let c = box.querySelector('[data-id="' + CSS.escape(g.id) + '"]');
+    if (!c) {
+      c = el('div', 'goal');
+      c.dataset.id = g.id;
+      const head = el('div', 'head');
+      head.append(el('span', 'desc'), el('span', 'kind'));
+      const bar = el('div', 'bar');
+      bar.append(el('i'));
+      const nums = el('div', 'nums');
+      nums.append(el('span', 'count'), el('span', 'state'));
+      c.append(head, bar, nums);
+      box.append(c);
+      requestAnimationFrame(() => requestAnimationFrame(() => c.classList.add('show')));
+    }
+    const target = Math.max(0, Number(g.target) || 0);
+    const current = Math.max(0, Number(g.current) || 0);
+    const share = target > 0 ? Math.min(1, current / target) : 0;
+    c.querySelector('.desc').textContent = g.description || labels[g.type] || labels.other || '';
+    c.querySelector('.kind').textContent = labels[g.type] || labels.other || '';
+    c.querySelector('.bar > i').style.width = (share * 100).toFixed(1) + '%';
+    const count = c.querySelector('.count');
+    count.replaceChildren(el('b', '', fmt.format(current)), ' / ' + fmt.format(target));
+    const state = c.querySelector('.state');
+    state.className = 'state' + (g.achieved ? ' badge' : '');
+    state.textContent = g.achieved ? (labels.achieved || '') : g.ended ? (labels.ended || '') : Math.round(share * 100) + ' %';
+    c.classList.toggle('ended', !!g.ended);
+    c.classList.toggle('achieved', !!g.achieved);
+    return c;
+  }
+
+  function render(goals) {
+    const keep = new Set();
+    for (const g of goals) {
+      if (!g || typeof g.id !== 'string') continue;
+      keep.add(card(g));
+    }
+    for (const c of [...box.children]) {
+      if (!keep.has(c)) c.remove();
+    }
+  }
+
+  window.addEventListener('darkbot-goals', (e) => {
+    const d = e.detail || {};
+    labels = d.labels && typeof d.labels === 'object' ? d.labels : {};
+    render(Array.isArray(d.goals) ? d.goals : []);
+  });
+})();
+</script>
+</body>
+</html>

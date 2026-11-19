@@ -413,7 +413,7 @@ func TestParseChannelEvents(t *testing.T) {
 			ChannelEvent{Kind: EvShoutout, User: "Friend", UserID: "6", Amount: 300}},
 		{"stream.online", `{"id":"1","type":"live"}`, ChannelEvent{Kind: EvOnline}},
 		{"channel.update", `{"broadcaster_user_id":"1337","title":"Best Stream Ever","language":"en","category_id":"12453","category_name":"Grand Theft Auto","content_classification_labels":["MatureGame"]}`,
-			ChannelEvent{Kind: EvChannelUpdate, StreamTitle: "Best Stream Ever", Category: "Grand Theft Auto"}},
+			ChannelEvent{Kind: EvChannelUpdate, Title: "Best Stream Ever", Category: "Grand Theft Auto"}},
 		{"channel.channel_points_automatic_reward_redemption.add", `{"broadcaster_user_id":"12826","user_id":"141981764","user_login":"twitchdev","user_name":"TwitchDev","id":"f024099a","reward":{"type":"send_highlighted_message","channel_points":100,"emote":null},"message":{"text":"Hello world! VoHiYo","fragments":[]},"redeemed_at":"2024-08-12T21:14:34.260398045Z"}`,
 			ChannelEvent{Kind: EvAutoReward, User: "TwitchDev", UserID: "141981764", Amount: 100, Reward: "send_highlighted_message"}},
 		// A rerun or premiere is not the streamer going live.
@@ -871,7 +871,7 @@ func TestEveryKindHasACategory(t *testing.T) {
 func TestChannelTracker(t *testing.T) {
 	var c channelTracker
 	up := func(title, cat string) bool {
-		return c.filter(ChannelEvent{Kind: EvChannelUpdate, StreamTitle: title, Category: cat})
+		return c.filter(ChannelEvent{Kind: EvChannelUpdate, Title: title, Category: cat})
 	}
 	c.seed("Old", "Chess")
 	if up("Old", "Chess") {
@@ -884,7 +884,7 @@ func TestChannelTracker(t *testing.T) {
 		t.Error("other events must pass")
 	}
 	var fresh channelTracker // not seeded (reading the channel failed)
-	if !fresh.filter(ChannelEvent{Kind: EvChannelUpdate, StreamTitle: "x"}) {
+	if !fresh.filter(ChannelEvent{Kind: EvChannelUpdate, Title: "x"}) {
 		t.Error("without a known state the first update is reported")
 	}
 }

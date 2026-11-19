@@ -676,7 +676,7 @@ function powerUpName(ev) {
 function eventLine(ev) {
   const key = 'feed.ev.' + ev.kind;
   const who = ev.anonymous || !ev.user ? t('event.anonymous') : ev.user;
-  const parts = t(key, { amount: num(ev.amount), tier: ev.tier, months: ev.months, powerup: powerUpName(ev), reward: autoRewardName(ev), title: ev.stream_title || '', category: ev.category || '' }).split('{user}');
+  const parts = t(key, { amount: num(ev.amount), tier: ev.tier, months: ev.months, powerup: powerUpName(ev), reward: autoRewardName(ev), title: ev.title || '', category: ev.category || '', winner: ev.winner || '' }).split('{user}');
   const nodes = [];
   parts.forEach((p, i) => {
     if (i > 0) nodes.push(el('b', {}, who));
@@ -729,6 +729,12 @@ function renderEvents() {
   renderEventTabs(actions);
   // Unfollow detection belongs to follows.
   $('unfollowBox').classList.toggle('hidden', !eventKinds.some((k) => k.kind === 'unfollow' && k.category === eventCat));
+  // The overlays belong to their category.
+  const ov = state.config.overlays || {};
+  $('goalsOverlayBox').classList.toggle('hidden', eventCat !== 'hype');
+  $('votesOverlayBox').classList.toggle('hidden', eventCat !== 'votes');
+  $('goalsOverlay').checked = !!ov.goals;
+  $('votesOverlay').checked = !!ov.votes;
   $('eventList').replaceChildren(...eventKinds.filter((k) => k.category === eventCat).map((k) => {
     const act = actions[k.kind];
     const on = eventIsOn(act);
@@ -752,6 +758,22 @@ function renderEvents() {
   }
   $('unfollowStatus').textContent = status;
 }
+
+// saveOverlays switches the goal/poll overlays; a problem (no OBS scene,
+// no browser source) shows under the box that was changed.
+async function saveOverlays(problemId) {
+  for (const id of ['goalsOverlayProblem', 'votesOverlayProblem']) $(id).classList.add('hidden');
+  try {
+    await App().SaveOverlays({ goals: $('goalsOverlay').checked, votes: $('votesOverlay').checked });
+    toast(t('overlays.saved'));
+  } catch (e) {
+    $(problemId).textContent = errText(e);
+    $(problemId).classList.remove('hidden');
+  }
+  refresh();
+}
+$('goalsOverlay').addEventListener('change', () => saveOverlays('goalsOverlayProblem'));
+$('votesOverlay').addEventListener('change', () => saveOverlays('votesOverlayProblem'));
 
 $('unfollowDetection').addEventListener('change', async () => {
   try { await call('SetUnfollowDetection', $('unfollowDetection').checked); } catch (e) { /* toast shown */ }

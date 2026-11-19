@@ -106,6 +106,16 @@
         <label class="check"><input type="checkbox" id="unfollowDetection"> <span data-i18n="events.unfollowDetection"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.unfollow" data-i18n-aria-label="tip.more"></span></label>
         <p class="hint" id="unfollowStatus"></p>
       </div>
+      <div class="unfollow-box hidden" id="goalsOverlayBox">
+        <label class="check"><input type="checkbox" id="goalsOverlay"> <span data-i18n="overlays.goals"></span></label>
+        <p class="hint" data-i18n="overlays.goalsHint"></p>
+        <p class="hint warn-text hidden" id="goalsOverlayProblem"></p>
+      </div>
+      <div class="unfollow-box hidden" id="votesOverlayBox">
+        <label class="check"><input type="checkbox" id="votesOverlay"> <span data-i18n="overlays.votes"></span></label>
+        <p class="hint" data-i18n="overlays.votesHint"></p>
+        <p class="hint warn-text hidden" id="votesOverlayProblem"></p>
+      </div>
       <ul class="event-list" id="eventList" role="tabpanel"></ul>
     </section>
 

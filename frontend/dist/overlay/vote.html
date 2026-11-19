@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>darkbot poll</title>
+<!--
+  darkbot's poll/prediction overlay: one card while a poll or prediction
+  runs, then briefly its result. It runs in OBS as a local-file browser
+  source and gets its data through obs-browser's "darkbot-vote" event:
+    { vote: null | {id, prediction, title, state, until, winner,
+                    options: [{id, title, votes, users, color}]},
+      labels: {poll, prediction, locked, winner, canceled, votes, points, users, ended} }
+  state: active, locked, ended, canceled. Titles are the streamer's text:
+  they only ever go in as textContent.
+-->
+<style>
+@font-face {
+  font-family: "Archivo";
+  src: url("../fonts/archivo-latin-wdth-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+}
+:root {
+  --card: #1a1e26;
+  --edge: #2e3544;
+  --track: #2a303c;
+  --ink: #e8ebf0;
+  --ink-2: #b4bccb;
+  --ink-3: #8c95a8;
+  --lead: #46d19a;
+  --other: #5b6578;
+  /* Twitch's prediction colors. */
+  --blue: #387aff;
+  --pink: #f5009b;
+}
+html, body { margin: 0; background: transparent; overflow: hidden; }
+body { width: 560px; height: 420px; position: relative; font-family: "Archivo", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+
+/* The card sits in the top-right corner; room around it for shadows. */
+#card {
+  position: absolute; right: 16px; top: 16px; width: 440px; padding: 16px 20px 18px;
+  border-radius: 12px; background: var(--card); border: 1px solid var(--edge); box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  opacity: 0; transform: translateY(-8px); transition: opacity .45s ease, transform .45s ease;
+}
+#card.show { opacity: 1; transform: none; }
+.top { display: flex; align-items: center; gap: 10px; color: var(--ink-3); font-size: 14px; font-weight: 600; }
+.top .state { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.top .state.done { color: var(--lead); }
+.title { margin: 6px 0 14px; color: var(--ink); font-size: 21px; font-weight: 700; font-stretch: 92%; line-height: 1.25; overflow-wrap: anywhere; }
+.opts { display: grid; gap: 10px; }
+.opt .row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 5px; }
+.opt .name { flex: 1; min-width: 0; color: var(--ink); font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opt .pct { color: var(--ink-2); font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.opt .bar { position: relative; height: 10px; border-radius: 5px; background: var(--track); overflow: hidden; }
+.opt .bar > i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 5px; background: var(--other); transition: width .8s cubic-bezier(.2, .8, .2, 1), background .3s; }
+.opt .meta { margin-top: 4px; color: var(--ink-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.opt.leader .bar > i { background: var(--lead); }
+.opt.c-blue .bar > i { background: var(--blue); }
+.opt.c-pink .bar > i { background: var(--pink); }
+.opt.won .name::after { content: " \2713"; color: var(--lead); }
+#card.decided .opt:not(.won) { opacity: .5; }
+#card.canceled .opt { opacity: .5; }
+@media (prefers-reduced-motion: reduce) { #card, .opt .bar > i { transition: none; } }
+</style>
+</head>
+<body>
+<div id="card" aria-live="polite"></div>
+<script>
+'use strict';
+(function () {
+  const card = document.getElementById('card');
+  const fmt = new Intl.NumberFormat();
+  let labels = {};
+  let vote = null;
+  let shownID = '';
+  let timer = 0;
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = String(text);
+    return e;
+  }
+
+  // left: the time until a poll ends or a prediction locks, as m:ss.
+  function left(until) {
+    const ms = Date.parse(until) - Date.now();
+    if (!(ms > 0)) return '';
+    const s = Math.ceil(ms / 1000);
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function stateText(v) {
+    switch (v.state) {
+      case 'locked': return labels.locked || '';
+      case 'ended': return labels.ended || '';
+      case 'canceled': return labels.canceled || '';
+      default: return left(v.until);
+    }
+  }
+
+  // build creates the card's elements for a new vote; update fills them.
+  function build(v) {
+    const top = el('div', 'top');
+    top.append(el('span', 'kind'), el('span', 'state'));
+    const opts = el('div', 'opts');
+    for (const o of v.options) {
+      const row = el('div', 'row');
+      row.append(el('span', 'name'), el('span', 'pct'));
+      const bar = el('div', 'bar');
+      bar.append(el('i'));
+      const opt = el('div', 'opt');
+      opt.dataset.id = String(o.id);
+      opt.append(row, bar, el('div', 'meta'));
+      opts.append(opt);
+    }
+    card.replaceChildren(top, el('div', 'title'), opts);
+  }
+
+  function update() {
+    const v = vote;
+    if (!v) return;
+    const total = v.options.reduce((n, o) => n + Math.max(0, Number(o.votes) || 0), 0);
+    let leader = null;
+    for (const o of v.options) if (!leader || (Number(o.votes) || 0) > (Number(leader.votes) || 0)) leader = o;
+    card.querySelector('.kind').textContent = v.prediction ? (labels.prediction || '') : (labels.poll || '');
+    const st = card.querySelector('.state');
+    st.textContent = stateText(v);
+    st.classList.toggle('done', v.state === 'ended');
+    card.querySelector('.title').textContent = v.title || '';
+    card.classList.toggle('decided', v.state === 'ended' && !!v.winner);
+    card.classList.toggle('canceled', v.state === 'canceled');
+    for (const o of v.options) {
+      const opt = card.querySelector('.opt[data-id="' + CSS.escape(String(o.id)) + '"]');
+      if (!opt) continue;
+      const votes = Math.max(0, Number(o.votes) || 0);
+      const share = total > 0 ? votes / total : 0;
+      opt.querySelector('.name').textContent = o.title || '';
+      opt.querySelector('.pct').textContent = Math.round(share * 100) + ' %';
+      opt.querySelector('.bar > i').style.width = (share * 100).toFixed(1) + '%';
+      opt.querySelector('.meta').textContent = v.prediction
+        ? fmt.format(votes) + ' ' + (labels.points || '') + ' · ' + fmt.format(Number(o.users) || 0) + ' ' + (labels.users || '')
+        : fmt.format(votes) + ' ' + (labels.votes || '');
+      opt.className = 'opt';
+      if (v.prediction && (o.color === 'blue' || o.color === 'pink')) opt.classList.add('c-' + o.color);
+      else if (!v.prediction && leader === o && total > 0) opt.classList.add('leader');
+      if (v.state === 'ended' && v.winner === o.id) opt.classList.add('won');
+    }
+  }
+
+  function render() {
+    clearInterval(timer);
+    if (!vote) {
+      card.classList.remove('show');
+      shownID = '';
+      return;
+    }
+    const ids = vote.options.map((o) => String(o.id)).join('|');
+    if (shownID !== vote.id + '#' + ids) {
+      build(vote);
+      shownID = vote.id + '#' + ids;
+    }
+    update();
+    requestAnimationFrame(() => card.classList.add('show'));
+    // The countdown ticks on between darkbot's updates.
+    if (vote.state === 'active') timer = setInterval(() => { card.querySelector('.state').textContent = stateText(vote); }, 1000);
+  }
+
+  window.addEventListener('darkbot-vote', (e) => {
+    const d = e.detail || {};
+    labels = d.labels && typeof d.labels === 'object' ? d.labels : {};
+    const v = d.vote;
+    vote = v && typeof v === 'object' && Array.isArray(v.options) ? v : null;
+    render();
+  });
+})();
+</script>
+</body>
+</html>

@@ -26,32 +26,83 @@ import (
 )
 
 const (
-	// NowPlayingInput is the overlay's browser source.
+	// NowPlayingInput is the Now Playing overlay's browser source.
 	NowPlayingInput = "[darkbot] now playing"
-	// NowPlayingEvent is the JavaScript event the overlay page listens to.
+	// NowPlayingEvent is the JavaScript event the Now Playing page listens to.
 	NowPlayingEvent = "darkbot-nowplaying"
-	browserKind     = "browser_source"
-	browserVendor   = "obs-browser"
-	emitEvent       = "emit_event"
-	refreshButton   = "refreshnocache"
+	// GoalInput / GoalEvent and VoteInput / VoteEvent: the goal overlay
+	// and the poll/prediction overlay.
+	GoalInput     = "[darkbot] goals"
+	GoalEvent     = "darkbot-goals"
+	VoteInput     = "[darkbot] poll"
+	VoteEvent     = "darkbot-vote"
+	browserKind   = "browser_source"
+	browserVendor = "obs-browser"
+	emitEvent     = "emit_event"
+	refreshButton = "refreshnocache"
 	// NowPlayingWidth × NowPlayingHeight is the browser source's page size;
 	// every design fits and sits in its bottom-left corner.
 	NowPlayingWidth  = 800
 	NowPlayingHeight = 300
-	// nowPlayingMargin: distance of the new source from the canvas's
-	// bottom-left corner. The streamer moves it in OBS; darkbot never
-	// resets it.
-	nowPlayingMargin = 40
-	// OBS alignment flags (obs_align: LEFT 1, BOTTOM 8).
-	obsAlignBottomLeft = 1 | 8
+	// overlayMargin: distance of a new source from the canvas's corner.
+	// The streamer moves it in OBS; darkbot never resets it.
+	overlayMargin = 40
+	// OBS alignment flags (obs_align: LEFT 1, RIGHT 2, TOP 4, BOTTOM 8).
+	obsAlignLeft   = 1
+	obsAlignRight  = 2
+	obsAlignTop    = 4
+	obsAlignBottom = 8
+)
+
+// Corner is where a new overlay source is placed on the canvas.
+type Corner int
+
+const (
+	BottomLeft Corner = iota
+	TopLeft
+	TopRight
+)
+
+// Overlay is one of darkbot's browser sources: a local page fed through
+// obs-browser's emit_event.
+type Overlay struct {
+	Input         string
+	Width, Height int
+	Corner        Corner
+}
+
+// The overlays darkbot puts into its scene.
+var (
+	NowPlayingOverlay = Overlay{Input: NowPlayingInput, Width: NowPlayingWidth, Height: NowPlayingHeight, Corner: BottomLeft}
+	// GoalOverlay: up to a few goal bars stacked, top left.
+	GoalOverlay = Overlay{Input: GoalInput, Width: 640, Height: 320, Corner: TopLeft}
+	// VoteOverlay: one poll or prediction card, top right.
+	VoteOverlay = Overlay{Input: VoteInput, Width: 560, Height: 420, Corner: TopRight}
 )
 
 // ErrNoBrowserSource: this OBS has no browser source (some Linux builds).
 var ErrNoBrowserSource = errors.New("OBS has no browser source")
 
-// NowPlayingReady reports whether the overlay's source is in the darkbot
+// NowPlayingReady reports whether the Now Playing source is in the darkbot
 // scene.
-func (o *Client) NowPlayingReady() (bool, error) {
+func (o *Client) NowPlayingReady() (bool, error) { return o.OverlayReady(NowPlayingInput) }
+
+// SetupNowPlaying: SetupOverlay for Now Playing.
+func (o *Client) SetupNowPlaying(file string, show bool) (bool, error) {
+	return o.SetupOverlay(NowPlayingOverlay, file, show)
+}
+
+// ShowNowPlaying: ShowOverlay for Now Playing.
+func (o *Client) ShowNowPlaying(on bool) error { return o.ShowOverlay(NowPlayingInput, on) }
+
+// RefreshNowPlaying: RefreshOverlay for Now Playing.
+func (o *Client) RefreshNowPlaying() error { return o.RefreshOverlay(NowPlayingInput) }
+
+// EmitNowPlaying sends the song to the Now Playing page.
+func (o *Client) EmitNowPlaying(data map[string]any) error { return o.Emit(NowPlayingEvent, data) }
+
+// OverlayReady reports whether the overlay's source is in the darkbot scene.
+func (o *Client) OverlayReady(input string) (bool, error) {
 	c, err := o.client()
 	if err != nil {
 		return false, err
@@ -59,13 +110,13 @@ func (o *Client) NowPlayingReady() (bool, error) {
 	if ok, err := sceneExists(c); err != nil || !ok {
 		return false, err
 	}
-	return hasItem(c, SceneName, NowPlayingInput)
+	return hasItem(c, SceneName, input)
 }
 
-// SetupNowPlaying puts the overlay's browser source, showing file, into the
-// darkbot scene (bottom-left), or points an existing one at file. The
+// SetupOverlay puts the overlay's browser source, showing file, into the
+// darkbot scene (in its corner), or points an existing one at file. The
 // darkbot scene must exist (ErrNotSetUp). created reports a new source.
-func (o *Client) SetupNowPlaying(file string, show bool) (created bool, err error) {
+func (o *Client) SetupOverlay(ov Overlay, file string, show bool) (created bool, err error) {
 	c, err := o.client()
 	if err != nil {
 		return false, err
@@ -75,43 +126,43 @@ func (o *Client) SetupNowPlaying(file string, show bool) (created bool, err erro
 	} else if !ok {
 		return false, ErrNotSetUp
 	}
-	settings := map[string]any{"is_local_file": true, "local_file": file, "width": NowPlayingWidth, "height": NowPlayingHeight}
+	settings := map[string]any{"is_local_file": true, "local_file": file, "width": ov.Width, "height": ov.Height}
 	have, err := inputNames(c)
 	if err != nil {
 		return false, err
 	}
-	if !have[NowPlayingInput] {
+	if !have[ov.Input] {
 		if ok, err := hasBrowserSource(c); err != nil {
 			return false, err
 		} else if !ok {
 			return false, ErrNoBrowserSource
 		}
 		r, err := c.Inputs.CreateInput(inputs.NewCreateInputParams().
-			WithSceneName(SceneName).WithInputName(NowPlayingInput).WithInputKind(browserKind).
+			WithSceneName(SceneName).WithInputName(ov.Input).WithInputKind(browserKind).
 			WithInputSettings(settings).WithSceneItemEnabled(show))
 		if err != nil {
-			return false, fmt.Errorf("create OBS source %q: %w", NowPlayingInput, err)
+			return false, fmt.Errorf("create OBS source %q: %w", ov.Input, err)
 		}
-		return true, placeBottomLeft(c, r.SceneItemId)
+		return true, place(c, r.SceneItemId, ov.Corner)
 	}
-	if err := setInput(c, NowPlayingInput, settings); err != nil {
+	if err := setInput(c, ov.Input, settings); err != nil {
 		return false, err
 	}
-	if placed, err := hasItem(c, SceneName, NowPlayingInput); err != nil {
+	if placed, err := hasItem(c, SceneName, ov.Input); err != nil {
 		return false, err
 	} else if !placed {
 		if _, err := c.SceneItems.CreateSceneItem(sceneitems.NewCreateSceneItemParams().
-			WithSceneName(SceneName).WithSourceName(NowPlayingInput).WithSceneItemEnabled(show)); err != nil {
-			return false, fmt.Errorf("add %q to the darkbot scene: %w", NowPlayingInput, err)
+			WithSceneName(SceneName).WithSourceName(ov.Input).WithSceneItemEnabled(show)); err != nil {
+			return false, fmt.Errorf("add %q to the darkbot scene: %w", ov.Input, err)
 		}
 		return false, nil
 	}
-	return false, o.ShowNowPlaying(show)
+	return false, o.ShowOverlay(ov.Input, show)
 }
 
-// ShowNowPlaying turns the overlay's source on or off in the darkbot scene
+// ShowOverlay turns an overlay's source on or off in the darkbot scene
 // (nothing to do when it isn't there).
-func (o *Client) ShowNowPlaying(on bool) error {
+func (o *Client) ShowOverlay(input string, on bool) error {
 	c, err := o.client()
 	if err != nil {
 		return err
@@ -119,41 +170,41 @@ func (o *Client) ShowNowPlaying(on bool) error {
 	if ok, err := sceneExists(c); err != nil || !ok {
 		return err
 	}
-	if placed, err := hasItem(c, SceneName, NowPlayingInput); err != nil || !placed {
+	if placed, err := hasItem(c, SceneName, input); err != nil || !placed {
 		return err
 	}
-	ids, err := itemIDs(c, []string{NowPlayingInput})
+	ids, err := itemIDs(c, []string{input})
 	if err != nil {
 		return err
 	}
 	return enable(c, ids[0], on)
 }
 
-// RefreshNowPlaying reloads the overlay page (after darkbot wrote a new
+// RefreshOverlay reloads an overlay page (after darkbot wrote a new
 // version of it).
-func (o *Client) RefreshNowPlaying() error {
+func (o *Client) RefreshOverlay(input string) error {
 	c, err := o.client()
 	if err != nil {
 		return err
 	}
 	if _, err := c.Inputs.PressInputPropertiesButton(inputs.NewPressInputPropertiesButtonParams().
-		WithInputName(NowPlayingInput).WithPropertyName(refreshButton)); err != nil {
-		return fmt.Errorf("reload %q: %w", NowPlayingInput, err)
+		WithInputName(input).WithPropertyName(refreshButton)); err != nil {
+		return fmt.Errorf("reload %q: %w", input, err)
 	}
 	return nil
 }
 
-// EmitNowPlaying sends data to the overlay page (all browser sources get
-// the event; only darkbot's page listens to it).
-func (o *Client) EmitNowPlaying(data map[string]any) error {
+// Emit sends data to the overlay pages as the JavaScript event name (all
+// browser sources get it; only the page waiting for that name uses it).
+func (o *Client) Emit(name string, data map[string]any) error {
 	c, err := o.client()
 	if err != nil {
 		return err
 	}
 	if _, err := c.General.CallVendorRequest(general.NewCallVendorRequestParams().
 		WithVendorName(browserVendor).WithRequestType(emitEvent).
-		WithRequestData(map[string]any{"event_name": NowPlayingEvent, "event_data": data})); err != nil {
-		return fmt.Errorf("send the song to OBS: %w", err)
+		WithRequestData(map[string]any{"event_name": name, "event_data": data})); err != nil {
+		return fmt.Errorf("send data to the OBS overlay: %w", err)
 	}
 	return nil
 }
@@ -184,8 +235,8 @@ func hasBrowserSource(c *goobs.Client) (bool, error) {
 	return false, nil
 }
 
-// placeBottomLeft puts a new source into the canvas's bottom-left corner.
-func placeBottomLeft(c *goobs.Client, itemID int) error {
+// place puts a new source into a corner of the canvas.
+func place(c *goobs.Client, itemID int, corner Corner) error {
 	v, err := c.Config.GetVideoSettings(&obsconfig.GetVideoSettingsParams{})
 	if err != nil {
 		return fmt.Errorf("read the OBS canvas size: %w", err)
@@ -196,9 +247,14 @@ func placeBottomLeft(c *goobs.Client, itemID int) error {
 		return fmt.Errorf("read the position of a darkbot source: %w", err)
 	}
 	tr := *t.SceneItemTransform
-	tr.Alignment = obsAlignBottomLeft
-	tr.PositionX = nowPlayingMargin
-	tr.PositionY = v.BaseHeight - nowPlayingMargin
+	switch corner {
+	case TopLeft:
+		tr.Alignment, tr.PositionX, tr.PositionY = obsAlignTop|obsAlignLeft, overlayMargin, overlayMargin
+	case TopRight:
+		tr.Alignment, tr.PositionX, tr.PositionY = obsAlignTop|obsAlignRight, v.BaseWidth-overlayMargin, overlayMargin
+	default:
+		tr.Alignment, tr.PositionX, tr.PositionY = obsAlignBottom|obsAlignLeft, overlayMargin, v.BaseHeight-overlayMargin
+	}
 	tr.BoundsWidth = max(tr.BoundsWidth, minBounds)
 	tr.BoundsHeight = max(tr.BoundsHeight, minBounds)
 	if _, err := c.SceneItems.SetSceneItemTransform(sceneitems.NewSetSceneItemTransformParams().

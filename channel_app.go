@@ -86,6 +86,9 @@ func (a *App) readChannelTotals(ctx context.Context) {
 	defer cancel()
 	var t ChannelTotals
 	firstErr := a.readLive(ctx, tok.UserID)
+	if err := a.refreshGoals(ctx, tok); err != nil && firstErr == nil {
+		firstErr = err
+	}
 	if on, err := a.hx.InSharedChat(ctx, tok.UserID); err == nil {
 		a.setSharedChat(on)
 	} else if firstErr == nil {

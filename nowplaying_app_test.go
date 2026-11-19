@@ -13,6 +13,8 @@ func TestWriteOverlayFiles(t *testing.T) {
 	dir := t.TempDir()
 	files := fstest.MapFS{
 		assetsPrefix + overlayPage: {Data: []byte("<html>v1</html>")},
+		assetsPrefix + goalsPage:   {Data: []byte("<html>goals</html>")},
+		assetsPrefix + votePage:    {Data: []byte("<html>vote</html>")},
 		assetsPrefix + overlayFont: {Data: []byte("font")},
 	}
 	page, changed, err := writeOverlayFiles(dir, files)
