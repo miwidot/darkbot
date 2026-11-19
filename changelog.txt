@@ -1,3 +1,5 @@
+2026-11-19 12:51 +08 — README: Alerts tab, new alerts, overlays, built-in commands, Shared Chat
+
 2026-11-19 12:51 +08 — Goals, polls and predictions: alerts and OBS overlays
 - EventSub channel.goal.begin/progress/end, channel.poll.begin/progress/end and
   channel.prediction.begin/progress/lock/end v1 (docs and their example payloads checked).
