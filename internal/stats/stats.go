@@ -68,7 +68,8 @@ type persisted struct {
 	Since   time.Time         `json:"since"`
 	Total   Counts            `json:"total"`
 	Session *persistedSession `json:"session,omitempty"`
-	// Days: the history of the statistics view (people.go).
+	// Days: the open days of the statistics view (normally just today;
+	// finished days move to the history file, see people.go).
 	Days []*day `json:"days,omitempty"`
 }
 
@@ -107,7 +108,11 @@ type Stats struct {
 	// that never count.
 	people       people
 	peopleCapped bool
-	days         []*day
+	days         []*day // open days (today), saved in path
+	closed       []*day // finished days, oldest first, saved in historyPath
+	historyPath  string
+	historyDirty bool   // closed changed since it was written
+	rolledFor    string // the date rollLocked last ran for
 	ignored      map[string]bool
 	now          func() time.Time
 }
@@ -116,8 +121,10 @@ type Stats struct {
 // lost numbers must never stop darkbot from starting).
 func Open(path string, log Logger) *Stats {
 	now := time.Now()
-	s := &Stats{path: path, log: log, since: now, totalSince: now, sounds: map[string]int{}, viewers: map[string]int{}, people: people{}, now: time.Now}
+	s := &Stats{path: path, log: log, since: now, totalSince: now, sounds: map[string]int{}, viewers: map[string]int{}, people: people{}, now: time.Now,
+		historyPath: HistoryPath(path)}
 	s.SetIgnored(nil)
+	s.closed = loadHistory(s.historyPath, log)
 	data, err := os.ReadFile(path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
@@ -144,16 +151,9 @@ func Open(path string, log Logger) *Stats {
 					s.people, s.peopleCapped = ps.People, ps.Capped
 				}
 			}
-			for _, d := range p.Days {
-				if d == nil {
-					continue
-				}
-				if d.People == nil {
-					d.People = people{}
-				}
-				s.days = append(s.days, d)
-			}
-			slices.SortFunc(s.days, func(a, b *day) int { return cmp.Compare(a.Date, b.Date) })
+			// Days before today move to the history at the first roll
+			// (files of v0.7.2 kept all seven days here).
+			s.days = validDays(p.Days)
 		}
 	}
 	return s
@@ -316,7 +316,7 @@ func top(m map[string]int) []Entry {
 func (s *Stats) saveNow() {
 	s.mu.Lock()
 	s.saveTimer = nil
-	s.pruneDaysLocked(s.now())
+	s.rollLocked(s.now())
 	p := persisted{Since: s.totalSince, Total: s.total, Session: &persistedSession{
 		Since: s.since, Counts: s.session, Sounds: maps.Clone(s.sounds), Viewers: maps.Clone(s.viewers),
 		People: s.people, Capped: s.peopleCapped,
@@ -324,19 +324,37 @@ func (s *Stats) saveNow() {
 	// Marshalled under the lock: People and Days are shared, not copied.
 	// Compact, not indented: the history makes up most of the file.
 	data, err := json.Marshal(p)
+	// The history only when it changed: at most once a day (a day ended),
+	// so a busy chat never rewrites up to 90 days every few seconds.
+	var hist []byte
+	var herr error
+	if s.historyDirty {
+		hist, herr = json.Marshal(persistedHistory{Days: s.closed})
+		s.historyDirty = false
+	}
 	s.mu.Unlock()
+	if err == nil {
+		err = write(s.path, data)
+	}
 	if err != nil {
 		s.log.Warnf("Could not save statistics: %v", err)
-		return
 	}
-	if err := s.write(data); err != nil {
-		s.log.Warnf("Could not save statistics: %v", err)
+	if hist != nil || herr != nil {
+		if herr == nil {
+			herr = write(s.historyPath, hist)
+		}
+		if herr != nil {
+			s.log.Warnf("Could not save the statistics history: %v", herr)
+			s.mu.Lock()
+			s.historyDirty = true // the next save tries again
+			s.mu.Unlock()
+		}
 	}
 }
 
-func (s *Stats) write(data []byte) error {
-	if err := secret.WriteFileAtomic(s.path, data); err != nil {
-		return fmt.Errorf("write %s: %w", s.path, err)
+func write(path string, data []byte) error {
+	if err := secret.WriteFileAtomic(path, data); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
 }

@@ -18,7 +18,7 @@ func TestCountChatLeavesOutBroadcasterAndBots(t *testing.T) {
 	if got := a.cfg.Get().IgnoredChatters; len(got) != 1 || got[0] != "mybot" {
 		t.Fatalf("stored %v", got)
 	}
-	in := a.GetInsights()
+	in := a.GetInsights(7)
 	if in.Session.Messages != 2 || in.Session.Chatters != 1 || in.Session.TopChatters[0].Name != "Anna" {
 		t.Fatalf("session %+v", in.Session)
 	}

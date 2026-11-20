@@ -1,3 +1,19 @@
+2026-11-20 21:32 +08 — Statistics: 7, 30, 60 and 90 days, separate history file
+- Range switch: this stream, 7, 30, 60, 90 days (stats.Ranges, GetInsights(days),
+  GetInsightRanges). Chart per hour up to 7 days, per day for longer ranges (tooltip with
+  messages and chatters; first/middle/today as the axis).
+- Finished days move to stats-history.json, written only when a day ends (stats.json keeps
+  today and the session and is still saved every few seconds). v0.7.2 files with seven days
+  in stats.json are moved over on the first roll.
+- Days older than 7 keep their 200 most active people (new map: Go maps never shrink); their
+  chatter count is kept from before the cut. Logins are stored only when they differ from
+  the display name. The view reloads at most once a second.
+- Measured (DARKBOT_MEASURE=1 go test -run WorstCaseSize ./internal/stats/), different
+  chatters every day, 90 days: 50/day 0.9 MB heap, 229 KB history; 300/day 3.6 MB, 910 KB;
+  1,000/day 4.7 MB, 1.1 MB; Insights(90) about 10 ms.
+- Tests: rollover and history file written only after a day ended, trimming, migration of
+  v0.7.2 files, ranges.
+
 2026-11-19 16:20 +08 — Release v0.7.2
 - Statistics tab: top chatters, subs, Bits and raiders (this stream / last 7 days), chat
   activity per hour over 7 days, bots and own accounts left out; macOS bundle 0.7.2.

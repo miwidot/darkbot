@@ -2,6 +2,9 @@ package stats
 
 import (
 	"cmp"
+	"encoding/json"
+	"errors"
+	"os"
 	"regexp"
 	"slices"
 	"strings"
@@ -11,22 +14,35 @@ import (
 )
 
 // People: who chatted, subbed, cheered and raided, for the statistics
-// view. Two scopes: this session (the stream) and the last HistoryDays
-// days, kept per local calendar day with chat messages per hour for the
-// activity graph. Both are capped so stats.json stays small however busy
-// the chat gets.
+// view. Two scopes: this session (the stream) and the history, kept per
+// local calendar day with chat messages per hour for the activity graph.
+//
+// Size: today (and the session) lives in stats.json, which is saved a few
+// seconds after every change. Finished days move to a history file that
+// is written only when a day ends, so a busy chat never rewrites the whole
+// history. A day keeps at most MaxPeople people; once it is older than
+// FullDays it keeps only its OldDayPeople most active ones. The top lists
+// stay right (whoever makes a 90-day top 5 is never below place 200 on
+// their days); only "different chatters" over a long range becomes a
+// floor, shown as such.
 
 const (
-	// HistoryDays is how many days (today included) the history keeps.
-	HistoryDays = 7
+	// FullDays: the last days kept with everyone (up to MaxPeople).
+	FullDays = 7
+	// MaxHistoryDays: the longest range; older days are dropped.
+	MaxHistoryDays = 90
 	// MaxPeople caps the people kept per day and per session. When a new
-	// one would exceed it, the least active one is dropped (see evict), so
-	// the top lists stay right; only the chatter count becomes a floor.
+	// one would exceed it, the least active one is dropped (see evict).
 	MaxPeople = 1000
+	// OldDayPeople: the people a day keeps once it is older than FullDays.
+	OldDayPeople = 200
 	// dayLayout is the key of a calendar day (local time).
 	dayLayout   = "2006-01-02"
 	hoursPerDay = 24
 )
+
+// Ranges are the statistics view's time ranges in days.
+var Ranges = []int{FullDays, 30, 60, MaxHistoryDays}
 
 // KnownBots are chat bot accounts (Twitch logins) that never count: the
 // common bot services. Twitch has no flag for bots in chat messages (only a
@@ -71,8 +87,10 @@ func NormalizeLogins(in []string) ([]string, error) {
 
 // Person is one viewer's numbers in a scope.
 type Person struct {
-	Name     string `json:"name"`            // display name (the latest seen)
-	Login    string `json:"login,omitempty"` // only known from chat
+	Name string `json:"name"` // display name (the latest seen)
+	// Login: only from chat, and only when it differs from the display
+	// name in lower case (non-Latin display names).
+	Login    string `json:"login,omitempty"`
 	Messages int    `json:"messages,omitempty"`
 	// Subs: own subs and resubs plus subs gifted to others.
 	Subs int `json:"subs,omitempty"`
@@ -124,8 +142,12 @@ type day struct {
 	Bits  int              `json:"bits"`  // incl. anonymous ones
 	// People is never nil after load.
 	People people `json:"people"`
-	// Capped: someone was dropped, so the chatter count is a floor.
+	// Capped: MaxPeople was reached, so the chatter count is a floor.
 	Capped bool `json:"capped,omitempty"`
+	// Trimmed: cut down to OldDayPeople; Chatters is then the day's
+	// chatter count from before the cut.
+	Trimmed  bool `json:"trimmed,omitempty"`
+	Chatters int  `json:"chatters,omitempty"`
 }
 
 func (d *day) messages() int {
@@ -136,6 +158,139 @@ func (d *day) messages() int {
 	return n
 }
 
+// trim keeps the n most active people (ties: the smaller key).
+func (d *day) trim(n int, chatters int) {
+	d.Chatters, d.Trimmed = chatters, true
+	if len(d.People) <= n {
+		return
+	}
+	keys := make([]string, 0, len(d.People))
+	for k := range d.People {
+		keys = append(keys, k)
+	}
+	slices.SortFunc(keys, func(a, b string) int {
+		if c := cmp.Compare(d.People[b].activity(), d.People[a].activity()); c != 0 {
+			return c
+		}
+		return cmp.Compare(a, b)
+	})
+	// A new map: Go maps never shrink, so deleting from the old one would
+	// keep the memory of all MaxPeople.
+	kept := make(people, n)
+	for _, k := range keys[:n] {
+		kept[k] = d.People[k]
+	}
+	d.People = kept
+}
+
+// merge adds o (the same date) into d; only after a clock change.
+func (d *day) merge(o *day) {
+	for h := range d.Hours {
+		d.Hours[h] += o.Hours[h]
+	}
+	d.Subs += o.Subs
+	d.Bits += o.Bits
+	d.Capped = d.Capped || o.Capped
+	for k, p := range o.People {
+		q, capped := d.People.get(k, p.Name)
+		q.Login = cmp.Or(q.Login, p.Login)
+		q.Messages += p.Messages
+		q.Subs += p.Subs
+		q.Bits += p.Bits
+		q.Raid += p.Raid
+		d.Capped = d.Capped || capped
+	}
+}
+
+// validDays drops broken entries of a loaded file and sorts by date.
+func validDays(in []*day) []*day {
+	out := make([]*day, 0, len(in))
+	for _, d := range in {
+		if d == nil {
+			continue
+		}
+		if _, err := time.Parse(dayLayout, d.Date); err != nil {
+			continue
+		}
+		if d.People == nil {
+			d.People = people{}
+		}
+		out = append(out, d)
+	}
+	slices.SortFunc(out, func(a, b *day) int { return cmp.Compare(a.Date, b.Date) })
+	return out
+}
+
+// persistedHistory is the history file.
+type persistedHistory struct {
+	Days []*day `json:"days"`
+}
+
+// HistoryPath is the history file next to the statistics file.
+func HistoryPath(statsPath string) string {
+	return strings.TrimSuffix(statsPath, ".json") + "-history.json"
+}
+
+// loadHistory reads the history file (missing or unreadable = empty; lost
+// history must never stop darkbot from starting).
+func loadHistory(path string, log Logger) []*day {
+	data, err := os.ReadFile(path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return nil
+	case err != nil:
+		log.Warnf("Could not read the statistics history %s: %v", path, err)
+		return nil
+	}
+	var h persistedHistory
+	if err := json.Unmarshal(data, &h); err != nil {
+		log.Warnf("Ignoring an unreadable statistics history %s: %v", path, err)
+		return nil
+	}
+	return validDays(h.Days)
+}
+
+// rollLocked runs once per date: days before today move to the history,
+// days older than FullDays are trimmed and days outside MaxHistoryDays
+// (or after today, after a clock change) are dropped. A changed history
+// is saved with the next save. Call with mu held.
+func (s *Stats) rollLocked(now time.Time) {
+	today := now.Format(dayLayout)
+	if s.rolledFor == today {
+		return
+	}
+	s.rolledFor = today
+	changed := false
+	s.days = slices.DeleteFunc(s.days, func(d *day) bool {
+		if d.Date == today {
+			return false
+		}
+		if i := slices.IndexFunc(s.closed, func(c *day) bool { return c.Date == d.Date }); i >= 0 {
+			s.closed[i].merge(d)
+		} else {
+			s.closed = append(s.closed, d)
+		}
+		changed = true
+		return true
+	})
+	slices.SortFunc(s.closed, func(a, b *day) int { return cmp.Compare(a.Date, b.Date) })
+	dates := lastDates(now, MaxHistoryDays)
+	first, full := dates[0], dates[len(dates)-FullDays]
+	n := len(s.closed)
+	s.closed = slices.DeleteFunc(s.closed, func(d *day) bool { return d.Date < first || d.Date >= today })
+	changed = changed || len(s.closed) != n
+	for _, d := range s.closed {
+		if d.Date < full && !d.Trimmed {
+			d.trim(OldDayPeople, s.chattersLocked(d.People))
+			changed = true
+		}
+	}
+	if changed {
+		s.historyDirty = true
+		s.scheduleSave()
+	}
+}
+
 // Board is one scope's numbers and top lists.
 type Board struct {
 	Messages int `json:"messages"`
@@ -143,7 +298,7 @@ type Board struct {
 	Chatters int `json:"chatters"`
 	Subs     int `json:"subs"`
 	Bits     int `json:"bits"`
-	// Capped: the chatter count is a floor (MaxPeople reached).
+	// Capped: the chatter count is a floor (people were left out).
 	Capped      bool    `json:"capped"`
 	TopChatters []Entry `json:"topChatters"`
 	TopSubs     []Entry `json:"topSubs"`
@@ -164,10 +319,11 @@ type DaySummary struct {
 type Insights struct {
 	Since   time.Time `json:"since"` // session start
 	Session Board     `json:"session"`
-	Week    Board     `json:"week"`
-	// Days: the last HistoryDays days, oldest first, today last; days
-	// without anything are there too (zeros).
-	Days []DaySummary `json:"days"`
+	// Days is the range (one of Ranges); Range its numbers and DaysList
+	// its days, oldest first, today last, days without anything included.
+	Days     int          `json:"days"`
+	Range    Board        `json:"range"`
+	DaysList []DaySummary `json:"daysList"`
 	// Bots: KnownBots, for the view's "never counted" note.
 	Bots []string `json:"bots"`
 }
@@ -197,35 +353,26 @@ func (s *Stats) ignoredLocked(login, name string) bool {
 	return s.ignored[strings.ToLower(login)] || s.ignored[strings.ToLower(name)]
 }
 
-// todayLocked returns today's day of the history, starting a new one and
-// dropping days that fell out of it. Call with mu held.
+// todayLocked returns today's day, starting a new one (and rolling the
+// finished ones into the history). Call with mu held.
 func (s *Stats) todayLocked(now time.Time) *day {
 	date := now.Format(dayLayout)
+	s.rollLocked(now)
 	if n := len(s.days); n > 0 && s.days[n-1].Date == date {
 		return s.days[n-1]
 	}
-	s.days = append(s.days, &day{Date: date, People: people{}})
-	s.pruneDaysLocked(now)
-	return s.days[len(s.days)-1]
+	d := &day{Date: date, People: people{}}
+	s.days = append(s.days, d)
+	return d
 }
 
-// pruneDaysLocked keeps the days of the last HistoryDays (and drops days
-// "from the future" after a clock change, except today).
-func (s *Stats) pruneDaysLocked(now time.Time) {
-	keep := map[string]bool{}
-	for _, d := range lastDates(now) {
-		keep[d] = true
-	}
-	s.days = slices.DeleteFunc(s.days, func(d *day) bool { return !keep[d.Date] })
-}
-
-// lastDates: the dates of the last HistoryDays days, oldest first. It steps
-// from local noon so a daylight saving change can't skip or repeat a day.
-func lastDates(now time.Time) []string {
+// lastDates: the dates of the last n days, oldest first. It steps from
+// local noon so a daylight saving change can't skip or repeat a day.
+func lastDates(now time.Time, n int) []string {
 	noon := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
-	out := make([]string, HistoryDays)
-	for i := range HistoryDays {
-		out[i] = noon.AddDate(0, 0, i-(HistoryDays-1)).Format(dayLayout)
+	out := make([]string, n)
+	for i := range n {
+		out[i] = noon.AddDate(0, 0, i-(n-1)).Format(dayLayout)
 	}
 	return out
 }
@@ -241,8 +388,12 @@ func (s *Stats) touchLocked(id, login, name string, fn func(p *Person)) {
 		capped *bool
 	}{{s.people, &s.peopleCapped}, {today.People, &today.Capped}} {
 		p, capped := scope.ps.get(id, name)
-		if login != "" {
+		// The login only when it isn't the display name in lower case
+		// (almost always it is): saves memory and file size.
+		if login != "" && login != strings.ToLower(name) {
 			p.Login = login
+		} else if login != "" {
+			p.Login = ""
 		}
 		fn(p)
 		if capped {
@@ -272,13 +423,17 @@ func (s *Stats) ChatMessage(id, login, name string) {
 	}
 }
 
-// Insights returns the statistics view's numbers.
-func (s *Stats) Insights() Insights {
+// Insights returns the statistics view's numbers for the last days days
+// (one of Ranges; anything else means the shortest).
+func (s *Stats) Insights(days int) Insights {
+	if !slices.Contains(Ranges, days) {
+		days = Ranges[0]
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := s.now()
-	s.pruneDaysLocked(now)
-	out := Insights{Since: s.since, Bots: slices.Clone(KnownBots)}
+	s.rollLocked(now)
+	out := Insights{Since: s.since, Days: days, Bots: slices.Clone(KnownBots)}
 
 	out.Session = s.boardLocked(s.people, s.peopleCapped)
 	out.Session.Messages = s.session.ChatMessages
@@ -286,25 +441,32 @@ func (s *Stats) Insights() Insights {
 	out.Session.Bits = s.session.Bits
 
 	byDate := map[string]*day{}
+	for _, d := range s.closed {
+		byDate[d.Date] = d
+	}
 	for _, d := range s.days {
 		byDate[d.Date] = d
 	}
-	week := people{}
-	weekCapped := false
-	for _, date := range lastDates(now) {
+	merged := people{}
+	var r Board
+	for _, date := range lastDates(now, days) {
 		sum := DaySummary{Date: date}
 		if d := byDate[date]; d != nil {
 			sum.Hours, sum.Messages, sum.Capped = d.Hours, d.messages(), d.Capped
 			sum.Chatters = s.chattersLocked(d.People)
-			out.Week.Messages += sum.Messages
-			out.Week.Subs += d.Subs
-			out.Week.Bits += d.Bits
-			weekCapped = weekCapped || d.Capped
+			if d.Trimmed {
+				sum.Chatters = d.Chatters
+			}
+			r.Messages += sum.Messages
+			r.Subs += d.Subs
+			r.Bits += d.Bits
+			// Over several days a trimmed day's people are incomplete.
+			r.Capped = r.Capped || d.Capped || d.Trimmed
 			for k, p := range d.People {
-				w := week[k]
+				w := merged[k]
 				if w == nil {
 					w = &Person{}
-					week[k] = w
+					merged[k] = w
 				}
 				// Days go oldest first: the newest name wins.
 				w.Name, w.Login = p.Name, cmp.Or(p.Login, w.Login)
@@ -314,11 +476,11 @@ func (s *Stats) Insights() Insights {
 				w.Raid += p.Raid
 			}
 		}
-		out.Days = append(out.Days, sum)
+		out.DaysList = append(out.DaysList, sum)
 	}
-	b := s.boardLocked(week, weekCapped)
-	b.Messages, b.Subs, b.Bits = out.Week.Messages, out.Week.Subs, out.Week.Bits
-	out.Week = b
+	b := s.boardLocked(merged, r.Capped)
+	b.Messages, b.Subs, b.Bits = r.Messages, r.Subs, r.Bits
+	out.Range = b
 	return out
 }
 

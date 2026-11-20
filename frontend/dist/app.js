@@ -516,33 +516,60 @@ function loadStats() {
 
 // ---------- statistics view ----------
 
-// Top lists for this stream or the last seven days, and the chat activity
-// per hour. The numbers come from GetInsights (internal/stats/people.go);
+// Top lists for this stream or the last 7, 30, 60 or 90 days, and the chat
+// activity. The numbers come from GetInsights (internal/stats/people.go);
 // the range choice is a convenience kept in localStorage when it works.
 const INS_RANGE_KEY = 'darkbot.insightsRange';
-const INS_RANGES = ['session', 'week'];
+const INS_SESSION = 'session';
+// INS_HOURLY_DAYS: ranges up to this many days chart every hour; longer
+// ones one bar per day (90 x 24 bars would be unreadable).
+const INS_HOURLY_DAYS = 7;
 // INS_TICKS: about how many gridlines the activity chart gets.
 const INS_TICKS = 3;
+// INS_REFRESH_MS: a busy chat changes the numbers many times a second;
+// the view reloads at most this often.
+const INS_REFRESH_MS = 1000;
 let insights = null;
-let insRange = 'session';
-try { const r = localStorage.getItem(INS_RANGE_KEY); if (INS_RANGES.includes(r)) insRange = r; } catch (e) { /* not kept, fine */ }
+let insRanges = [];
+let insRange = INS_SESSION;
+try { insRange = localStorage.getItem(INS_RANGE_KEY) || INS_SESSION; } catch (e) { /* not kept, fine */ }
 
-let insQueued = false;
+// The range asked from Go: the session view shows the week's chart.
+const insDays = () => (insRange === INS_SESSION ? INS_HOURLY_DAYS : Number(insRange));
+
+let insTimer = 0;
+let insLast = 0;
 function loadInsights() {
-  if (insQueued) return;
-  insQueued = true;
-  requestAnimationFrame(async () => {
-    insQueued = false;
-    try { insights = await App().GetInsights(); renderInsights(); } catch (e) { /* the next stats event fetches again */ }
-  });
+  if (insTimer) return;
+  const wait = Math.max(0, insLast + INS_REFRESH_MS - Date.now());
+  insTimer = setTimeout(async () => {
+    insLast = Date.now();
+    try {
+      if (!insRanges.length) insRanges = (await App().GetInsightRanges()) || [];
+      if (insRange !== INS_SESSION && !insRanges.includes(Number(insRange))) insRange = INS_SESSION;
+      insights = await App().GetInsights(insDays());
+      renderInsights();
+    } catch (e) { /* the next stats event fetches again */ }
+    insTimer = 0;
+  }, wait);
 }
 
-for (const b of $('insRange').querySelectorAll('button')) {
-  b.addEventListener('click', () => {
-    insRange = b.dataset.range;
-    try { localStorage.setItem(INS_RANGE_KEY, insRange); } catch (e) { /* not kept, fine */ }
-    renderInsights();
-  });
+function setInsRange(r) {
+  insRange = r;
+  try { localStorage.setItem(INS_RANGE_KEY, r); } catch (e) { /* not kept, fine */ }
+  renderInsRange();
+  insLast = 0; // a click answers right away
+  clearTimeout(insTimer);
+  insTimer = 0;
+  loadInsights();
+}
+
+function renderInsRange() {
+  const opts = [INS_SESSION, ...insRanges.map(String)];
+  $('insRange').replaceChildren(...opts.map((r) => el('button', {
+    role: 'tab', class: r === insRange ? 'active' : '', 'aria-selected': r === insRange ? 'true' : 'false',
+    onclick: () => setInsRange(r),
+  }, r === INS_SESSION ? t('ins.rangeSession') : t('ins.rangeDays', { n: r }))));
 }
 
 // A day key (YYYY-MM-DD, local) as a local date at noon.
@@ -552,21 +579,19 @@ const dayName = (key, long) => dayKeyDate(key).toLocaleDateString(I18N.lang || u
 
 function renderInsights() {
   if (!insights) return;
-  for (const b of $('insRange').querySelectorAll('button')) {
-    const on = b.dataset.range === insRange;
-    b.classList.toggle('active', on);
-    b.setAttribute('aria-selected', on ? 'true' : 'false');
-  }
+  renderInsRange();
+  const days = insights.daysList || [];
+  const session = insRange === INS_SESSION;
   const since = new Date(insights.since);
   const sameDay = since.toDateString() === new Date().toDateString();
-  $('insSince').textContent = insRange === 'session'
+  $('insSince').textContent = session
     ? t('ins.since', { time: sameDay ? clock(since) : since.toLocaleString(I18N.lang || undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) })
-    : t('ins.sinceWeek', { date: dayName(insights.days[0].date, false) });
+    : days.length ? t('ins.sinceDate', { date: dayName(days[0].date, false) }) : '';
 
-  const b = insights[insRange];
+  const b = session ? insights.session : insights.range;
   const tiles = [
     { label: 'ins.messages', value: b.messages, detail: t('ins.messagesDetail') },
-    { label: 'ins.chatters', value: b.chatters, detail: t('ins.chattersDetail'), floor: b.capped },
+    { label: 'ins.chatters', value: b.chatters, detail: t(b.capped ? 'ins.chattersFloor' : 'ins.chattersDetail'), floor: b.capped },
     { label: 'ins.subs', value: b.subs, detail: t('ins.subsDetail') },
     { label: 'ins.bits', value: b.bits, detail: t('ins.bitsDetail') },
   ];
@@ -579,7 +604,7 @@ function renderInsights() {
   renderRank('insSubs', b.topSubs || []);
   renderRank('insBits', b.topBits || []);
   renderRank('insRaiders', b.topRaiders || []);
-  renderActivity(insights.days || []);
+  renderActivity(days);
   if (state) renderIgnored();
 }
 
@@ -591,15 +616,19 @@ function niceStep(max) {
   return 10 * pow;
 }
 
-// renderActivity draws messages per hour, one column per day, with the
-// days as a list below (that list is also the chart's text version).
+// renderActivity draws the chat messages: up to INS_HOURLY_DAYS days one
+// bar per hour in a column per day, with the days listed below (the
+// chart's text version); longer ranges one bar per day.
 function renderActivity(days) {
   const chart = $('actChart');
   const tip = $('actTip');
-  const max = Math.max(0, ...days.flatMap((d) => d.hours));
+  const hourly = days.length <= INS_HOURLY_DAYS;
+  const values = hourly ? days.flatMap((d) => d.hours) : days.map((d) => d.messages);
+  const max = Math.max(0, ...values);
   const step = niceStep(max);
   const top = Math.max(step, Math.ceil(max / step) * step);
   const total = days.reduce((n, d) => n + d.messages, 0);
+  $('actTitle').firstElementChild.textContent = t(hourly ? 'ins.activityHourly' : 'ins.activityDaily', { n: days.length });
   $('actTotal').textContent = t('ins.activityTotal', { n: num(total) });
 
   const grid = el('div', { class: 'act-grid', 'aria-hidden': 'true' });
@@ -608,34 +637,53 @@ function renderActivity(days) {
     line.style.bottom = (v / top * 100) + '%';
     grid.append(line);
   }
-  const cols = el('div', { class: 'act-cols', 'aria-hidden': 'true' });
-  for (const d of days) {
-    const col = el('div', { class: 'act-day' });
-    d.hours.forEach((n, h) => {
-      const bar = el('i');
-      bar.style.setProperty('--h', (n / top).toFixed(4));
-      const hit = el('span', { class: 'act-h' + (n ? '' : ' zero') }, bar);
-      hit.addEventListener('mouseenter', () => {
-        tip.textContent = t('ins.hourTip', { day: dayName(d.date, true), from: String(h).padStart(2, '0'), to: String((h + 1) % 24).padStart(2, '0'), n: num(n) });
-        tip.classList.remove('hidden');
-        const box = chart.getBoundingClientRect();
-        const r = hit.getBoundingClientRect();
-        const x = r.left + r.width / 2 - box.left;
-        tip.style.left = Math.min(Math.max(x, tip.offsetWidth / 2), box.width - tip.offsetWidth / 2) + 'px';
-      });
-      col.append(hit);
-    });
-    cols.append(col);
+  const show = (hit, text) => {
+    tip.textContent = text;
+    tip.classList.remove('hidden');
+    const box = chart.getBoundingClientRect();
+    const r = hit.getBoundingClientRect();
+    const x = r.left + r.width / 2 - box.left;
+    tip.style.left = Math.min(Math.max(x, tip.offsetWidth / 2), box.width - tip.offsetWidth / 2) + 'px';
+  };
+  const bar = (n, text) => {
+    const i = el('i');
+    i.style.setProperty('--h', (n / top).toFixed(4));
+    const hit = el('span', { class: 'act-h' }, i);
+    hit.addEventListener('mouseenter', () => show(hit, text()));
+    return hit;
+  };
+  const cols = el('div', { class: 'act-cols' + (hourly ? '' : ' daily'), 'aria-hidden': 'true' });
+  cols.style.setProperty('--cols', String(hourly ? days.length : 1));
+  if (hourly) {
+    for (const d of days) {
+      cols.append(el('div', { class: 'act-day' }, ...d.hours.map((n, h) => bar(n, () => t('ins.hourTip', {
+        day: dayName(d.date, true), from: String(h).padStart(2, '0'), to: String((h + 1) % 24).padStart(2, '0'), n: num(n),
+      })))));
+    }
+  } else {
+    cols.append(el('div', { class: 'act-day' }, ...days.map((d) => bar(d.messages, () => t('ins.dayTip', {
+      day: dayName(d.date, true), n: num(d.messages), c: (d.capped ? '≥ ' : '') + num(d.chatters),
+    })))));
   }
   cols.addEventListener('mouseleave', () => tip.classList.add('hidden'));
   chart.replaceChildren(grid, cols, tip);
+  $('actEmpty').textContent = t('ins.activityEmpty', { n: days.length });
   $('actEmpty').classList.toggle('hidden', max > 0);
 
+  // Below the chart: every day for a week; for longer ranges the first,
+  // middle and last date as an axis (the tooltips have each day).
   const today = days.length ? days[days.length - 1].date : '';
-  $('actDays').replaceChildren(...days.map((d) => el('li', { class: d.date === today ? 'today' : '' },
-    el('span', { class: 'act-day-name' }, d.date === today ? t('ins.today') : dayName(d.date, false)),
-    el('span', { class: 'act-day-n' }, t('ins.dayMessages', { n: num(d.messages) })),
-    el('span', { class: 'act-day-c' }, t('ins.dayChatters', { n: (d.capped ? '≥ ' : '') + num(d.chatters) })))));
+  $('actDays').classList.toggle('axis', !hourly);
+  if (hourly) {
+    $('actDays').replaceChildren(...days.map((d) => el('li', { class: d.date === today ? 'today' : '' },
+      el('span', { class: 'act-day-name' }, d.date === today ? t('ins.today') : dayName(d.date, false)),
+      el('span', { class: 'act-day-n' }, t('ins.dayMessages', { n: num(d.messages) })),
+      el('span', { class: 'act-day-c' }, t('ins.dayChatters', { n: (d.capped ? '≥ ' : '') + num(d.chatters) })))));
+  } else {
+    const mid = days[Math.floor(days.length / 2)];
+    $('actDays').replaceChildren(...[days[0], mid].map((d) => el('li', {}, el('span', { class: 'act-day-name' }, dayName(d.date, false)))),
+      el('li', { class: 'today' }, el('span', { class: 'act-day-name' }, t('ins.today'))));
+  }
 }
 
 // The streamer's own list of accounts the statistics leave out.

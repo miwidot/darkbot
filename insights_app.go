@@ -7,11 +7,15 @@ import (
 )
 
 // The statistics view: top chatters, subs, Bits and raiders for this stream
-// and the last seven days, and the chat activity per hour (internal/stats,
+// and the last 7, 30, 60 or 90 days, and the chat activity per hour (internal/stats,
 // people.go).
 
-// GetInsights returns the statistics view's numbers.
-func (a *App) GetInsights() stats.Insights { return a.st.Insights() }
+// GetInsights returns the statistics view's numbers for the last days
+// days (stats.Ranges: 7, 30, 60 or 90).
+func (a *App) GetInsights(days int) stats.Insights { return a.st.Insights(days) }
+
+// GetInsightRanges lists the time ranges the statistics view offers.
+func (a *App) GetInsightRanges() []int { return stats.Ranges }
 
 // SaveIgnoredChatters stores the streamer's own list of accounts the
 // statistics never count (on top of the known bots).
