@@ -1,3 +1,7 @@
+2026-11-20 22:21 +08 — Release v0.7.3
+- Statistics with 7/30/60/90 days, per-day chart for long ranges, separate history file
+  written once a day, trimmed old days; macOS bundle 0.7.3.
+
 2026-11-20 21:32 +08 — Statistics: 7, 30, 60 and 90 days, separate history file
 - Range switch: this stream, 7, 30, 60, 90 days (stats.Ranges, GetInsights(days),
   GetInsightRanges). Chart per hour up to 7 days, per day for longer ranges (tooltip with
