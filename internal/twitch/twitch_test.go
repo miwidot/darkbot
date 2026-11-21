@@ -768,6 +768,43 @@ func TestLiveSince(t *testing.T) {
 	}
 }
 
+// Examples shaped like the reference's responses for Get Channel Followers
+// (user_id given) and Get Users (login given).
+func TestFollowedAtAndUserByLogin(t *testing.T) {
+	fakeTwitch(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		switch {
+		case r.URL.Path == "/helix/channels/followers" && q.Get("broadcaster_id") == "42" && q.Get("user_id") == "11111":
+			writeJSON(w, 200, map[string]any{"total": 8, "data": []map[string]any{{"user_id": "11111", "user_name": "UserDisplayName", "user_login": "userloginname", "followed_at": "2022-05-24T22:22:08Z"}}, "pagination": map[string]any{}})
+		case r.URL.Path == "/helix/channels/followers" && q.Get("user_id") != "":
+			writeJSON(w, 200, map[string]any{"total": 8, "data": []any{}, "pagination": map[string]any{}})
+		case r.URL.Path == "/helix/users" && q.Get("login") == "twitchdev":
+			writeJSON(w, 200, map[string]any{"data": []map[string]any{{"id": "141981764", "login": "twitchdev", "display_name": "TwitchDev", "type": "", "broadcaster_type": "partner"}}})
+		case r.URL.Path == "/helix/users":
+			writeJSON(w, 200, map[string]any{"data": []any{}})
+		default:
+			writeJSON(w, 400, map[string]any{"status": 400, "message": "unexpected request"})
+		}
+	})
+	m, _ := NewTokenManager("cid", &memStore{tok: &Token{AccessToken: "A1", RefreshToken: "R1", UserID: "42"}}, nopLog{})
+	h := NewHelix(m)
+	ctx := context.Background()
+	at, ok, err := h.FollowedAt(ctx, "42", "11111")
+	if err != nil || !ok || !at.Equal(time.Date(2022, 5, 24, 22, 22, 8, 0, time.UTC)) {
+		t.Fatalf("follower: %v %v %v", at, ok, err)
+	}
+	if _, ok, err := h.FollowedAt(ctx, "42", "999"); err != nil || ok {
+		t.Fatalf("not following: %v %v", ok, err)
+	}
+	u, ok, err := h.UserByLogin(ctx, "TwitchDev")
+	if err != nil || !ok || u.ID != "141981764" || u.DisplayName != "TwitchDev" {
+		t.Fatalf("user: %+v %v %v", u, ok, err)
+	}
+	if _, ok, err := h.UserByLogin(ctx, "nobody_here"); err != nil || ok {
+		t.Fatalf("unknown login: %v %v", ok, err)
+	}
+}
+
 func TestRevocation(t *testing.T) {
 	e := &EventSub{log: nopLog{}}
 	msg := func(typ, status string) json.RawMessage {

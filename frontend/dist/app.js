@@ -1151,12 +1151,14 @@ function renderChat() {
 
 // ---------- clip command ----------
 
-// Built-in commands: !clips (with a title) and !marker, !snooze. key is
-// the settings key in the config ("clips", "marker", "snooze").
+// Built-in commands: !clips (with a title), !marker, !snooze, !uptime and
+// !followage. key is the settings key in the config.
 const BUILTINS = [
   { key: 'clips', summary: 'clips.summary' },
   { key: 'marker', summary: 'builtin.marker' },
   { key: 'snooze', summary: 'builtin.snooze' },
+  { key: 'uptime', summary: 'builtin.uptime' },
+  { key: 'followage', summary: 'builtin.followage' },
 ];
 let builtinEditing = 'clips';
 

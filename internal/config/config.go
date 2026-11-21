@@ -373,6 +373,10 @@ type Config struct {
 	// (!snooze: push the next ad back) are built-in commands.
 	Marker BuiltinCommand `json:"marker"`
 	Snooze BuiltinCommand `json:"snooze"`
+	// Uptime (!uptime: how long the stream runs) and Followage
+	// (!followage [@name]: how long someone follows) answer questions.
+	Uptime    BuiltinCommand `json:"uptime"`
+	Followage BuiltinCommand `json:"followage"`
 	// Overlays: the goal and poll/prediction overlays in OBS.
 	Overlays Overlays `json:"overlays"`
 	// IgnoredChatters: Twitch logins the statistics never count (the
@@ -406,6 +410,11 @@ const (
 	DefaultSnoozeName = "snooze"
 	// DefaultMarkerCooldown keeps a chat from setting a marker per message.
 	DefaultMarkerCooldown = 10
+	DefaultUptimeName     = "uptime"
+	DefaultFollowageName  = "followage"
+	// DefaultInfoCooldown: !uptime and !followage are for everyone, so a
+	// chat asking together gets one answer per this many seconds.
+	DefaultInfoCooldown = 30
 )
 
 // DefaultMarker and DefaultSnooze are the settings of a new config.
@@ -415,6 +424,15 @@ func DefaultMarker() BuiltinCommand {
 
 func DefaultSnooze() BuiltinCommand {
 	return BuiltinCommand{Name: DefaultSnoozeName, Permission: PermModerator}
+}
+
+// DefaultUptime and DefaultFollowage only read, so everyone may use them.
+func DefaultUptime() BuiltinCommand {
+	return BuiltinCommand{Name: DefaultUptimeName, Permission: PermEveryone, CooldownSeconds: DefaultInfoCooldown}
+}
+
+func DefaultFollowage() BuiltinCommand {
+	return BuiltinCommand{Name: DefaultFollowageName, Permission: PermEveryone, CooldownSeconds: DefaultInfoCooldown}
 }
 
 // normalizeBuiltin gives settings from before the command its defaults and
@@ -468,6 +486,8 @@ func Default() Config {
 		Clips:        DefaultClips(),
 		Marker:       DefaultMarker(),
 		Snooze:       DefaultSnooze(),
+		Uptime:       DefaultUptime(),
+		Followage:    DefaultFollowage(),
 		AutoUpdate:   true,
 		OBS: OBS{
 			Host:      DefaultOBSHost,
@@ -552,6 +572,8 @@ func (c *Config) normalize() {
 	c.Clips.CooldownSeconds = min(max(c.Clips.CooldownSeconds, 0), MaxCommandCooldown)
 	normalizeBuiltin(&c.Marker, DefaultMarker())
 	normalizeBuiltin(&c.Snooze, DefaultSnooze())
+	normalizeBuiltin(&c.Uptime, DefaultUptime())
+	normalizeBuiltin(&c.Followage, DefaultFollowage())
 	if c.Songs.SearchService != ServiceSpotify && c.Songs.SearchService != ServiceYTMusic {
 		c.Songs.SearchService = ServiceSpotify
 	}

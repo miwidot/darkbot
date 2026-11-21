@@ -1,9 +1,12 @@
 // Package builtin runs darkbot's small built-in chat commands that act on
-// the stream: !marker (a stream marker for editing the VOD later) and
-// !snooze (push the next automatic ad back by 5 minutes). Song requests
+// the stream or answer questions about it: !marker (a stream marker for
+// editing the VOD later), !snooze (push the next automatic ad back by 5
+// minutes), !uptime (how long the stream runs) and !followage (how long
+// someone follows). Song requests
 // (internal/songs) and !clips (internal/clips) have their own packages.
 //
-// Twitch calls and their documented errors: internal/twitch/manage.go.
+// Twitch calls and their documented errors: internal/twitch/manage.go,
+// channel.go (Get Streams), followers.go and users.go.
 package builtin
 
 import (
@@ -22,12 +25,14 @@ import (
 
 // Command keys (also used by the app to save their settings).
 const (
-	KeyMarker = "marker"
-	KeySnooze = "snooze"
+	KeyMarker    = "marker"
+	KeySnooze    = "snooze"
+	KeyUptime    = "uptime"
+	KeyFollowage = "followage"
 )
 
 // Keys lists the commands in display order.
-var Keys = []string{KeyMarker, KeySnooze}
+var Keys = []string{KeyMarker, KeySnooze, KeyUptime, KeyFollowage}
 
 // callTimeout bounds one Twitch call.
 const callTimeout = 15 * time.Second
@@ -36,6 +41,9 @@ const callTimeout = 15 * time.Second
 type API interface {
 	CreateMarker(ctx context.Context, broadcasterID, description string) (twitch.Marker, error)
 	SnoozeAd(ctx context.Context, broadcasterID string) (twitch.AdSchedule, error)
+	LiveSince(ctx context.Context, broadcasterID string) (live bool, since time.Time, err error)
+	FollowedAt(ctx context.Context, broadcasterID, userID string) (at time.Time, following bool, err error)
+	UserByLogin(ctx context.Context, login string) (u twitch.User, found bool, err error)
 }
 
 // Logger is the logging this package needs.
@@ -110,6 +118,10 @@ func (h *Handler) Handle(ctx context.Context, key string, m twitch.ChatMessage) 
 		reply = h.marker(ctx, m)
 	case KeySnooze:
 		reply = h.snooze(ctx, m)
+	case KeyUptime:
+		reply = h.uptime(ctx, m)
+	case KeyFollowage:
+		reply = h.followage(ctx, m)
 	}
 	if reply != "" {
 		h.d.Reply(ctx, reply, m.ID)

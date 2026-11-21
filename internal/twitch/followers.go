@@ -70,6 +70,19 @@ func (h *Helix) IsFollower(ctx context.Context, broadcasterID, userID string) (b
 	return len(list) > 0, err
 }
 
+// FollowedAt returns when userID started following the broadcaster;
+// following is false when the account doesn't follow. With user_id Get
+// Channel Followers "contains this user if they follow the broadcaster",
+// otherwise its list is empty; followed_at is "The UTC timestamp when the
+// user started following the broadcaster" (checked 2026-11-21).
+func (h *Helix) FollowedAt(ctx context.Context, broadcasterID, userID string) (at time.Time, following bool, err error) {
+	list, _, _, err := h.getFollowers(ctx, url.Values{"broadcaster_id": {broadcasterID}, "user_id": {userID}})
+	if err != nil || len(list) == 0 {
+		return time.Time{}, false, err
+	}
+	return list[0].FollowedAt, true, nil
+}
+
 func (h *Helix) getFollowers(ctx context.Context, q url.Values) ([]follower, int, string, error) {
 	var out struct {
 		Data       []follower `json:"data"`

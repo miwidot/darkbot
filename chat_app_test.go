@@ -166,8 +166,23 @@ func TestSaveBuiltin(t *testing.T) {
 			t.Errorf("!%s accepted for marker", name)
 		}
 	}
-	if err := a.SaveCommand(config.ChatCommand{Name: "snooze", Response: "x", Permission: config.PermEveryone}); err == nil {
-		t.Error("!snooze belongs to the built-in command")
+	// A built-in command that is on keeps its name; one that is off leaves
+	// it to the streamer's own command (e.g. an "!uptime" made before
+	// darkbot had one), and can then only be turned on under another name.
+	if err := a.SaveCommand(config.ChatCommand{Name: "marker", Response: "x", Permission: config.PermEveryone}); err == nil {
+		t.Error("!marker is on and belongs to the built-in command")
+	}
+	if err := a.SaveCommand(config.ChatCommand{Name: "uptime", Response: "my own", Permission: config.PermEveryone}); err != nil {
+		t.Errorf("!uptime is off, an own command may use it: %v", err)
+	}
+	up := config.DefaultUptime()
+	up.Enabled = true
+	if err := a.SaveBuiltin("uptime", up); err == nil {
+		t.Error("!uptime is taken by an own command")
+	}
+	up.Name = "live"
+	if err := a.SaveBuiltin("uptime", up); err != nil || a.cfg.Get().Uptime.Name != "live" {
+		t.Errorf("uptime under another name: %v", err)
 	}
 	if err := a.SaveBuiltin("nope", m); err == nil {
 		t.Error("unknown key accepted")

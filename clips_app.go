@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"slices"
 
 	"github.com/miwidot/darkbot/internal/builtin"
 	"github.com/miwidot/darkbot/internal/chatbot"
@@ -31,7 +32,7 @@ func (a *App) newClips() *clips.Handler {
 	})
 }
 
-// newBuiltins wires !marker and !snooze to the app. Called in NewApp.
+// newBuiltins wires !marker, !snooze, !uptime and !followage to the app. Called in NewApp.
 func (a *App) newBuiltins() *builtin.Handler {
 	return builtin.New(builtin.Deps{
 		Settings: a.builtinSettings,
@@ -50,13 +51,26 @@ func (a *App) newBuiltins() *builtin.Handler {
 // builtinSettings returns a built-in command's settings by key.
 func (a *App) builtinSettings(key string) config.BuiltinCommand {
 	c := a.cfg.Get()
-	switch key {
-	case builtin.KeyMarker:
-		return c.Marker
-	case builtin.KeySnooze:
-		return c.Snooze
+	if p := builtinOf(&c, key); p != nil {
+		return *p
 	}
 	return config.BuiltinCommand{}
+}
+
+// builtinOf points at the settings of the built-in command with that key
+// (builtin.Keys); nil for an unknown key.
+func builtinOf(c *config.Config, key string) *config.BuiltinCommand {
+	switch key {
+	case builtin.KeyMarker:
+		return &c.Marker
+	case builtin.KeySnooze:
+		return &c.Snooze
+	case builtin.KeyUptime:
+		return &c.Uptime
+	case builtin.KeyFollowage:
+		return &c.Followage
+	}
+	return nil
 }
 
 // canClip: the Twitch login may make clips.
@@ -95,7 +109,7 @@ func (a *App) handleChat(ctx context.Context, m twitch.ChatMessage) {
 func (a *App) SaveClips(s config.Clips) error {
 	var refused error
 	err := a.cfg.Update(func(c *config.Config) {
-		norm, err := clips.Normalize(s, c.Chat.Commands, reservedFor(c, "clips"))
+		norm, err := clips.Normalize(s, c.Chat.Commands, reservedFor(c, clipsKey))
 		if refused = err; err == nil {
 			c.Clips = norm
 		}
@@ -107,9 +121,10 @@ func (a *App) SaveClips(s config.Clips) error {
 	return a.uiErr(err)
 }
 
-// SaveBuiltin stores the settings of !marker or !snooze (by key).
+// SaveBuiltin stores the settings of a built-in command (by key, see
+// builtin.Keys).
 func (a *App) SaveBuiltin(key string, s config.BuiltinCommand) error {
-	if key != builtin.KeyMarker && key != builtin.KeySnooze {
+	if !slices.Contains(builtin.Keys, key) {
 		return a.uiErr(i18n.E("err.cmdUnknown", "name", key))
 	}
 	var refused error
@@ -118,11 +133,7 @@ func (a *App) SaveBuiltin(key string, s config.BuiltinCommand) error {
 		if refused = err; err != nil {
 			return
 		}
-		if key == builtin.KeyMarker {
-			c.Marker = norm
-		} else {
-			c.Snooze = norm
-		}
+		*builtinOf(c, key) = norm
 	})
 	if refused != nil {
 		return a.uiErr(refused)
@@ -131,20 +142,36 @@ func (a *App) SaveBuiltin(key string, s config.BuiltinCommand) error {
 	return a.uiErr(err)
 }
 
-// reservedFor: the names a built-in command (key "clips", "marker" or
-// "snooze") can't take: the song commands and the other built-in ones.
+// clipsKey names the clip command among the built-in ones.
+const clipsKey = "clips"
+
+// reservedFor: the names a built-in command (clipsKey or a builtin.Keys
+// key) can't take: the song commands and the other built-in ones.
 func reservedFor(c *config.Config, key string) []string {
 	out := songs.CommandNames()
-	for k, name := range map[string]string{"clips": c.Clips.Name, builtin.KeyMarker: c.Marker.Name, builtin.KeySnooze: c.Snooze.Name} {
+	if key != clipsKey {
+		out = append(out, c.Clips.Name)
+	}
+	for _, k := range builtin.Keys {
 		if k != key {
-			out = append(out, name)
+			out = append(out, builtinOf(c, k).Name)
 		}
 	}
 	return out
 }
 
-// reservedCommands: names the streamer's own "!" commands can't take.
+// reservedCommands: names the streamer's own "!" commands can't take: the
+// song commands, the clip command and the built-in commands that are on.
+// One that is off keeps its name free, so a streamer's own "!uptime" from
+// before darkbot had one stays editable; turning the built-in one on then
+// reports the name as taken (chatbot.NormalizeBuiltin).
 func (a *App) reservedCommands() []string {
 	c := a.cfg.Get()
-	return append(songs.CommandNames(), c.Clips.Name, c.Marker.Name, c.Snooze.Name)
+	out := append(songs.CommandNames(), c.Clips.Name)
+	for _, k := range builtin.Keys {
+		if b := builtinOf(&c, k); b.Enabled {
+			out = append(out, b.Name)
+		}
+	}
+	return out
 }

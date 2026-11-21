@@ -1,3 +1,24 @@
+2026-11-21 13:30 +08 — Built-in !uptime and !followage
+- !uptime answers how long the stream has been live, from Get Streams'
+  started_at (right even when darkbot started later); offline and "just
+  started" have their own answers.
+- !followage answers how long the asker has been following; "!followage
+  @name" looks the account up with Get Users (unknown names, the channel
+  itself and non-followers answered). Uses Get Channel Followers with
+  user_id (moderator:read:followers, already part of the login).
+- Durations in calendar terms (Jan 31 to Mar 1 = 1 month and 1 day,
+  daylight saving safe), the two largest units, German plural forms.
+- Both off by default, everyone may use them, 30 s cooldown (mods and
+  the broadcaster skip it). Shown under Built-in commands.
+- A built-in command that is off no longer reserves its name for the
+  streamer's own commands, so an own "!uptime" made earlier stays
+  editable; turning the built-in on then reports the name as taken.
+- App: built-in settings go through one builtinOf(key) helper instead of
+  per-command switches.
+- Tests: Helix FollowedAt/UserByLogin against reference-shaped responses,
+  uptime and followage answers, calendar maths incl. DST, German units,
+  name reservation rules.
+
 2026-11-21 13:22 +08 — Release v0.7.4
 - Timers can take turns with several messages: random like a shuffled
   deck (each once per round, never twice in a row) or top to bottom.
