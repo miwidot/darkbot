@@ -34,8 +34,17 @@ func NormalizeCommand(c config.ChatCommand, others []config.ChatCommand, reserve
 	c.ResponseFile = strings.TrimSpace(c.ResponseFile)
 	c.Sound = strings.TrimSpace(c.Sound)
 	c.Trigger = Trigger(c)
+	if c.Trigger == config.TriggerFirst {
+		// The greeting has no name and answers each viewer once per stream.
+		c.Name, c.Aliases, c.OncePerStream = "", nil, true
+		for _, o := range others {
+			if o.ID != c.ID && Trigger(o) == config.TriggerFirst {
+				return c, i18n.E("err.cmdGreetingTaken")
+			}
+		}
+	}
 	switch {
-	case !namePattern.MatchString(c.Name):
+	case c.Trigger != config.TriggerFirst && !namePattern.MatchString(c.Name):
 		return c, i18n.E("err.cmdName", "name", c.Name)
 	case len(c.Aliases) > config.MaxAliases:
 		return c, i18n.E("err.cmdAliases", "max", config.MaxAliases)
@@ -54,7 +63,10 @@ func NormalizeCommand(c config.ChatCommand, others []config.ChatCommand, reserve
 			return c, i18n.E("err.cmdName", "name", a)
 		}
 	}
-	names := append([]string{c.Name}, c.Aliases...)
+	var names []string
+	if c.Trigger != config.TriggerFirst {
+		names = append([]string{c.Name}, c.Aliases...)
+	}
 	for _, n := range names {
 		shown := Display(config.ChatCommand{Name: n, Trigger: c.Trigger})
 		if c.Trigger == config.TriggerCommand && slices.Contains(reserved, n) {

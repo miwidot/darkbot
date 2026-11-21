@@ -349,6 +349,14 @@ func (s *Stats) SetIgnored(logins []string) {
 
 // ignoredLocked: call with mu held. Events carry only the display name,
 // which is the login in another case for every bot account.
+// IsIgnored reports whether an account is one of the bots the statistics
+// leave out (KnownBots and the streamer's own list).
+func (s *Stats) IsIgnored(login, name string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.ignoredLocked(login, name)
+}
+
 func (s *Stats) ignoredLocked(login, name string) bool {
 	return s.ignored[strings.ToLower(login)] || s.ignored[strings.ToLower(name)]
 }

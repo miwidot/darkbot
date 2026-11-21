@@ -57,13 +57,14 @@ func (a *App) newChatBot() *chatbot.Bot {
 		Send:     func(ctx context.Context, text string) { a.postChat(ctx, text, "") },
 		Play: func(c config.ChatCommand, user string) {
 			a.bot.PlayEvent(config.Sound{
-				ID: commandSoundPrefix + c.ID, RewardTitle: chatbot.Display(c),
+				ID: commandSoundPrefix + c.ID, RewardTitle: a.commandTitle(c),
 				File: c.Sound, Volume: c.Volume, Enabled: true,
 			}, nil, user)
 		},
-		Used: func() { a.st.Command() },
-		Live: a.live.Load,
-		Log:  a.log,
+		Used:  func() { a.st.Command() },
+		Live:  a.live.Load,
+		IsBot: a.st.IsIgnored,
+		Log:   a.log,
 	})
 }
 
@@ -225,4 +226,13 @@ func (a *App) setSharedChat(on bool) {
 		a.log.Infof("Shared Chat ended: darkbot writes in chat again")
 	}
 	a.emitState()
+}
+
+// commandTitle names a command in the activity feed: "!discord", "hi", or
+// "Greeting" (it has no name of its own).
+func (a *App) commandTitle(c config.ChatCommand) string {
+	if chatbot.Trigger(c) == config.TriggerFirst {
+		return i18n.T(a.lang(), "cmds.greeting")
+	}
+	return chatbot.Display(c)
 }

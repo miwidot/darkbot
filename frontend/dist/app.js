@@ -1093,7 +1093,11 @@ let timerEditing = null;  // timer open in the editor
 // A "!" command or a word at the start of a message (older settings have
 // no trigger: "!" commands).
 const isWord = (c) => c.trigger === 'word';
+// The greeting answers a viewer's first message of the stream; no name.
+const isGreeting = (c) => c.trigger === 'first';
+const cmdTriggerOf = (c) => isGreeting(c) ? 'first' : (isWord(c) ? 'word' : 'command');
 const cmdNames = (c) => {
+  if (isGreeting(c)) return t('cmds.greeting');
   const p = isWord(c) ? '' : '!';
   return [p + c.name, ...(c.aliases || []).map((a) => p + a)].join(', ');
 };
@@ -1225,6 +1229,10 @@ let cmdDeleteArmed = 0;
 // source (text or file).
 function cmdEditorMode() {
   const word = $('cmdTrigger').value === 'word';
+  const greeting = $('cmdTrigger').value === 'first';
+  // The greeting has no name and always answers once per stream.
+  for (const id of ['cmdNameField', 'cmdAliasesField', 'cmdOnceField']) $(id).classList.toggle('hidden', greeting);
+  $('cmdResponse').placeholder = t(greeting ? 'cmdedit.greetingPlaceholder' : 'cmdedit.responsePlaceholder');
   $('cmdBang').classList.toggle('hidden', word);
   $('cmdNameLabel').textContent = t(word ? 'cmdedit.word' : 'cmdedit.name');
   $('cmdNameTip').dataset.tip = word ? 'tip.cmdWord' : 'tip.cmdName';
@@ -1258,7 +1266,7 @@ function openCommandEditor(cmd) {
   fillPermissionLabels();
   $('cmdTitle').textContent = cmd ? cmdNames({ ...cmd, aliases: [] }) : t('cmdedit.new');
   $('cmdEnabled').checked = cmdEditing.enabled;
-  $('cmdTrigger').value = isWord(cmdEditing) ? 'word' : 'command';
+  $('cmdTrigger').value = cmdTriggerOf(cmdEditing);
   $('cmdAnswerMode').value = cmdEditing.response_file ? 'file' : 'text';
   $('cmdFile').value = cmdEditing.response_file || '';
   $('cmdOnce').checked = !!cmdEditing.once_per_stream;
@@ -1278,7 +1286,7 @@ function openCommandEditor(cmd) {
   cmdDeleteArmed = 0;
   $('cmdError').classList.add('hidden');
   $('cmdEditor').showModal();
-  $('cmdName').focus();
+  (isGreeting(cmdEditing) ? $('cmdResponse') : $('cmdName')).focus();
 }
 const intIn = (id) => Math.max(0, parseInt($(id).value, 10) || 0);
 function editedCommand() {

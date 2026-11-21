@@ -243,6 +243,9 @@ const (
 	// TriggerWord: the message's first word is the name (or an alias),
 	// without "!", e.g. "hi" in "Hi everyone!".
 	TriggerWord = "word"
+	// TriggerFirst: a viewer's first chat message of the live stream,
+	// whatever it says (a greeting); it has no name.
+	TriggerFirst = "first"
 )
 
 // ChatCommand answers "!name" (or an alias) in chat, or a message that
@@ -252,7 +255,7 @@ type ChatCommand struct {
 	// Name without "!", lowercase.
 	Name    string   `json:"name"`
 	Aliases []string `json:"aliases,omitempty"`
-	// Trigger is TriggerCommand or TriggerWord.
+	// Trigger is TriggerCommand, TriggerWord or TriggerFirst.
 	Trigger string `json:"trigger"`
 	// Response template; placeholders {user} and {target}.
 	Response string `json:"response"`
@@ -532,7 +535,7 @@ func (c *Config) normalize() {
 		if !slices.Contains(Permissions, cmd.Permission) {
 			cmd.Permission = PermBroadcaster // unknown level: fail closed
 		}
-		if cmd.Trigger != TriggerWord {
+		if cmd.Trigger != TriggerWord && cmd.Trigger != TriggerFirst {
 			cmd.Trigger = TriggerCommand
 		}
 		cmd.CooldownSeconds = min(max(cmd.CooldownSeconds, 0), MaxCommandCooldown)

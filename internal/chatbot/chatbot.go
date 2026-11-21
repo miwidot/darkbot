@@ -70,10 +70,14 @@ type Deps struct {
 	Play func(cmd config.ChatCommand, user string)
 	// Used counts a command use for the dashboard (optional).
 	Used func()
-	// Live reports whether the stream is live (timers run only then).
+	// Live reports whether the stream is live (timers and greetings run
+	// only then).
 	Live func() bool
-	Now  func() time.Time
-	Log  Logger
+	// IsBot reports whether a chatter is a known bot, which is never
+	// greeted (optional).
+	IsBot func(login, name string) bool
+	Now   func() time.Time
+	Log   Logger
 }
 
 // Bot answers commands and posts timers.
@@ -175,10 +179,38 @@ func (b *Bot) Handle(ctx context.Context, m twitch.ChatMessage) {
 	if !s.CommandsEnabled {
 		return
 	}
+	// A first message is greeted and may still be a command ("!discord").
+	if g, ok := b.greeting(s.Commands, m); ok {
+		b.run(ctx, g, m, "")
+	}
 	cmd, arg, ok := match(s.Commands, m)
 	if !ok || !cmd.Enabled || !Allowed(cmd.Permission, m) {
 		return
 	}
+	b.run(ctx, cmd, m, arg)
+}
+
+// greeting returns the greeting for m: the turned-on TriggerFirst command,
+// while live, for a viewer it may greet (not the broadcaster, not a known
+// bot). Whether this is the viewer's first message is take's
+// once-per-stream rule, so a greeting a full answer cap held back comes
+// with the viewer's next message.
+func (b *Bot) greeting(cmds []config.ChatCommand, m twitch.ChatMessage) (config.ChatCommand, bool) {
+	if m.IsBroadcaster || !b.d.Live() || (b.d.IsBot != nil && b.d.IsBot(m.ChatterLogin, m.ChatterName)) {
+		return config.ChatCommand{}, false
+	}
+	i := slices.IndexFunc(cmds, func(c config.ChatCommand) bool { return Trigger(c) == config.TriggerFirst && c.Enabled })
+	if i < 0 || !Allowed(cmds[i].Permission, m) {
+		return config.ChatCommand{}, false
+	}
+	g := cmds[i]
+	g.OncePerStream = true
+	return g, true
+}
+
+// run answers a command (or greeting) for m: its text, its sound, within
+// its cooldowns.
+func (b *Bot) run(ctx context.Context, cmd config.ChatCommand, m twitch.ChatMessage, arg string) {
 	tmpl := cmd.Response
 	if cmd.ResponseFile != "" {
 		line, err := b.lines.Pick(cmd.ResponseFile)
@@ -238,16 +270,22 @@ func firstWord(text string) (word, rest string) {
 // Trigger is a command's trigger; settings from before word triggers have
 // none and are "!" commands.
 func Trigger(c config.ChatCommand) string {
-	if c.Trigger == config.TriggerWord {
-		return config.TriggerWord
+	if c.Trigger == config.TriggerWord || c.Trigger == config.TriggerFirst {
+		return c.Trigger
 	}
 	return config.TriggerCommand
 }
 
+// greetingName names the greeting in logs, it has no name of its own.
+const greetingName = "the greeting"
+
 // Display names a command as chat sees it: "!discord", or "hi" for a word.
 func Display(c config.ChatCommand) string {
-	if Trigger(c) == config.TriggerWord {
+	switch Trigger(c) {
+	case config.TriggerWord:
 		return c.Name
+	case config.TriggerFirst:
+		return greetingName
 	}
 	return Prefix + c.Name
 }

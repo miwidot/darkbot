@@ -1,3 +1,19 @@
+2026-11-21 13:35 +08 — Greeting: first chat message of the stream
+- New command trigger "First message of the stream (greeting)": answers
+  each viewer's first message of the live stream, whatever it says, with
+  the usual answer text or file, sound, permission and cooldowns. It has
+  no name; there can be one greeting.
+- Only while live; never the broadcaster or known bots (the statistics'
+  bot list incl. the streamer's own, via Stats.IsIgnored). A message sent
+  while offline doesn't use the greeting up. A first message that is a
+  command ("!discord") gets the greeting and the answer.
+- The shared answer cap (20 per 30 s) holds back greetings during a raid
+  flood; those viewers are greeted with their next message.
+- chatbot: Handle split into greeting/run; Display names it "the
+  greeting" in logs, the activity feed shows "Greeting".
+- Tests: once per viewer and stream, new stream, command + greeting,
+  bots, broadcaster, offline, permission, normalisation (one greeting).
+
 2026-11-21 13:32 +08 — Reward limits per stream
 - Rewards darkbot created get "At most per stream" and "At most per
   viewer and stream" in the sound editor (0 = no limit). They are sent

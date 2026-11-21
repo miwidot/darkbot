@@ -425,3 +425,74 @@ func TestRememberedMessagesAreNoChatLines(t *testing.T) {
 		t.Fatal("a viewer line must count")
 	}
 }
+
+// ---------- greeting (first message of the stream) ----------
+
+var welcome = config.ChatCommand{ID: "g", Trigger: config.TriggerFirst, Response: "Welcome, {user}!", Permission: config.PermEveryone, Enabled: true}
+
+func chatter(id, name, text string) twitch.ChatMessage {
+	return twitch.ChatMessage{ChatterID: id, ChatterLogin: strings.ToLower(name), ChatterName: name, Text: text}
+}
+
+func TestGreetingOncePerViewerAndStream(t *testing.T) {
+	r := newRig(cmds(welcome, discord))
+	if got := r.say(chatter("1", "Anna", "lol")); !slices.Equal(got, []string{"Welcome, Anna!"}) {
+		t.Fatalf("first message: %v", got)
+	}
+	if got := r.say(chatter("1", "Anna", "hi again")); len(got) != 0 {
+		t.Fatalf("second message greeted: %v", got)
+	}
+	// A first message that is a command gets both.
+	if got := r.say(chatter("2", "Ben", "!discord")); !slices.Equal(got, []string{"Welcome, Ben!", "Join: discord.gg/x, Ben!"}) {
+		t.Fatalf("first message a command: %v", got)
+	}
+	r.NewStream()
+	if got := r.say(chatter("1", "Anna", "back")); len(got) != 1 {
+		t.Fatalf("next stream greets again: %v", got)
+	}
+}
+
+func TestGreetingSkips(t *testing.T) {
+	r := newRig(cmds(welcome))
+	r.Bot.d.IsBot = func(login, _ string) bool { return login == "nightbot" }
+	if got := r.say(chatter("9", "Nightbot", "Follow us!")); len(got) != 0 {
+		t.Fatalf("bot greeted: %v", got)
+	}
+	broadcaster := chatter("42", "Chan", "hello chat")
+	broadcaster.IsBroadcaster = true
+	if got := r.say(broadcaster); len(got) != 0 {
+		t.Fatalf("broadcaster greeted: %v", got)
+	}
+	r.live = false
+	if got := r.say(chatter("1", "Anna", "anyone here?")); len(got) != 0 {
+		t.Fatalf("greeted while offline: %v", got)
+	}
+	r.live = true // the offline message didn't use up the greeting
+	if got := r.say(chatter("1", "Anna", "now live")); len(got) != 1 {
+		t.Fatalf("live: %v", got)
+	}
+	subOnly := welcome
+	subOnly.Permission = config.PermSubscriber
+	r = newRig(cmds(subOnly))
+	if got := r.say(chatter("1", "Anna", "hi")); len(got) != 0 {
+		t.Fatalf("non-subscriber greeted: %v", got)
+	}
+	sub := chatter("2", "Ben", "hi")
+	sub.IsSubscriber = true
+	if got := r.say(sub); len(got) != 1 {
+		t.Fatalf("subscriber: %v", got)
+	}
+}
+
+func TestNormalizeGreeting(t *testing.T) {
+	g, err := NormalizeCommand(config.ChatCommand{Trigger: config.TriggerFirst, Name: "ignored", Aliases: []string{"x"}, Response: "Hi {user}", Permission: config.PermEveryone}, nil, nil)
+	if err != nil || g.Name != "" || g.Aliases != nil || !g.OncePerStream || g.Trigger != config.TriggerFirst {
+		t.Fatalf("%+v %v", g, err)
+	}
+	if _, err := NormalizeCommand(config.ChatCommand{ID: "new", Trigger: config.TriggerFirst, Response: "x", Permission: config.PermEveryone}, []config.ChatCommand{welcome}, nil); err == nil {
+		t.Fatal("a second greeting must be refused")
+	}
+	if _, err := NormalizeCommand(welcome, []config.ChatCommand{welcome, discord}, nil); err != nil {
+		t.Fatalf("re-saving the greeting: %v", err)
+	}
+}

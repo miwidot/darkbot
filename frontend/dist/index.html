@@ -637,10 +637,11 @@
     <select id="cmdTrigger">
       <option value="command" data-i18n="cmdedit.triggerCommand"></option>
       <option value="word" data-i18n="cmdedit.triggerWord"></option>
+      <option value="first" data-i18n="cmdedit.triggerFirst"></option>
     </select>
   </div>
   <div class="grid2 wide-first">
-    <div class="field">
+    <div class="field" id="cmdNameField">
       <label for="cmdName"><span id="cmdNameLabel" data-i18n="cmdedit.name"></span> <span class="tip" id="cmdNameTip" tabindex="0" role="button" data-tip="tip.cmdName" data-i18n-aria-label="tip.more"></span></label>
       <div class="cmd-name"><span aria-hidden="true" id="cmdBang">!</span><input id="cmdName" type="text" maxlength="26" autocomplete="off" spellcheck="false" data-i18n-placeholder="cmdedit.namePlaceholder"></div>
     </div>
@@ -649,7 +650,7 @@
       <select id="cmdPermission"></select>
     </div>
   </div>
-  <div class="field">
+  <div class="field" id="cmdAliasesField">
     <label for="cmdAliases"><span data-i18n="cmdedit.aliases"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdAliases" data-i18n-aria-label="tip.more"></span></label>
     <input id="cmdAliases" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="cmdedit.aliasesPlaceholder">
   </div>
@@ -680,7 +681,7 @@
       <input id="cmdUserCooldown" type="number" min="0" max="3600" step="1">
     </div>
   </div>
-  <label class="check"><input type="checkbox" id="cmdOnce"> <span data-i18n="cmdedit.oncePerStream"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdOnce" data-i18n-aria-label="tip.more"></span></label>
+  <label class="check" id="cmdOnceField"><input type="checkbox" id="cmdOnce"> <span data-i18n="cmdedit.oncePerStream"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdOnce" data-i18n-aria-label="tip.more"></span></label>
   <div class="field">
     <label for="cmdSound"><span data-i18n="cmdedit.sound"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.cmdSound" data-i18n-aria-label="tip.more"></span></label>
     <div class="inline"><input id="cmdSound" type="text" readonly data-i18n-placeholder="evedit.noSound"><button type="button" class="btn" id="cmdPick" data-i18n="editor.chooseFile"></button><button type="button" class="btn quiet" id="cmdClear" data-i18n="evedit.clear"></button></div>
