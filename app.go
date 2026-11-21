@@ -770,6 +770,10 @@ func (a *App) saveSound(s config.Sound) (config.Sound, error) {
 	if s.ID == "" {
 		s.ID = config.NewID()
 	}
+	if !s.Managed { // Twitch lets only the creating app change a reward
+		s.MaxPerStream, s.MaxPerUserPerStream = 0, 0
+	}
+	s.MaxPerStream, s.MaxPerUserPerStream = max(s.MaxPerStream, 0), max(s.MaxPerUserPerStream, 0)
 
 	if s.Managed {
 		created, err := a.syncReward(&s)
@@ -824,7 +828,8 @@ func (a *App) syncReward(s *config.Sound) (bool, error) {
 		return false, i18n.E("err.rewardColor")
 	}
 	s.RewardColor = color
-	settings := twitch.RewardSettings{Title: s.RewardTitle, Cost: s.RewardCost, Enabled: s.Enabled, CooldownSeconds: s.CooldownSeconds, BackgroundColor: color}
+	settings := twitch.RewardSettings{Title: s.RewardTitle, Cost: s.RewardCost, Enabled: s.Enabled, CooldownSeconds: s.CooldownSeconds, BackgroundColor: color,
+		MaxPerStream: s.MaxPerStream, MaxPerUserPerStream: s.MaxPerUserPerStream}
 	ctx, cancel := context.WithTimeout(a.ctx, rewardsTimeout)
 	defer cancel()
 

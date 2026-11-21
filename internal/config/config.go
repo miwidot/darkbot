@@ -99,7 +99,11 @@ type Sound struct {
 	// CooldownSeconds blocks the sound for everyone after it was triggered.
 	CooldownSeconds int `json:"cooldown_seconds"`
 	// UserCooldownSeconds blocks the sound for the same viewer.
-	UserCooldownSeconds int  `json:"user_cooldown_seconds"`
+	UserCooldownSeconds int `json:"user_cooldown_seconds"`
+	// MaxPerStream and MaxPerUserPerStream limit a managed reward's
+	// redemptions per live stream on Twitch; 0 = no limit.
+	MaxPerStream        int  `json:"max_per_stream,omitempty"`
+	MaxPerUserPerStream int  `json:"max_per_user_per_stream,omitempty"`
 	Enabled             bool `json:"enabled"`
 }
 
@@ -606,6 +610,13 @@ func (c *Config) normalize() {
 		if s.UserCooldownSeconds < 0 {
 			s.UserCooldownSeconds = 0
 		}
+		// Limits exist only on rewards darkbot manages: Twitch lets only
+		// the creating app change a reward.
+		if !s.Managed {
+			s.MaxPerStream, s.MaxPerUserPerStream = 0, 0
+		}
+		s.MaxPerStream = max(s.MaxPerStream, 0)
+		s.MaxPerUserPerStream = max(s.MaxPerUserPerStream, 0)
 		if s.Managed && s.RewardCost <= 0 {
 			s.RewardCost = DefaultRewardCost
 		}

@@ -1,3 +1,14 @@
+2026-11-21 13:32 +08 — Reward limits per stream
+- Rewards darkbot created get "At most per stream" and "At most per
+  viewer and stream" in the sound editor (0 = no limit). They are sent
+  to Twitch as is_max_per_stream_enabled/max_per_stream and the per-user
+  pair (always as pairs, since Update resets the half left out; never
+  enabled with 0, Twitch's minimum is 1). Twitch counts and enforces.
+- Existing rewards (not created by darkbot) keep their Twitch settings:
+  Twitch lets only the creating app change them, so the fields are only
+  in the "new reward" part and are cleared for those sounds.
+- Tests: reward body pairs and zero handling.
+
 2026-11-21 13:30 +08 — Built-in !uptime and !followage
 - !uptime answers how long the stream has been live, from Get Streams'
   started_at (right even when darkbot started later); offline and "just

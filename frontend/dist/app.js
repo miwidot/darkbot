@@ -2047,7 +2047,8 @@ async function openEditor(s) {
   const isNew = !s;
   editing = s ? { ...s } : {
     id: '', reward_id: '', reward_title: '', managed: true, reward_cost: DEFAULT_COST,
-    file: '', volume: 1, cooldown_seconds: 0, user_cooldown_seconds: 0, enabled: true,
+    file: '', volume: 1, cooldown_seconds: 0, user_cooldown_seconds: 0,
+    max_per_stream: 0, max_per_user_per_stream: 0, enabled: true,
   };
   $('editorTitle').textContent = isNew ? t('editor.add') : t('editor.edit');
   $('edSave').textContent = isNew ? t('editor.add') : t('editor.save');
@@ -2066,6 +2067,8 @@ async function openEditor(s) {
   $('edVolumeVal').textContent = pct(editing.volume);
   $('edCooldown').value = editing.cooldown_seconds;
   $('edUserCooldown').value = editing.user_cooldown_seconds;
+  $('edMaxStream').value = editing.max_per_stream || 0;
+  $('edMaxUser').value = editing.max_per_user_per_stream || 0;
   $('edEnabled').checked = editing.enabled;
   $('edDelete').classList.toggle('hidden', isNew);
   $('edDelete').textContent = t('editor.delete');
@@ -2109,6 +2112,8 @@ $('edSave').addEventListener('click', async () => {
     volume: +$('edVolume').value,
     cooldown_seconds: Math.max(0, parseInt($('edCooldown').value, 10) || 0),
     user_cooldown_seconds: Math.max(0, parseInt($('edUserCooldown').value, 10) || 0),
+    max_per_stream: managed ? Math.max(0, parseInt($('edMaxStream').value, 10) || 0) : 0,
+    max_per_user_per_stream: managed ? Math.max(0, parseInt($('edMaxUser').value, 10) || 0) : 0,
     enabled: $('edEnabled').checked,
   };
   $('edSave').disabled = true;

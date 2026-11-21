@@ -181,6 +181,11 @@ type RewardSettings struct {
 	// BackgroundColor "#RRGGBB" (see NormalizeRewardColor). Empty: Twitch
 	// picks a random color on create and keeps the current one on update.
 	BackgroundColor string
+	// MaxPerStream and MaxPerUserPerStream > 0 limit the redemptions per
+	// live stream ("The maximum number of redemptions allowed per live
+	// stream ... The minimum value is 1", checked 2026-11-21); 0 = none.
+	MaxPerStream        int
+	MaxPerUserPerStream int
 }
 
 // rewardColorPattern is the hex format Twitch documents for
@@ -217,6 +222,10 @@ func (r RewardSettings) body() map[string]any {
 		"is_global_cooldown_enabled":            r.CooldownSeconds > 0,
 		"global_cooldown_seconds":               max(r.CooldownSeconds, 0),
 		"should_redemptions_skip_request_queue": false, // keep UNFULFILLED so we can fulfill or reject
+		"is_max_per_stream_enabled":             r.MaxPerStream > 0,
+		"max_per_stream":                        max(r.MaxPerStream, 0),
+		"is_max_per_user_per_stream_enabled":    r.MaxPerUserPerStream > 0,
+		"max_per_user_per_stream":               max(r.MaxPerUserPerStream, 0),
 	}
 	if r.BackgroundColor != "" {
 		b["background_color"] = r.BackgroundColor

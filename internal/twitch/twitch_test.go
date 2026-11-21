@@ -665,6 +665,19 @@ func TestRewardBodyColor(t *testing.T) {
 	}
 }
 
+// Limits go as pairs (Update resets the half left out) and are switched
+// off with 0, never sent enabled with 0 (Twitch's minimum is 1).
+func TestRewardBodyLimits(t *testing.T) {
+	b := (RewardSettings{Title: "a", Cost: 1, MaxPerStream: 5, MaxPerUserPerStream: 1}).body()
+	if b["is_max_per_stream_enabled"] != true || b["max_per_stream"] != 5 || b["is_max_per_user_per_stream_enabled"] != true || b["max_per_user_per_stream"] != 1 {
+		t.Fatalf("limits: %v", b)
+	}
+	b = (RewardSettings{Title: "a", Cost: 1, MaxPerStream: -3}).body()
+	if b["is_max_per_stream_enabled"] != false || b["max_per_stream"] != 0 || b["is_max_per_user_per_stream_enabled"] != false || b["max_per_user_per_stream"] != 0 {
+		t.Fatalf("no limits: %v", b)
+	}
+}
+
 func TestHypeTrainPayloads(t *testing.T) {
 	end := `{"id":"t1","level":4,"total":5400,"top_contributions":[
 		{"user_id":"1","user_login":"a","user_name":"Anna","type":"bits","total":800},
