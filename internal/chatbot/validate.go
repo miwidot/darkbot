@@ -73,13 +73,28 @@ func NormalizeCommand(c config.ChatCommand, others []config.ChatCommand, reserve
 }
 
 // NormalizeTimer cleans up and checks a timer.
+// Each message is one chat line; empty ones are dropped.
 func NormalizeTimer(t config.ChatTimer) (config.ChatTimer, error) {
-	t.Message = oneLine(t.Message)
+	var msgs []string
+	for _, m := range t.Lines() {
+		if m = oneLine(m); m != "" {
+			msgs = append(msgs, m)
+		}
+	}
+	t.Messages, t.Message = msgs, ""
+	if t.Order != config.TimerInOrder {
+		t.Order = config.TimerRandom
+	}
+	for i, m := range msgs {
+		if utf8.RuneCountInString(m) > config.MaxChatTemplate {
+			return t, i18n.E("err.timerLineTooLong", "n", i+1, "max", config.MaxChatTemplate)
+		}
+	}
 	switch {
-	case t.Message == "":
+	case len(msgs) == 0:
 		return t, i18n.E("err.timerEmpty")
-	case utf8.RuneCountInString(t.Message) > config.MaxChatTemplate:
-		return t, i18n.E("err.chatTooLong", "max", config.MaxChatTemplate)
+	case len(msgs) > config.MaxTimerMessages:
+		return t, i18n.E("err.timerTooMany", "max", config.MaxTimerMessages)
 	case t.IntervalMinutes < config.MinTimerMinutes || t.IntervalMinutes > config.MaxTimerMinutes:
 		return t, i18n.E("err.timerInterval", "min", config.MinTimerMinutes, "max", config.MaxTimerMinutes)
 	case t.MinLines < 0 || t.MinLines > config.MaxTimerLines:

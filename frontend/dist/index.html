@@ -725,7 +725,15 @@
   <label class="check"><input type="checkbox" id="timerEnabled"> <span data-i18n="timeredit.enabled"></span></label>
   <div class="field">
     <label for="timerMessage" data-i18n="timeredit.message"></label>
-    <textarea id="timerMessage" rows="2" maxlength="500" data-i18n-placeholder="timeredit.messagePlaceholder"></textarea>
+    <textarea id="timerMessage" rows="5" data-i18n-placeholder="timeredit.messagePlaceholder" aria-describedby="timerMessageHint"></textarea>
+    <p class="hint" id="timerMessageHint" data-i18n="timeredit.messagesHint"></p>
+  </div>
+  <div class="field" id="timerOrderField">
+    <label for="timerOrder"><span data-i18n="timeredit.order"></span> <span class="tip" tabindex="0" role="button" data-tip="tip.timerOrder" data-i18n-aria-label="tip.more"></span></label>
+    <select id="timerOrder">
+      <option value="random" data-i18n="timeredit.orderRandom"></option>
+      <option value="in_order" data-i18n="timeredit.orderInOrder"></option>
+    </select>
   </div>
   <div class="grid2">
     <div class="field">

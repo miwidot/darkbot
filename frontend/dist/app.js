@@ -1107,8 +1107,15 @@ function cmdSummary(c) {
   return bits.join(', ');
 }
 
+// A timer's messages; settings from v0.7.3 and older have one "message".
+const timerMessages = (tm) => (tm.messages && tm.messages.length) ? tm.messages : (tm.message ? [tm.message] : []);
+const TIMER_IN_ORDER = 'in_order';
+const TIMER_RANDOM = 'random';
+
 function timerSummary(tm) {
   const bits = [t('cmds.every', { n: num(tm.interval_minutes) })];
+  const n = timerMessages(tm).length;
+  if (n > 1) bits.push(t('cmds.timerMessages', { n: num(n) }), t(tm.order === TIMER_IN_ORDER ? 'cmds.inOrder' : 'cmds.random'));
   if (tm.min_lines > 0) bits.push(t('cmds.minLines', { n: num(tm.min_lines) }));
   return bits.join(', ');
 }
@@ -1135,7 +1142,7 @@ function renderChat() {
   $('cmdList').replaceChildren(...cmds.map((cmd) => chatRow(
     c.commands_enabled && cmd.enabled, cmdNames(cmd), cmdAnswer(cmd), cmdSummary(cmd), () => openCommandEditor(cmd))));
   $('timerList').replaceChildren(...timers.map((tm) => chatRow(
-    c.timers_enabled && tm.enabled, timerSummary(tm), tm.message, '', () => openTimerEditor(tm))));
+    c.timers_enabled && tm.enabled, timerSummary(tm), timerMessages(tm)[0] || '', '', () => openTimerEditor(tm))));
   renderClips();
   let st = t('cmds.timersOff');
   if (c.timers_enabled) st = state.live ? t('cmds.timersLive') : t('cmds.timersWaiting');
@@ -1338,10 +1345,12 @@ $('cmdDelete').addEventListener('click', async () => {
 
 let timerDeleteArmed = 0;
 function openTimerEditor(tm) {
-  timerEditing = tm || { id: '', message: '', interval_minutes: DEFAULT_TIMER_MINUTES, min_lines: 0, enabled: true };
+  timerEditing = tm || { id: '', messages: [], order: TIMER_RANDOM, interval_minutes: DEFAULT_TIMER_MINUTES, min_lines: 0, enabled: true };
   $('timerTitle').textContent = tm ? t('timeredit.edit') : t('timeredit.new');
   $('timerEnabled').checked = timerEditing.enabled;
-  $('timerMessage').value = timerEditing.message;
+  $('timerMessage').value = timerMessages(timerEditing).join('\n');
+  $('timerOrder').value = timerEditing.order === TIMER_IN_ORDER ? TIMER_IN_ORDER : TIMER_RANDOM;
+  syncTimerOrder();
   $('timerInterval').value = timerEditing.interval_minutes;
   $('timerLines').value = timerEditing.min_lines || 0;
   $('timerDelete').classList.toggle('hidden', !tm);
@@ -1352,14 +1361,20 @@ function openTimerEditor(tm) {
   $('timerMessage').focus();
 }
 $('timerAdd').addEventListener('click', () => openTimerEditor(null));
-$('timerMessage').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+// The order matters only with two or more messages.
+const timerLinesIn = () => $('timerMessage').value.split('\n').map((l) => l.trim()).filter(Boolean);
+function syncTimerOrder() {
+  $('timerOrderField').classList.toggle('hidden', timerLinesIn().length < 2);
+}
+$('timerMessage').addEventListener('input', syncTimerOrder);
 $('timerCancel').addEventListener('click', () => $('timerEditor').close());
 $('timerSave').addEventListener('click', async () => {
   $('timerSave').disabled = true;
   try {
     await App().SaveTimer({
       id: timerEditing.id,
-      message: $('timerMessage').value,
+      messages: timerLinesIn(),
+      order: $('timerOrder').value,
       interval_minutes: intIn('timerInterval'),
       min_lines: intIn('timerLines'),
       enabled: $('timerEnabled').checked,

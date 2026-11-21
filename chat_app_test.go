@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -72,8 +73,15 @@ func TestSaveTimer(t *testing.T) {
 		t.Fatal("one minute is below the minimum")
 	}
 	tm := a.cfg.Get().Chat.Timers
-	if len(tm) != 1 || tm[0].ID == "" {
+	if len(tm) != 1 || tm[0].ID == "" || !slices.Equal(tm[0].Messages, []string{"Follow!"}) {
 		t.Fatalf("got %+v", tm)
+	}
+	socials := config.ChatTimer{ID: tm[0].ID, Messages: []string{"Twitter", " ", "YouTube"}, Order: config.TimerInOrder, IntervalMinutes: 15}
+	if err := a.SaveTimer(socials); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.cfg.Get().Chat.Timers[0]; !slices.Equal(got.Messages, []string{"Twitter", "YouTube"}) || got.Order != config.TimerInOrder {
+		t.Fatalf("socials: %+v", got)
 	}
 	if err := a.SetTimersEnabled(true); err != nil || !a.cfg.Get().Chat.TimersEnabled {
 		t.Fatalf("enable: %v", err)

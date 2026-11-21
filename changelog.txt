@@ -1,3 +1,21 @@
+2026-11-21 13:21 +08 — Timers with several messages, random or in order
+- A timer now holds up to 20 messages (one per line in the editor) and
+  posts one of them each time, e.g. your socials instead of the same line
+  every 15 minutes.
+- Order "Random" (default) deals the messages like a shuffled deck: each
+  comes once per round, a new round never starts with the message that
+  ended the last one, so nothing repeats back to back. "Top to bottom"
+  posts them in the order written. The choice is shown only with two or
+  more messages.
+- Timers from v0.7.3 and older keep working: their one "message" moves
+  into the new list when the settings load. Editing a timer's messages
+  deals a fresh deck; the deck is not saved, a restart reshuffles.
+- Each message is checked on its own (500 characters, Twitch's limit);
+  empty lines are dropped. The timer list shows "3 messages, random".
+- Tests: deck dealing over 200 rounds (each once per round, no repeat,
+  rounds shuffled), in-order posting, edits, normalisation, legacy
+  config migration, deep copy of messages, SaveTimer end to end.
+
 2026-11-20 22:21 +08 — Release v0.7.3
 - Statistics with 7/30/60/90 days, per-day chart for long ranges, separate history file
   written once a day, trimmed old days; macOS bundle 0.7.3.

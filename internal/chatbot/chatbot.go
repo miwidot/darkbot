@@ -15,6 +15,7 @@ package chatbot
 
 import (
 	"context"
+	"math/rand/v2"
 	"regexp"
 	"slices"
 	"strings"
@@ -100,6 +101,48 @@ type sentMsg struct {
 type timerState struct {
 	last  time.Time // last post, or when the timer started waiting
 	lines int       // Bot.lines at that moment
+	// The deck the timer's messages are dealt from: deck holds the indexes
+	// still to post this round, dealt for msgs; prev is the index posted
+	// last (noPrev = none yet).
+	deck []int
+	msgs []string
+	prev int
+}
+
+const noPrev = -1
+
+// next takes the message to post from the deck and deals a new round when
+// it is empty. Changed messages start a fresh deck. In random order a new
+// round never starts with the message that ended the last one.
+func (st *timerState) next(t config.ChatTimer) string {
+	msgs := t.Lines()
+	if !slices.Equal(st.msgs, msgs) {
+		st.msgs, st.deck, st.prev = slices.Clone(msgs), nil, noPrev
+	}
+	if len(st.deck) == 0 {
+		st.deck = deal(len(msgs), t.Order, st.prev)
+	}
+	i := st.deck[0]
+	st.deck, st.prev = st.deck[1:], i
+	return msgs[i]
+}
+
+// deal returns one round of n message indexes: top to bottom for
+// TimerInOrder, shuffled otherwise with prev moved off the first place.
+func deal(n int, order string, prev int) []int {
+	deck := make([]int, n)
+	for i := range deck {
+		deck[i] = i
+	}
+	if order == config.TimerInOrder {
+		return deck
+	}
+	rand.Shuffle(n, func(i, j int) { deck[i], deck[j] = deck[j], deck[i] })
+	if n > 1 && deck[0] == prev {
+		j := 1 + rand.IntN(n-1)
+		deck[0], deck[j] = deck[j], deck[0]
+	}
+	return deck
 }
 
 // New creates a bot. Call Run for the timers and Handle for each message.
@@ -361,9 +404,9 @@ func (b *Bot) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-tick.C:
-			if t, ok := b.dueTimer(); ok {
+			if msg, ok := b.dueTimer(); ok {
 				b.d.Log.Infof("Timer message posted")
-				b.send(ctx, t.Message)
+				b.send(ctx, msg)
 			}
 		}
 	}
@@ -372,8 +415,8 @@ func (b *Bot) Run(ctx context.Context) {
 // dueTimer picks the timer to post now, if any: timers run only while
 // live and turned on; each waits its interval and its minimum of chat
 // messages; of several due ones the longest waiting goes first, and
-// never two within timerGap.
-func (b *Bot) dueTimer() (config.ChatTimer, bool) {
+// never two within timerGap. It returns the message to post.
+func (b *Bot) dueTimer() (string, bool) {
 	s := b.d.Settings()
 	active := s.TimersEnabled && b.d.Live()
 	now := b.d.Now()
@@ -381,7 +424,7 @@ func (b *Bot) dueTimer() (config.ChatTimer, bool) {
 	defer b.mu.Unlock()
 	if !active {
 		b.running = false
-		return config.ChatTimer{}, false
+		return "", false
 	}
 	if !b.running {
 		// Just went live (or timers were turned on): every timer waits a
@@ -390,13 +433,13 @@ func (b *Bot) dueTimer() (config.ChatTimer, bool) {
 		clear(b.timers)
 	}
 	var pick *config.ChatTimer
-	var pickSince time.Time
+	var pickState timerState
 	seen := map[string]bool{}
 	for i := range s.Timers {
 		t := &s.Timers[i]
 		seen[t.ID] = true
 		st, ok := b.timers[t.ID]
-		if !ok || !t.Enabled {
+		if !ok || !t.Enabled || len(t.Lines()) == 0 {
 			// New or off: (re)starts waiting from now.
 			b.timers[t.ID] = timerState{last: now, lines: b.seen}
 			continue
@@ -404,8 +447,8 @@ func (b *Bot) dueTimer() (config.ChatTimer, bool) {
 		if now.Sub(st.last) < time.Duration(t.IntervalMinutes)*time.Minute || b.seen-st.lines < t.MinLines {
 			continue
 		}
-		if pick == nil || st.last.Before(pickSince) {
-			pick, pickSince = t, st.last
+		if pick == nil || st.last.Before(pickState.last) {
+			pick, pickState = t, st
 		}
 	}
 	for id := range b.timers {
@@ -414,9 +457,11 @@ func (b *Bot) dueTimer() (config.ChatTimer, bool) {
 		}
 	}
 	if pick == nil || (!b.lastPost.IsZero() && now.Sub(b.lastPost) < timerGap) {
-		return config.ChatTimer{}, false
+		return "", false
 	}
-	b.timers[pick.ID] = timerState{last: now, lines: b.seen}
+	pickState.last, pickState.lines = now, b.seen
+	msg := pickState.next(*pick)
+	b.timers[pick.ID] = pickState
 	b.lastPost = now
-	return *pick, true
+	return msg, true
 }

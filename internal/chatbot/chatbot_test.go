@@ -204,8 +204,8 @@ func timers(t ...config.ChatTimer) config.Chat {
 func (r *rig) tick(d time.Duration) []string {
 	var out []string
 	for end := r.now.Add(d); r.now.Before(end); r.advance(timerTick) {
-		if tm, ok := r.dueTimer(); ok {
-			out = append(out, tm.Message)
+		if msg, ok := r.dueTimer(); ok {
+			out = append(out, msg)
 		}
 	}
 	return out
@@ -314,11 +314,88 @@ func TestNormalizeCommand(t *testing.T) {
 	}
 }
 
+// postsOf runs a timer with msgs and order until it posted n times.
+func postsOf(t *testing.T, msgs []string, order string, n int) []string {
+	t.Helper()
+	r := newRig(timers(config.ChatTimer{ID: "s", Messages: msgs, Order: order, IntervalMinutes: config.MinTimerMinutes, Enabled: true}))
+	interval := time.Duration(config.MinTimerMinutes) * time.Minute
+	got := r.tick(time.Duration(n)*interval + timerTick)
+	if len(got) != n {
+		t.Fatalf("want %d posts, got %d", n, len(got))
+	}
+	return got
+}
+
+func TestRandomTimerDealsLikeADeck(t *testing.T) {
+	msgs := []string{"Twitter", "YouTube", "Discord", "Instagram", "TikTok"}
+	const rounds = 200
+	got := postsOf(t, msgs, config.TimerRandom, rounds*len(msgs))
+	firsts := map[string]bool{}
+	for r := range rounds {
+		round := slices.Clone(got[r*len(msgs) : (r+1)*len(msgs)])
+		firsts[round[0]] = true
+		slices.Sort(round)
+		want := slices.Sorted(slices.Values(msgs))
+		if !slices.Equal(round, want) {
+			t.Fatalf("round %d: each message once, got %v", r, round)
+		}
+	}
+	for i := 1; i < len(got); i++ {
+		if got[i] == got[i-1] {
+			t.Fatalf("post %d repeats %q", i, got[i])
+		}
+	}
+	if len(firsts) < 2 {
+		t.Fatalf("rounds are not shuffled: always starts with %v", firsts)
+	}
+}
+
+func TestInOrderTimer(t *testing.T) {
+	got := postsOf(t, []string{"A", "B", "C"}, config.TimerInOrder, 7)
+	if want := []string{"A", "B", "C", "A", "B", "C", "A"}; !slices.Equal(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestOneMessageTimerRepeats(t *testing.T) {
+	got := postsOf(t, []string{"Follow!"}, config.TimerRandom, 3)
+	if !slices.Equal(got, []string{"Follow!", "Follow!", "Follow!"}) {
+		t.Fatalf("got %v", got)
+	}
+}
+
+// Editing a timer's messages deals a fresh deck from the new ones.
+func TestTimerDeckFollowsEdits(t *testing.T) {
+	r := newRig(timers(config.ChatTimer{ID: "s", Messages: []string{"A", "B", "C"}, Order: config.TimerInOrder, IntervalMinutes: 5, Enabled: true}))
+	if got := r.tick(5*time.Minute + timerTick); !slices.Equal(got, []string{"A"}) {
+		t.Fatalf("got %v", got)
+	}
+	r.mu.Lock()
+	r.cfg.Timers[0].Messages = []string{"X", "Y"}
+	r.mu.Unlock()
+	if got := r.tick(10 * time.Minute); !slices.Equal(got, []string{"X", "Y"}) {
+		t.Fatalf("after the edit: %v", got)
+	}
+}
+
 func TestNormalizeTimer(t *testing.T) {
-	if tm, err := NormalizeTimer(config.ChatTimer{Message: " Follow \n me ", IntervalMinutes: 15}); err != nil || tm.Message != "Follow me" {
+	tm, err := NormalizeTimer(config.ChatTimer{Messages: []string{" Follow \n me ", "", "  ", "Discord"}, Order: "bogus", IntervalMinutes: 15})
+	if err != nil || !slices.Equal(tm.Messages, []string{"Follow me", "Discord"}) || tm.Order != config.TimerRandom {
 		t.Fatalf("%+v %v", tm, err)
 	}
+	// A timer from v0.7.3 and older: its one message moves into Messages.
+	tm, err = NormalizeTimer(config.ChatTimer{Message: "Follow!", Order: config.TimerInOrder, IntervalMinutes: 15})
+	if err != nil || !slices.Equal(tm.Messages, []string{"Follow!"}) || tm.Message != "" || tm.Order != config.TimerInOrder {
+		t.Fatalf("legacy: %+v %v", tm, err)
+	}
+	tooMany := make([]string, config.MaxTimerMessages+1)
+	for i := range tooMany {
+		tooMany[i] = "x"
+	}
 	for _, tm := range []config.ChatTimer{
+		{Messages: tooMany, IntervalMinutes: 15},
+		{Messages: []string{"ok", strings.Repeat("x", config.MaxChatTemplate+1)}, IntervalMinutes: 15},
+		{Messages: []string{"", " "}, IntervalMinutes: 15},
 		{Message: "", IntervalMinutes: 15},
 		{Message: "x", IntervalMinutes: config.MinTimerMinutes - 1},
 		{Message: "x", IntervalMinutes: config.MaxTimerMinutes + 1},

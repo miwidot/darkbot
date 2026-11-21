@@ -270,16 +270,39 @@ type ChatCommand struct {
 	Enabled bool    `json:"enabled"`
 }
 
-// ChatTimer posts a message every IntervalMinutes while the stream is live.
+// ChatTimer posts one of its Messages every IntervalMinutes while the
+// stream is live.
 type ChatTimer struct {
-	ID              string `json:"id"`
-	Message         string `json:"message"`
+	ID string `json:"id"`
+	// Messages: one is posted each time, picked by Order.
+	Messages []string `json:"messages"`
+	// Message is the single message of settings from v0.7.3 and older;
+	// normalize moves it into Messages.
+	Message         string `json:"message,omitempty"`
+	Order           string `json:"order"`
 	IntervalMinutes int    `json:"interval_minutes"`
 	// MinLines: chat messages needed since its last post, so it never
 	// talks into an empty chat; 0 = no minimum.
 	MinLines int  `json:"min_lines"`
 	Enabled  bool `json:"enabled"`
 }
+
+// Lines returns the timer's messages, including the single message of
+// settings from v0.7.3 and older.
+func (t ChatTimer) Lines() []string {
+	if len(t.Messages) == 0 && t.Message != "" {
+		return []string{t.Message}
+	}
+	return t.Messages
+}
+
+// Timer orders: TimerRandom shuffles the messages like a deck of cards
+// (each once per round, never the same twice in a row); TimerInOrder posts
+// them top to bottom.
+const (
+	TimerRandom  = "random"
+	TimerInOrder = "in_order"
+)
 
 // Chat holds commands and timers. Both are off until the streamer turns
 // them on.
@@ -301,6 +324,8 @@ const (
 	MinTimerMinutes = 5
 	MaxTimerMinutes = 720
 	MaxTimerLines   = 1000
+	// MaxTimerMessages: messages one timer takes turns with.
+	MaxTimerMessages = 20
 )
 
 // MaxChatTemplate matches Twitch's chat message limit (500 characters).
@@ -499,6 +524,10 @@ func (c *Config) normalize() {
 		}
 		tm.IntervalMinutes = min(max(tm.IntervalMinutes, MinTimerMinutes), MaxTimerMinutes)
 		tm.MinLines = min(max(tm.MinLines, 0), MaxTimerLines)
+		tm.Messages, tm.Message = tm.Lines(), ""
+		if tm.Order != TimerInOrder {
+			tm.Order = TimerRandom
+		}
 	}
 	c.Songs.SpotifyClientID = strings.TrimSpace(c.Songs.SpotifyClientID)
 	c.Songs.UserCooldownSeconds = max(c.Songs.UserCooldownSeconds, 0)
@@ -561,7 +590,7 @@ func (c *Config) normalize() {
 	}
 }
 
-// Clone returns a deep copy so callers never share the Sounds slice.
+// Clone returns a deep copy so callers never share a slice.
 func (c Config) Clone() Config {
 	out := c
 	out.Sounds = append([]Sound(nil), c.Sounds...)
@@ -570,7 +599,11 @@ func (c Config) Clone() Config {
 		cmd.Aliases = append([]string(nil), cmd.Aliases...)
 		out.Chat.Commands[i] = cmd
 	}
-	out.Chat.Timers = append([]ChatTimer(nil), c.Chat.Timers...)
+	out.Chat.Timers = make([]ChatTimer, len(c.Chat.Timers))
+	for i, tm := range c.Chat.Timers {
+		tm.Messages = append([]string(nil), tm.Messages...)
+		out.Chat.Timers[i] = tm
+	}
 	if c.Events != nil {
 		out.Events = make(map[string]EventAction, len(c.Events))
 		maps.Copy(out.Events, c.Events)

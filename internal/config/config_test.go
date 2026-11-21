@@ -106,6 +106,28 @@ func TestLegacyOBSInputNameMoves(t *testing.T) {
 	}
 }
 
+// Timers from v0.7.3 and older have one "message"; it becomes the first of
+// their messages, in random order. Get never shares a timer's messages.
+func TestLegacyTimerMessageMoves(t *testing.T) {
+	dir := t.TempDir()
+	data := []byte(`{"chat":{"timers":[{"id":"a","message":"Follow!","interval_minutes":15,"enabled":true}]}}`)
+	if err := os.WriteFile(filepath.Join(dir, configFileName), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tm := s.Get().Chat.Timers[0]
+	if len(tm.Messages) != 1 || tm.Messages[0] != "Follow!" || tm.Message != "" || tm.Order != TimerRandom {
+		t.Fatalf("got %+v", tm)
+	}
+	tm.Messages[0] = "changed"
+	if s.Get().Chat.Timers[0].Messages[0] != "Follow!" {
+		t.Fatal("Get must copy a timer's messages")
+	}
+}
+
 // A config cut off by a crash must not stop darkbot from starting: it is
 // set aside and darkbot starts with defaults.
 func TestCorruptConfigIsSetAside(t *testing.T) {
