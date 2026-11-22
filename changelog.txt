@@ -1,3 +1,11 @@
+2026-11-22 11:01 +08 — Release v0.7.5
+- Built-in !uptime and !followage commands (off until turned on).
+- Rewards darkbot created can be limited per stream and per viewer per
+  stream; Twitch enforces the limits.
+- Greeting: a command trigger that answers each viewer's first chat
+  message of the live stream.
+- Info.plist version 0.7.5.
+
 2026-11-21 13:35 +08 — Greeting: first chat message of the stream
 - New command trigger "First message of the stream (greeting)": answers
   each viewer's first message of the live stream, whatever it says, with
