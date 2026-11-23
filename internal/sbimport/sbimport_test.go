@@ -132,6 +132,14 @@ func TestSimpleCommand(t *testing.T) {
 	}
 }
 
+// "/me" with text works with Send Chat Message (an action message).
+func TestMeMessage(t *testing.T) {
+	cmds, _ := convert(t, export([]obj{cmdAction("c", false, send("/me hugs %targetUser%"))}, []obj{cmd("c", "!hug", nil)}, nil))
+	if cmds[0].Skip != nil || cmds[0].Command.Response != "/me hugs {target}" {
+		t.Fatalf("got %v", cmds[0])
+	}
+}
+
 func TestWordCommandAndOldLayout(t *testing.T) {
 	// Exports before version 23 keep the sub-actions under "actions".
 	act := obj{"id": "a", "name": "a", "triggers": []obj{{"type": triggerCommand, "enabled": true, "commandId": "w"}},
@@ -187,7 +195,8 @@ func TestCommandSkips(t *testing.T) {
 		{"random answers", []obj{cmdAction("c", true, send("a"), send("b"))}, nil, "err.sbRandomAnswers"},
 		{"two messages", []obj{cmdAction("c", false, send("a"), send("b"))}, nil, "err.sbManyMessages"},
 		{"variable", []obj{cmdAction("c", false, send("Quote: %quote%"))}, nil, "err.sbVariable"},
-		{"slash command", []obj{cmdAction("c", false, send("/me waves"))}, nil, "err.sbSlash"},
+		{"slash command", []obj{cmdAction("c", false, send("/announce Hype!"))}, nil, "err.sbSlash"},
+		{"bare /me", []obj{cmdAction("c", false, send("/me"))}, nil, "err.sbSlash"},
 		{"no name", []obj{cmdAction("c", false, send("x"))}, obj{"command": " \r\n "}, "err.sbNoName"},
 	}
 	for _, c := range cases {

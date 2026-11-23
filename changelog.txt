@@ -1,3 +1,10 @@
+2026-11-23 22:57 +08 — Streamer.bot import: allow "/me" messages
+- "/me <text>" is imported: Send Chat Message posts it as an action
+  message (reported on the Twitch developer forum; the API reference is
+  silent). Other chat commands like "/announce" stay skipped: an open
+  Twitch issue (twitchdev/issues#1019) shows Send Chat Message drops or
+  cuts them ("/foo bar" arrives as "bar").
+
 2026-11-23 22:35 +08 — Import commands and timers from Streamer.bot
 - New "Import from Streamer.bot" on the Chat page: paste an import code,
   see what darkbot takes over (and why the rest not), import. Imported

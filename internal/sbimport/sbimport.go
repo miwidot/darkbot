@@ -270,15 +270,20 @@ var placeholders = map[string]string{
 	"targetusername": "{target}",
 }
 
-// slashCommand is a Twitch chat command at the start of a message
-// ("/me waves"); darkbot posts through the Twitch API, which sends it as
-// plain text.
-const slashCommand = "/"
+// Chat commands at the start of a message. Send Chat Message, which
+// darkbot posts with, documents none of them; reported behaviour: "/me"
+// with text works (an action message, https://discuss.dev.twitch.com/t/me-command-with-api/64892),
+// any other command is dropped or cut, "/foo bar" arrives as "bar"
+// (https://github.com/twitchdev/issues/issues/1019).
+const (
+	slashCommand = "/"
+	meCommand    = "/me "
+)
 
 // translate swaps the Streamer.bot variables of text for darkbot
 // placeholders; viewer names only exist for commands.
 func translate(text string, forCommand bool) (string, error) {
-	if strings.HasPrefix(text, slashCommand) {
+	if strings.HasPrefix(text, slashCommand) && !strings.HasPrefix(strings.ToLower(text), meCommand) {
 		first, _, _ := strings.Cut(text, " ")
 		return "", i18n.E("err.sbSlash", "cmd", first)
 	}
