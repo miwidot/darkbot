@@ -1,3 +1,21 @@
+2026-11-23 22:35 +08 — Import commands and timers from Streamer.bot
+- New "Import from Streamer.bot" on the Chat page: paste an import code,
+  see what darkbot takes over (and why the rest not), import. Imported
+  commands and timers start turned off.
+- internal/sbimport reads the code (base64 of "SBAE" + gzip JSON, export
+  versions 3 to 24; the format is not specified by Streamer.bot and was
+  read from published exports) and maps commands (names, aliases, word
+  commands, cooldowns, Moderators/VIPs/Subscribers groups, %user% and
+  %targetUser%) and repeating timers (seconds rounded up to minutes,
+  random messages) whose single action only sends chat messages, plus one
+  sound for commands. Everything else (code, other variables, /me and
+  other chat commands, own user groups) is skipped with a reason.
+- The import checks every item like a saved command or timer (names
+  taken, limits), leaves out sound files missing on this computer and
+  skips timers that already exist, so importing twice adds nothing.
+- Checked against 99 public Streamer.bot exports from GitHub: all read
+  without errors.
+
 2026-11-22 11:01 +08 — Release v0.7.5
 - Built-in !uptime and !followage commands (off until turned on).
 - Rewards darkbot created can be limited per stream and per viewer per

@@ -662,3 +662,15 @@ details.more summary { cursor: pointer; color: var(--ink-2); }
 @media (max-width: 700px) {
   .act-days li .act-day-c { display: none; }
 }
+
+/* Streamer.bot import */
+.chat-import { margin: -6px 0 14px; }
+.sb-modal { width: min(640px, 92vw); }
+.sb-modal textarea { width: 100%; font-family: inherit; word-break: break-all; }
+.sb-head { margin: 14px 0 6px; font-size: var(--step-0); color: var(--ink-2); font-weight: 600; }
+.sb-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 32vh; overflow-y: auto; }
+.sb-list li { padding: 7px 10px; border: 1px solid var(--metal-2); border-radius: var(--r-ctl); background: var(--metal-1); min-width: 0; }
+.sb-list li b { font-weight: 600; overflow-wrap: anywhere; }
+.sb-list li span { display: block; color: var(--ink-3); font-size: var(--step--1); overflow-wrap: anywhere; }
+.sb-list li .sb-note { color: var(--ink-2); }
+.sb-list.skipped li b { color: var(--ink-2); }

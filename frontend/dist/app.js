@@ -1408,6 +1408,73 @@ $('timerDelete').addEventListener('click', async () => {
   } catch (e) { editorFailed('timerError', e); }
 });
 
+// ---------- Streamer.bot import ----------
+
+// The streamer pastes an import code, sees what darkbot takes over (and
+// why the rest not), then imports; imported items start turned off.
+const SB_IMPORT_COMMAND = 'command';
+
+function sbReset() {
+  $('sbResult').classList.add('hidden');
+  $('sbError').classList.add('hidden');
+  $('sbDo').classList.add('hidden');
+}
+$('sbOpen').addEventListener('click', () => {
+  $('sbCode').value = '';
+  sbReset();
+  $('sbImport').showModal();
+  $('sbCode').focus();
+});
+$('sbCode').addEventListener('input', sbReset);
+$('sbClose').addEventListener('click', () => $('sbImport').close());
+
+function sbRow(r) {
+  const li = el('li', {}, el('b', {}, r.name || '?'));
+  if (r.skip) {
+    li.append(el('span', {}, r.skip));
+  } else if (r.kind === SB_IMPORT_COMMAND) {
+    li.append(el('span', {}, cmdNames(r.command) + ': ' + cmdAnswer(r.command)), el('span', {}, cmdSummary(r.command)));
+  } else {
+    li.append(el('span', {}, timerSummary(r.timer)), el('span', {}, timerMessages(r.timer)[0] || ''));
+  }
+  for (const n of r.notes || []) li.append(el('span', { class: 'sb-note' }, n));
+  return li;
+}
+
+function sbShow(res) {
+  const rows = res.rows || [];
+  const ok = rows.filter((r) => !r.skip);
+  const skipped = rows.filter((r) => r.skip);
+  $('sbNone').textContent = rows.length === 0 ? t('sbimport.empty') : t('sbimport.none');
+  $('sbNone').classList.toggle('hidden', ok.length > 0);
+  $('sbOkHead').textContent = t('sbimport.ok') + ' (' + num(ok.length) + ')';
+  $('sbSkipHead').textContent = t('sbimport.skipped') + ' (' + num(skipped.length) + ')';
+  for (const [id, list] of [['Ok', ok], ['Skip', skipped]]) {
+    $('sb' + id + 'Head').classList.toggle('hidden', list.length === 0);
+    $('sb' + id).replaceChildren(...list.map(sbRow));
+  }
+  $('sbResult').classList.remove('hidden');
+  $('sbDo').textContent = t('sbimport.import', { n: num(ok.length) });
+  $('sbDo').classList.toggle('hidden', ok.length === 0);
+}
+
+$('sbCheck').addEventListener('click', async () => {
+  sbReset();
+  $('sbCheck').disabled = true;
+  try {
+    sbShow(await App().PreviewStreamerbot($('sbCode').value));
+  } catch (e) { editorFailed('sbError', e); } finally { $('sbCheck').disabled = false; }
+});
+$('sbDo').addEventListener('click', async () => {
+  $('sbDo').disabled = true;
+  try {
+    const res = await App().ImportStreamerbot($('sbCode').value);
+    $('sbImport').close();
+    toast(t('sbimport.done', { commands: num(res.commands), timers: num(res.timers) }));
+    refresh();
+  } catch (e) { editorFailed('sbError', e); } finally { $('sbDo').disabled = false; }
+});
+
 // ---------- activity feed ----------
 
 const redeemed = () => ' ' + t('feed.redeemed') + ' ';

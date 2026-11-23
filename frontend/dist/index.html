@@ -202,6 +202,7 @@
       <p class="lede events-lede" data-i18n="cmds.lede"></p>
       <p class="notice hidden" id="chatMissing" data-i18n="cmds.missing"></p>
       <p class="notice hidden" id="sharedChatNotice" data-i18n="cmds.sharedChat"></p>
+      <p class="chat-import"><button class="btn quiet" id="sbOpen" data-i18n="sbimport.open"></button></p>
 
       <div class="chat-block">
         <div class="chat-head">
@@ -762,6 +763,29 @@
     <span class="spacer"></span>
     <button type="button" class="btn quiet" id="timerCancel" data-i18n="editor.cancel"></button>
     <button type="button" class="btn primary" id="timerSave" data-i18n="evedit.save"></button>
+  </div>
+</dialog>
+
+<dialog class="modal sb-modal" id="sbImport" aria-labelledby="sbTitle">
+  <h2 id="sbTitle" data-i18n="sbimport.title"></h2>
+  <p class="hint" data-i18n="sbimport.lede"></p>
+  <div class="field">
+    <label for="sbCode" data-i18n="sbimport.code"></label>
+    <textarea id="sbCode" rows="4" spellcheck="false" autocomplete="off" data-i18n-placeholder="sbimport.codePlaceholder"></textarea>
+  </div>
+  <p class="error hidden" id="sbError" role="alert"></p>
+  <div id="sbResult" class="hidden" aria-live="polite">
+    <p class="hint" id="sbNone"></p>
+    <h3 class="sb-head" id="sbOkHead"></h3>
+    <ul class="sb-list" id="sbOk"></ul>
+    <h3 class="sb-head" id="sbSkipHead"></h3>
+    <ul class="sb-list skipped" id="sbSkip"></ul>
+  </div>
+  <div class="modal-actions">
+    <span class="spacer"></span>
+    <button type="button" class="btn quiet" id="sbClose" data-i18n="sbimport.close"></button>
+    <button type="button" class="btn" id="sbCheck" data-i18n="sbimport.check"></button>
+    <button type="button" class="btn primary hidden" id="sbDo"></button>
   </div>
 </dialog>
 
