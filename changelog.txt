@@ -1,3 +1,10 @@
+2026-11-23 23:13 +08 — Release v0.7.6
+- Import chat commands and timers from Streamer.bot (paste an import
+  code, preview, import turned off).
+- The command and timer editors warn about chat commands like /announce
+  at the start of a message; /me works.
+- Info.plist version 0.7.6.
+
 2026-11-23 23:05 +08 — Warn about chat commands in answers and timer messages
 - The command and timer editors warn when an answer or a timer message
   starts with a chat command like "/announce" or ".foo": darkbot posts
