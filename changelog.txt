@@ -1,3 +1,10 @@
+2026-11-23 23:05 +08 — Warn about chat commands in answers and timer messages
+- The command and timer editors warn when an answer or a timer message
+  starts with a chat command like "/announce" or ".foo": darkbot posts
+  through Send Chat Message, which drops or cuts them (twitchdev/issues
+  #1019). "/me <text>" works and gets no warning. Saving is still allowed.
+- The Streamer.bot import uses the same rule (now also "." commands).
+
 2026-11-23 22:57 +08 — Streamer.bot import: allow "/me" messages
 - "/me <text>" is imported: Send Chat Message posts it as an action
   message (reported on the Twitch developer forum; the API reference is

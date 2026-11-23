@@ -273,19 +273,19 @@ var placeholders = map[string]string{
 // Chat commands at the start of a message. Send Chat Message, which
 // darkbot posts with, documents none of them; reported behaviour: "/me"
 // with text works (an action message, https://discuss.dev.twitch.com/t/me-command-with-api/64892),
-// any other command is dropped or cut, "/foo bar" arrives as "bar"
-// (https://github.com/twitchdev/issues/issues/1019).
-const (
-	slashCommand = "/"
-	meCommand    = "/me "
+// any other command, also with ".", is dropped or cut, "/foo bar"
+// arrives as "bar" (https://github.com/twitchdev/issues/issues/1019).
+// The command editors warn with the same rule (chatCommandIn in app.js).
+var (
+	chatCommand = regexp.MustCompile(`^[/.][A-Za-z]\S*`)
+	meMessage   = regexp.MustCompile(`(?i)^/me\s+\S`)
 )
 
 // translate swaps the Streamer.bot variables of text for darkbot
 // placeholders; viewer names only exist for commands.
 func translate(text string, forCommand bool) (string, error) {
-	if strings.HasPrefix(text, slashCommand) && !strings.HasPrefix(strings.ToLower(text), meCommand) {
-		first, _, _ := strings.Cut(text, " ")
-		return "", i18n.E("err.sbSlash", "cmd", first)
+	if cmd := chatCommand.FindString(text); cmd != "" && !meMessage.MatchString(text) {
+		return "", i18n.E("err.sbSlash", "cmd", cmd)
 	}
 	var unknown string
 	out := variable.ReplaceAllStringFunc(text, func(v string) string {

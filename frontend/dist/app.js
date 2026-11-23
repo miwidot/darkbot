@@ -1225,6 +1225,31 @@ function fillPermissionLabels() {
 }
 
 let cmdDeleteArmed = 0;
+// Chat commands at the start of a message ("/announce Hi", ".foo bar").
+// darkbot posts with Twitch's Send Chat Message, whose reference documents
+// none; reported: "/me <text>" works (an action message), any other is
+// dropped or cut, "/foo bar" arrives as "bar"
+// (github.com/twitchdev/issues/issues/1019). Returns the command or ''.
+function chatCommandIn(text) {
+  const s = text.trim();
+  const m = s.match(/^[/.][A-Za-z]\S*/);
+  if (!m || /^\/me\s+\S/i.test(s)) return '';
+  return m[0];
+}
+function showSlashWarn(id, text) {
+  $(id).textContent = text;
+  $(id).classList.toggle('hidden', !text);
+}
+function checkCmdSlash() {
+  const cmd = chatCommandIn($('cmdResponse').value);
+  showSlashWarn('cmdSlashWarn', cmd ? t('cmdedit.slashWarn', { cmd }) : '');
+}
+function checkTimerSlash() {
+  const lines = timerLinesIn();
+  const i = lines.findIndex((l) => chatCommandIn(l));
+  showSlashWarn('timerSlashWarn', i < 0 ? '' : t('timeredit.slashWarn', { n: num(i + 1), cmd: chatCommandIn(lines[i]) }));
+}
+
 // The editor follows the trigger (the "!" before the name) and the answer
 // source (text or file).
 function cmdEditorMode() {
@@ -1275,6 +1300,7 @@ function openCommandEditor(cmd) {
   $('cmdName').value = cmdEditing.name;
   $('cmdAliases').value = (cmdEditing.aliases || []).join(', ');
   $('cmdResponse').value = cmdEditing.response || '';
+  checkCmdSlash();
   $('cmdPermission').value = cmdEditing.permission;
   $('cmdCooldown').value = cmdEditing.cooldown_seconds || 0;
   $('cmdUserCooldown').value = cmdEditing.user_cooldown_seconds || 0;
@@ -1329,6 +1355,7 @@ $('cmdFilePick').addEventListener('click', async () => {
   if (f) { $('cmdFile').value = f; showFileInfo(); }
 });
 $('cmdResponse').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+$('cmdResponse').addEventListener('input', checkCmdSlash);
 $('cmdCancel').addEventListener('click', () => $('cmdEditor').close());
 $('cmdSave').addEventListener('click', async () => {
   $('cmdSave').disabled = true;
@@ -1361,6 +1388,7 @@ function openTimerEditor(tm) {
   $('timerMessage').value = timerMessages(timerEditing).join('\n');
   $('timerOrder').value = timerEditing.order === TIMER_IN_ORDER ? TIMER_IN_ORDER : TIMER_RANDOM;
   syncTimerOrder();
+  checkTimerSlash();
   $('timerInterval').value = timerEditing.interval_minutes;
   $('timerLines').value = timerEditing.min_lines || 0;
   $('timerDelete').classList.toggle('hidden', !tm);
@@ -1376,7 +1404,7 @@ const timerLinesIn = () => $('timerMessage').value.split('\n').map((l) => l.trim
 function syncTimerOrder() {
   $('timerOrderField').classList.toggle('hidden', timerLinesIn().length < 2);
 }
-$('timerMessage').addEventListener('input', syncTimerOrder);
+$('timerMessage').addEventListener('input', () => { syncTimerOrder(); checkTimerSlash(); });
 $('timerCancel').addEventListener('click', () => $('timerEditor').close());
 $('timerSave').addEventListener('click', async () => {
   $('timerSave').disabled = true;

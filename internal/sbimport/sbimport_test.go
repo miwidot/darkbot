@@ -197,6 +197,7 @@ func TestCommandSkips(t *testing.T) {
 		{"variable", []obj{cmdAction("c", false, send("Quote: %quote%"))}, nil, "err.sbVariable"},
 		{"slash command", []obj{cmdAction("c", false, send("/announce Hype!"))}, nil, "err.sbSlash"},
 		{"bare /me", []obj{cmdAction("c", false, send("/me"))}, nil, "err.sbSlash"},
+		{"dot command", []obj{cmdAction("c", false, send(".foo bar"))}, nil, "err.sbSlash"},
 		{"no name", []obj{cmdAction("c", false, send("x"))}, obj{"command": " \r\n "}, "err.sbNoName"},
 	}
 	for _, c := range cases {

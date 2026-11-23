@@ -952,5 +952,7 @@
   "note.sbSoundMissing": "sound file not found on this computer, left out: {file}",
   "err.sbSoundMissing": "its sound file is not on this computer: {file}",
   "err.sbTimerExists": "a timer with these messages already exists",
-  "err.sbSlash": "it uses the chat command {cmd}, which darkbot would post as text"
+  "err.sbSlash": "it uses the chat command {cmd}, which darkbot would post as text",
+  "cmdedit.slashWarn": "Twitch swallows chat commands like {cmd} at the start: darkbot writes through the Twitch API, which posts only the rest of the message, or nothing. Only \"/me text\" works.",
+  "timeredit.slashWarn": "Message {n}: Twitch swallows chat commands like {cmd} at the start: darkbot writes through the Twitch API, which posts only the rest of the message, or nothing. Only \"/me text\" works."
 }
