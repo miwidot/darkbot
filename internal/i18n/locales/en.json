@@ -954,5 +954,6 @@
   "err.sbTimerExists": "a timer with these messages already exists",
   "err.sbSlash": "it uses the chat command {cmd}, which darkbot would post as text",
   "cmdedit.slashWarn": "Twitch swallows chat commands like {cmd} at the start: darkbot writes through the Twitch API, which posts only the rest of the message, or nothing. Only \"/me text\" works.",
-  "timeredit.slashWarn": "Message {n}: Twitch swallows chat commands like {cmd} at the start: darkbot writes through the Twitch API, which posts only the rest of the message, or nothing. Only \"/me text\" works."
+  "timeredit.slashWarn": "Message {n}: Twitch swallows chat commands like {cmd} at the start: darkbot writes through the Twitch API, which posts only the rest of the message, or nothing. Only \"/me text\" works.",
+  "err.spotifyScope": "the Spotify login lacks a permission for this (details in darkbot's log)"
 }

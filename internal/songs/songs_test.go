@@ -3,6 +3,7 @@ package songs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -541,5 +542,32 @@ func TestNowPlaying(t *testing.T) {
 	hs.p.now = nil
 	if _, err := hs.h.NowPlaying(ctx); err == nil {
 		t.Fatal("no song and a failure: report it")
+	}
+}
+
+type countLog struct{ infos []string }
+
+func (l *countLog) Infof(f string, a ...any) { l.infos = append(l.infos, fmt.Sprintf(f, a...)) }
+func (l *countLog) Warnf(string, ...any)     {}
+
+// Song requests off: nothing is answered, but the log says why, at most
+// once per offNoticeGap.
+func TestOffIsLogged(t *testing.T) {
+	hs := newHarness()
+	log := &countLog{}
+	hs.h.d.Log = log
+	hs.s.Enabled = false
+	hs.say(viewer("!sr song"))
+	hs.say(viewer("!song"))
+	if len(hs.replies) != 0 || len(hs.p.queued) != 0 {
+		t.Fatalf("off must not answer or queue: %v", hs.replies)
+	}
+	if len(log.infos) != 1 || !strings.Contains(log.infos[0], "!sr from Viewer") {
+		t.Fatalf("log %v", log.infos)
+	}
+	hs.now = hs.now.Add(offNoticeGap)
+	hs.say(viewer("!skip"))
+	if len(log.infos) != 2 {
+		t.Fatalf("after the gap: %v", log.infos)
 	}
 }

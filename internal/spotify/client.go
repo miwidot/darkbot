@@ -32,11 +32,13 @@ const (
 
 // Errors the UI and chat replies translate.
 var (
-	ErrNotConnected   = i18n.E("err.spotifyOffline")
-	ErrNoDevice       = i18n.E("err.spotifyNoDevice")
-	ErrPremium        = i18n.E("err.spotifyPremium")
-	ErrNotFound       = i18n.E("err.spotifyNotFound")
-	ErrRateLimited    = i18n.E("err.spotifyRateLimit")
+	ErrNotConnected = i18n.E("err.spotifyOffline")
+	ErrNoDevice     = i18n.E("err.spotifyNoDevice")
+	ErrPremium      = i18n.E("err.spotifyPremium")
+	ErrNotFound     = i18n.E("err.spotifyNotFound")
+	ErrRateLimited  = i18n.E("err.spotifyRateLimit")
+	// ErrScope: Spotify answered 403 "Insufficient client scope".
+	ErrScope          = i18n.E("err.spotifyScope")
 	ErrNotTrackLink   = i18n.E("err.spotifyNotTrack")
 	ErrUnsupportedURL = i18n.E("err.spotifyLinkType")
 )
@@ -328,6 +330,10 @@ func (c *Client) doWith(ctx context.Context, access, method, path string, query 
 // classify maps API errors to messages a streamer can act on. The reference
 // pages only list the status codes; the wording of player errors is not
 // documented, so we look at both the status and Spotify's message.
+// insufficientScope is Spotify's 403 message when the login lacks a
+// permission the call needs (lowercase, compared with the message).
+const insufficientScope = "insufficient client scope"
+
 func classify(path string, resp *http.Response, message string) error {
 	se := &statusError{status: resp.StatusCode, message: message, path: path}
 	lower := strings.ToLower(message)
@@ -336,6 +342,8 @@ func classify(path string, resp *http.Response, message string) error {
 	case resp.StatusCode == http.StatusTooManyRequests:
 		wait, _ := strconv.Atoi(resp.Header.Get("Retry-After"))
 		return fmt.Errorf("%w (retry after %d s): %v", ErrRateLimited, wait, se)
+	case resp.StatusCode == http.StatusForbidden && strings.Contains(lower, insufficientScope):
+		return fmt.Errorf("%w: %v", ErrScope, se)
 	case isPlayer && strings.Contains(lower, "device"):
 		return fmt.Errorf("%w: %v", ErrNoDevice, se)
 	case isPlayer && strings.Contains(lower, "premium"):
@@ -412,7 +420,12 @@ func (c *Client) SearchTrack(ctx context.Context, query string) (*Track, error) 
 			Items []Track `json:"items"`
 		} `json:"tracks"`
 	}
-	q := url.Values{"q": {query}, "type": {"track"}, "limit": {strconv.Itoa(searchLimit)}, "market": {marketFromToken}}
+	// No market: Spotify answered "403 Insufficient client scope" to a
+	// search with market=from_token (seen Nov 2026, Development Mode app;
+	// a track lookup with it still works). The reference says the user's
+	// own country takes priority over market with a user token anyway:
+	// https://developer.spotify.com/documentation/web-api/reference/search
+	q := url.Values{"q": {query}, "type": {"track"}, "limit": {strconv.Itoa(searchLimit)}}
 	if err := c.do(ctx, http.MethodGet, "/search", q, &out); err != nil {
 		return nil, err
 	}

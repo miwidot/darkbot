@@ -58,6 +58,9 @@ const (
 	// commandGap: a viewer (not mod/broadcaster) can trigger one command per
 	// this time; anything faster is ignored without a reply.
 	commandGap = 3 * time.Second
+	// offNoticeGap: while song requests are off, the log says at most this
+	// often that a song command was ignored.
+	offNoticeGap = time.Minute
 	// maxReplies per replyWindow caps darkbot's chat answers well below
 	// Twitch's 100 messages per 30 s for the broadcaster
 	// (https://dev.twitch.tv/docs/chat/), so spam can't use up the budget.
@@ -166,6 +169,7 @@ type Handler struct {
 	lastInfo  map[string]time.Time // command -> last answer
 	requested map[string]request   // service:track ID -> who requested it
 	replies   []time.Time          // recent chat answers (rate cap)
+	offNotice time.Time            // last "song requests are off" log line
 }
 
 // New creates a handler.
@@ -212,10 +216,11 @@ func split(text string) (cmd, arg string) {
 // Handle runs one chat message.
 func (h *Handler) Handle(ctx context.Context, m twitch.ChatMessage) {
 	s := h.d.Settings()
+	cmd, arg := split(m.Text)
 	if !s.Enabled {
+		h.noteOff(m, cmd)
 		return
 	}
-	cmd, arg := split(m.Text)
 	if !h.commandAllowed(m) {
 		return
 	}
@@ -231,6 +236,21 @@ func (h *Handler) Handle(ctx context.Context, m twitch.ChatMessage) {
 		if h.infoAllowed(cmd) {
 			h.info(ctx, s, m, cmd)
 		}
+	}
+}
+
+// noteOff logs that a song command was ignored because song requests are
+// off, so a streamer testing "!sr" sees why nothing happens.
+func (h *Handler) noteOff(m twitch.ChatMessage, cmd string) {
+	now := h.d.Now()
+	h.mu.Lock()
+	quiet := !h.offNotice.IsZero() && now.Sub(h.offNotice) < offNoticeGap
+	if !quiet {
+		h.offNotice = now
+	}
+	h.mu.Unlock()
+	if !quiet {
+		h.d.Log.Infof("Song requests are off (Settings, Song requests): %s from %s ignored", cmd, m.ChatterName)
 	}
 }
 

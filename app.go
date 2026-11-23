@@ -1143,7 +1143,7 @@ func (a *App) SpotifyFinishLogin(pasted string) error {
 	a.mu.Lock()
 	a.spLogin = nil
 	a.mu.Unlock()
-	a.log.Infof("Connected to Spotify as %s", tok.DisplayName)
+	a.log.Infof("Connected to Spotify as %s (permissions: %s)", tok.DisplayName, tok.Scope)
 	a.emitState()
 	return nil
 }

@@ -954,5 +954,6 @@
   "err.sbTimerExists": "einen Timer mit diesen Nachrichten gibt es schon",
   "err.sbSlash": "nutzt den Chat-Befehl {cmd}, den darkbot als Text schicken würde",
   "cmdedit.slashWarn": "Twitch verschluckt Chat-Befehle wie {cmd} am Anfang: darkbot schreibt über die Twitch-API, und dort kommt nur der Rest der Nachricht an oder gar nichts. Nur „/me Text“ funktioniert.",
-  "timeredit.slashWarn": "Nachricht {n}: Twitch verschluckt Chat-Befehle wie {cmd} am Anfang: darkbot schreibt über die Twitch-API, und dort kommt nur der Rest der Nachricht an oder gar nichts. Nur „/me Text“ funktioniert."
+  "timeredit.slashWarn": "Nachricht {n}: Twitch verschluckt Chat-Befehle wie {cmd} am Anfang: darkbot schreibt über die Twitch-API, und dort kommt nur der Rest der Nachricht an oder gar nichts. Nur „/me Text“ funktioniert.",
+  "err.spotifyScope": "dem Spotify-Login fehlt eine Berechtigung dafür (Details im darkbot-Log)"
 }

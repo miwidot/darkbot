@@ -220,6 +220,9 @@ func TestPlayerErrorMapping(t *testing.T) {
 		case "/search":
 			w.Header().Set("Retry-After", "3")
 			w.WriteHeader(http.StatusTooManyRequests)
+		case "/me/player/currently-playing":
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"error":{"status":403,"message":"Insufficient client scope"}}`))
 		}
 	})
 	c, _ := NewClient("cid", &memStore{tok: &Token{AccessToken: "A", ExpiresAt: time.Now().Add(time.Hour)}}, nopLog{})
@@ -232,6 +235,24 @@ func TestPlayerErrorMapping(t *testing.T) {
 	}
 	if _, err := c.SearchTrack(ctx, "x"); !errors.Is(err, ErrRateLimited) {
 		t.Errorf("search: %v", err)
+	}
+	// A missing permission is no "Premium required", even on the player.
+	if _, err := c.CurrentlyPlaying(ctx); !errors.Is(err, ErrScope) {
+		t.Errorf("scope: %v", err)
+	}
+}
+
+// Search sends no market (see SearchTrack).
+func TestSearchWithoutMarket(t *testing.T) {
+	apiServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if q := r.URL.Query(); r.URL.Path != "/search" || q.Has("market") || q.Get("q") != "onkelz" || q.Get("type") != "track" {
+			t.Errorf("request %s", r.URL)
+		}
+		_, _ = w.Write([]byte(`{"tracks":{"items":[{"id":"1","uri":"spotify:track:1","name":"Song"}]}}`))
+	})
+	c, _ := NewClient("cid", &memStore{tok: &Token{AccessToken: "A", ExpiresAt: time.Now().Add(time.Hour)}}, nopLog{})
+	if tr, err := c.SearchTrack(context.Background(), "onkelz"); err != nil || tr.ID != "1" {
+		t.Fatalf("%v %+v", err, tr)
 	}
 }
 

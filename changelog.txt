@@ -1,3 +1,17 @@
+2026-11-24 00:11 +08 — Spotify search without market, clear 403 and "song requests off" messages
+- !sr <name> failed with "403 Insufficient client scope" on Spotify's
+  search (seen with a Development Mode app; a !sr with a Spotify link,
+  which looks the track up with market=from_token, kept working). The
+  search now sends no market: the reference says the user's own country
+  takes priority with a user token anyway.
+- A 403 "Insufficient client scope" from any Spotify call now becomes
+  "the Spotify login lacks a permission for this" in chat instead of the
+  generic error (on player calls it was wrongly reported as "needs
+  Premium"); details stay in the log.
+- The log names the permissions Spotify granted when connecting.
+- Song commands while song requests are off were ignored silently; the
+  log now says so (at most once a minute).
+
 2026-11-23 23:13 +08 — Release v0.7.6
 - Import chat commands and timers from Streamer.bot (paste an import
   code, preview, import turned off).
