@@ -674,3 +674,10 @@ details.more summary { cursor: pointer; color: var(--ink-2); }
 .sb-list li span { display: block; color: var(--ink-3); font-size: var(--step--1); overflow-wrap: anywhere; }
 .sb-list li .sb-note { color: var(--ink-2); }
 .sb-list.skipped li b { color: var(--ink-2); }
+
+/* Settings, Backup */
+.backup-result { margin-top: 14px; }
+/* Long paths may break anywhere; words still break only at spaces. */
+.backup-result .hint, #backupDone .hint, #backupDone .sb-list li { overflow-wrap: anywhere; }
+.sec h3.backup-load { margin-top: 30px; }
+#backupDone { max-width: 560px; }

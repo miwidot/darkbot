@@ -273,6 +273,7 @@
       <button data-sec="twitch" data-i18n="nav.twitch"></button>
       <button data-sec="obs" data-i18n="nav.obs"></button>
       <button data-sec="songs" data-i18n="nav.songs"></button>
+      <button data-sec="backup" data-i18n="nav.backup"></button>
       <button data-sec="updates" data-i18n="nav.updates"></button>
       <button data-sec="log" data-i18n="nav.log"></button>
     </nav>
@@ -475,6 +476,25 @@
         </div>
         <p class="hint" data-i18n="songs.legal"></p>
         <div class="sec-actions"><button class="btn primary" id="saveSongs" data-i18n="songs.save"></button></div>
+      </section>
+
+      <!-- BACKUP -->
+      <section class="sec" id="sec-backup">
+        <h3 data-i18n="backup.title"></h3>
+        <p class="lede" data-i18n="backup.lede"></p>
+        <div class="sec-actions start">
+          <button class="btn primary" id="backupSave" data-i18n="backup.save"></button>
+        </div>
+        <div class="backup-result hidden" id="backupSaved" aria-live="polite">
+          <p class="hint" id="backupSavedText"></p>
+          <p class="hint hidden" id="backupSkippedHead" data-i18n="backup.skipped"></p>
+          <ul class="sb-list skipped" id="backupSkipped"></ul>
+        </div>
+        <h3 class="backup-load" data-i18n="backup.loadTitle"></h3>
+        <p class="hint" data-i18n="backup.loadHint"></p>
+        <div class="sec-actions start">
+          <button class="btn" id="backupLoad" data-i18n="backup.load"></button>
+        </div>
       </section>
 
       <!-- UPDATES -->
@@ -765,6 +785,21 @@
     <span class="spacer"></span>
     <button type="button" class="btn quiet" id="timerCancel" data-i18n="editor.cancel"></button>
     <button type="button" class="btn primary" id="timerSave" data-i18n="evedit.save"></button>
+  </div>
+</dialog>
+
+<!-- BACKUP RESTORED -->
+<dialog class="modal" id="backupDone" aria-labelledby="backupDoneTitle">
+  <h2 id="backupDoneTitle" data-i18n="backup.doneTitle"></h2>
+  <p id="backupDoneText"></p>
+  <p class="hint hidden" id="backupMissingHead" data-i18n="backup.missing"></p>
+  <ul class="sb-list skipped" id="backupMissing"></ul>
+  <p class="hint" id="backupPrevious"></p>
+  <p class="hint" data-i18n="backup.restartHint"></p>
+  <div class="modal-actions">
+    <span class="spacer"></span>
+    <button type="button" class="btn quiet" id="backupLater" data-i18n="backup.later"></button>
+    <button type="button" class="btn primary" id="backupRestart" data-i18n="backup.restart"></button>
   </div>
 </dialog>
 

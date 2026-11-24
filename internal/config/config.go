@@ -41,7 +41,10 @@ const (
 	followersFileName = "followers.json"
 	// obsPasswordFileName is only used when the OS keyring is unavailable.
 	obsPasswordFileName = "obs-password.json"
-	dirPerm             = 0o700
+	// restoredDirName holds the files a backup brought from another
+	// computer (or that were gone from their old place).
+	restoredDirName = "restored-files"
+	dirPerm         = 0o700
 )
 
 // OutputMode decides where sounds are played.
@@ -647,6 +650,54 @@ func (c Config) Clone() Config {
 	return out
 }
 
+// RewriteFiles calls fn for every setting that names a file on this
+// computer (reward and event sounds, alert pictures and videos, command
+// sounds and answer files) and stores the path it returns. When fn says
+// not to keep a file, the setting is emptied and the reward, event or
+// command it belongs to is turned off. Empty settings are skipped.
+// Backups use it to collect and to move those files; a new file setting
+// must be added here.
+func (c *Config) RewriteFiles(fn func(path string) (newPath string, keep bool)) {
+	rw := func(p *string, enabled *bool) {
+		if *p == "" {
+			return
+		}
+		np, keep := fn(*p)
+		if !keep {
+			np, *enabled = "", false
+		}
+		*p = np
+	}
+	for i := range c.Sounds {
+		rw(&c.Sounds[i].File, &c.Sounds[i].Enabled)
+	}
+	for k, a := range c.Events {
+		rw(&a.Sound, &a.Enabled)
+		rw(&a.Visual, &a.Enabled)
+		c.Events[k] = a
+	}
+	for i := range c.Chat.Commands {
+		cmd := &c.Chat.Commands[i]
+		rw(&cmd.Sound, &cmd.Enabled)
+		rw(&cmd.ResponseFile, &cmd.Enabled)
+	}
+}
+
+// Files lists the files the settings name, each once, in a stable order.
+func (c Config) Files() []string {
+	seen := map[string]bool{}
+	var out []string
+	c = c.Clone() // RewriteFiles writes back into the Events map
+	c.RewriteFiles(func(p string) (string, bool) {
+		if !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+		return p, true
+	})
+	return out
+}
+
 // NewID returns a random 16-hex-char identifier.
 func NewID() string {
 	var b [8]byte
@@ -766,6 +817,15 @@ func (s *Store) OBSPasswordPath() string { return filepath.Join(s.dir, obsPasswo
 
 // FollowersPath is the follower list of the unfollow detection.
 func (s *Store) FollowersPath() string { return filepath.Join(s.dir, followersFileName) }
+
+// RestoredFilesDir is where restored backup files go.
+func (s *Store) RestoredFilesDir() string { return filepath.Join(s.dir, restoredDirName) }
+
+// PreImportPath names the copy of the settings kept before a backup
+// replaces them.
+func (s *Store) PreImportPath(stamp string) string {
+	return filepath.Join(s.dir, configFileName+".before-import-"+stamp)
+}
 
 // TokenPath returns where the Twitch token file lives.
 func (s *Store) TokenPath() string { return filepath.Join(s.dir, tokenFileName) }

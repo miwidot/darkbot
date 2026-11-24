@@ -1503,6 +1503,57 @@ $('sbDo').addEventListener('click', async () => {
   } catch (e) { editorFailed('sbError', e); } finally { $('sbDo').disabled = false; }
 });
 
+// ---------- backup (Settings, Backup) ----------
+
+// pathList fills a <ul> with file paths (text only, never HTML) and shows
+// its heading when there is something to list.
+function pathList(listId, headId, paths) {
+  $(listId).replaceChildren(...paths.map((p) => {
+    const li = document.createElement('li');
+    li.textContent = p;
+    return li;
+  }));
+  $(headId).classList.toggle('hidden', paths.length === 0);
+}
+
+const MB = 1024 * 1024;
+
+$('backupSave').addEventListener('click', async () => {
+  $('backupSave').disabled = true;
+  try {
+    const res = await call('ExportBackup');
+    if (!res.path) return; // dialog closed
+    const rep = res.report;
+    $('backupSavedText').textContent = t('backup.saved', {
+      path: res.path, files: num(rep.files), mb: (rep.bytes / MB).toLocaleString(I18N.lang || undefined, { maximumFractionDigits: 1 }),
+    });
+    pathList('backupSkipped', 'backupSkippedHead', (rep.skipped || []).map((s) => s.path));
+    $('backupSaved').classList.remove('hidden');
+  } catch (e) { /* toast shown by call */ } finally { $('backupSave').disabled = false; }
+});
+
+$('backupLoad').addEventListener('click', async () => {
+  $('backupLoad').disabled = true;
+  try {
+    const res = await call('ImportBackup');
+    if (!res.path) return; // dialog closed
+    const rep = res.report;
+    $('backupDoneText').textContent = t('backup.doneText', {
+      date: new Date(rep.created).toLocaleString(I18N.lang || undefined, { dateStyle: 'medium', timeStyle: 'short' }),
+      version: rep.version || '?', kept: num(rep.kept), unpacked: num(rep.unpacked),
+    });
+    pathList('backupMissing', 'backupMissingHead', rep.missing || []);
+    $('backupPrevious').textContent = t('backup.previous', { path: res.previous });
+    await refresh();
+    $('backupDone').showModal();
+  } catch (e) { /* toast shown by call */ } finally { $('backupLoad').disabled = false; }
+});
+$('backupLater').addEventListener('click', () => $('backupDone').close());
+$('backupRestart').addEventListener('click', async () => {
+  $('backupRestart').disabled = true;
+  try { await call('RestartApp'); } catch (e) { $('backupRestart').disabled = false; }
+});
+
 // ---------- activity feed ----------
 
 const redeemed = () => ' ' + t('feed.redeemed') + ' ';

@@ -1,3 +1,13 @@
+2026-11-24 23:55 +08 — Backup: save and restore all settings with their files
+- Settings, Backup saves all settings plus the files they use (sounds,
+  alert pictures/videos, answer files) as one ZIP, without logins or
+  passwords, and restores it, also on another computer.
+- Restoring keeps files that are still in place (same SHA-256) and
+  unpacks the rest into restored-files/; settings whose file is not in
+  the backup are emptied and their item turned off. The previous
+  settings are kept as config.json.before-import-<time>. A restart
+  button applies everything.
+
 2026-11-24 22:47 +08 — App and tray icons
 - New icon: a graphite console tile with a 2x2 grid of sound pads, one
   lit amber. One generator (build/icon/icon.py, `make icons`) draws the
