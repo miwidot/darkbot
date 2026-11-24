@@ -130,6 +130,11 @@ func NewLogin(clientID string) (*PendingLogin, error) {
 	return &PendingLogin{ClientID: clientID, Verifier: verifier, State: state, URL: authorizeURL + "?" + q.Encode()}, nil
 }
 
+// Matches reports whether p is a login waiting for clientID (nil: no).
+func (p *PendingLogin) Matches(clientID string) bool {
+	return p != nil && p.ClientID == strings.TrimSpace(clientID)
+}
+
 // CodeFromPaste extracts the authorization code from what the user pasted:
 // the full address from the browser (state is checked) or just the code.
 func (p *PendingLogin) CodeFromPaste(pasted string) (string, error) {

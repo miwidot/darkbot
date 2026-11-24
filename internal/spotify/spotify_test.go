@@ -58,6 +58,28 @@ func TestNewLoginPKCE(t *testing.T) {
 	}
 }
 
+func TestPendingLoginMatches(t *testing.T) {
+	p, err := NewLogin("cid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var none *PendingLogin
+	for _, tt := range []struct {
+		p    *PendingLogin
+		id   string
+		want bool
+	}{
+		{p, "cid", true},
+		{p, " cid ", true}, // typed with spaces, like NewLogin accepts
+		{p, "other", false},
+		{none, "cid", false},
+	} {
+		if got := tt.p.Matches(tt.id); got != tt.want {
+			t.Errorf("Matches(%q) on %v = %v, want %v", tt.id, tt.p != nil, got, tt.want)
+		}
+	}
+}
+
 func TestCodeFromPaste(t *testing.T) {
 	p := &PendingLogin{State: "S1"}
 	cases := []struct {

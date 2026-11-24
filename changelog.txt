@@ -1,3 +1,11 @@
+2026-11-24 20:38 +08 — Spotify login: second "connect" reopens the waiting login
+- Clicking "Connect Spotify" while a login waits for the pasted address
+  opens that login again instead of starting a new one, so the address
+  from the first browser tab still works.
+- A pasted address darkbot cannot use (old attempt, denied, not an
+  address) is now logged as a warning, not only shown as a toast.
+- The paste field is cleared after a failed attempt.
+
 2026-11-24 00:13 +08 — Release v0.7.7
 - Spotify: !sr <name> searches without market (403 fix), clear message
   for missing Spotify permissions, granted permissions in the log.

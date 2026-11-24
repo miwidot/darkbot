@@ -1097,8 +1097,21 @@ func (a *App) SaveSongSettings(s config.SongRequests) error {
 
 // SpotifyStartLogin opens Spotify's consent page in the browser. The user
 // then pastes the address they land on into SpotifyFinishLogin.
+//
+// A login that is already waiting (same Client ID) is opened again instead
+// of replaced: a new one would make the address from the first browser tab
+// useless, and clicking "connect" twice is easy.
 func (a *App) SpotifyStartLogin() error {
-	p, err := spotify.NewLogin(a.cfg.Get().Songs.SpotifyClientID)
+	clientID := a.cfg.Get().Songs.SpotifyClientID
+	a.mu.Lock()
+	p := a.spLogin
+	a.mu.Unlock()
+	if p.Matches(clientID) {
+		runtime.BrowserOpenURL(a.ctx, p.URL)
+		a.log.Infof("Spotify login opened again in the browser (still waiting for the address)")
+		return nil
+	}
+	p, err := spotify.NewLogin(clientID)
 	if err != nil {
 		return a.uiErr(err)
 	}
@@ -1131,6 +1144,7 @@ func (a *App) SpotifyFinishLogin(pasted string) error {
 	}
 	code, err := p.CodeFromPaste(pasted)
 	if err != nil {
+		a.log.Warnf("Spotify login: %v", i18n.Localize(err, "en"))
 		return a.uiErr(err)
 	}
 	ctx, cancel := context.WithTimeout(a.ctx, spotifyLoginTimeout)

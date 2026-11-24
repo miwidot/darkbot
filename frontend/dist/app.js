@@ -2001,7 +2001,11 @@ $('spotifyFinish').addEventListener('click', async () => {
     $('spotifyPaste').value = '';
     $('spotifySetup').open = false;
     toast(t('songs.connectedToast'));
-  } catch (e) { /* toast shown by call */ } finally {
+  } catch (e) {
+    // The toast shows why; an empty field makes clear the next try needs
+    // a fresh address.
+    $('spotifyPaste').value = '';
+  } finally {
     $('spotifyFinish').disabled = false;
     refresh();
   }
