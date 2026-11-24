@@ -6,6 +6,7 @@
   <key>CFBundleName</key><string>darkbot</string>
   <key>CFBundleDisplayName</key><string>darkbot</string>
   <key>CFBundleExecutable</key><string>darkbot</string>
+  <key>CFBundleIconFile</key><string>icon</string>
   <key>CFBundleIdentifier</key><string>dev.miwidot.darkbot</string>
   <key>CFBundleVersion</key><string>0.7.7</string>
   <key>CFBundleShortVersionString</key><string>0.7.7</string>

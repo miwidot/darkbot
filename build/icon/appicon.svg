@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+  <linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e3544"/><stop offset="1" stop-color="#14171e"/></linearGradient>
+  <linearGradient id="pad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d4559"/><stop offset="1" stop-color="#2b3242"/></linearGradient>
+  <radialGradient id="led" cx=".5" cy=".42" r=".7"><stop offset="0" stop-color="#ffd38a"/><stop offset=".55" stop-color="#ffb23f"/><stop offset="1" stop-color="#e8952a"/></radialGradient>
+  <radialGradient id="glow"><stop offset="0" stop-color="#ffb23f" stop-opacity=".45"/><stop offset="1" stop-color="#ffb23f" stop-opacity="0"/></radialGradient>
+  <clipPath id="tile"><rect x="0" y="0" width="1024" height="1024" rx="224"/></clipPath>
+  <filter id="blur" x="-10%" y="-10%" width="120%" height="130%"><feGaussianBlur stdDeviation="18"/></filter>
+</defs>
+
+<rect x="0" y="0" width="1024" height="1024" rx="224" fill="url(#body)"/>
+<g clip-path="url(#tile)"><circle cx="748.8" cy="275.2" r="377.0" fill="url(#glow)"/><rect x="76.8" y="76.8" width="396.8" height="396.8" rx="63.5" fill="url(#pad)"/><rect x="140.3" y="78.8" width="269.8" height="6.1" rx="2" fill="#ffffff" opacity=".07"/><rect x="550.4" y="76.8" width="396.8" height="396.8" rx="63.5" fill="url(#led)"/><rect x="76.8" y="550.4" width="396.8" height="396.8" rx="63.5" fill="url(#pad)"/><rect x="140.3" y="552.4" width="269.8" height="6.1" rx="2" fill="#ffffff" opacity=".07"/><rect x="550.4" y="550.4" width="396.8" height="396.8" rx="63.5" fill="url(#pad)"/><rect x="613.9" y="552.4" width="269.8" height="6.1" rx="2" fill="#ffffff" opacity=".07"/></g>
+<rect x="3" y="3" width="1018" height="1018" rx="221" fill="none" stroke="#ffffff" stroke-opacity=".10" stroke-width="6"/>
+</svg>

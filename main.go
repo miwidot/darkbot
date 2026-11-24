@@ -12,6 +12,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/linux"
 
 	"github.com/miwidot/darkbot/internal/applog"
 	"github.com/miwidot/darkbot/internal/autostart"
@@ -21,6 +22,13 @@ import (
 
 //go:embed all:frontend/dist
 var assets embed.FS
+
+// linuxIcon is the window icon on Linux (taskbar, Alt+Tab). macOS takes it
+// from the bundle (build/darwin/icon.icns), Windows from the exe resource
+// (rsrc_windows_amd64.syso); see build/icon.
+//
+//go:embed build/linux/icon.png
+var linuxIcon []byte
 
 const (
 	windowWidth     = 980
@@ -77,7 +85,8 @@ func main() {
 			UniqueId:               singleInstanceID,
 			OnSecondInstanceLaunch: app.onSecondInstance,
 		},
-		Bind: []any{app},
+		Bind:  []any{app},
+		Linux: &linux.Options{Icon: linuxIcon},
 	})
 	if err != nil {
 		log.Fatalf("darkbot: %v", err)

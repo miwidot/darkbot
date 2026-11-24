@@ -1,3 +1,12 @@
+2026-11-24 22:47 +08 — App and tray icons
+- New icon: a graphite console tile with a 2x2 grid of sound pads, one
+  lit amber. One generator (build/icon/icon.py, `make icons`) draws the
+  macOS .icns, the Windows exe/window icon, the Windows tray icon and the
+  Linux window icon; tray sizes use a simplified, higher-contrast drawing.
+- macOS: the bundle now has an icon. Windows: the exe and window show it
+  (resource object rsrc_windows_amd64.syso, `make winres`). Linux: the
+  window icon is set through Wails.
+
 2026-11-24 22:43 +08 — m4a (AAC) sound files
 - Sounds can be .m4a files with AAC. darkbot reads their length from the
   MPEG-4 container headers (no decoder needed); the webview or OBS plays
