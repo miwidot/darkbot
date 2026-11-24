@@ -1,3 +1,9 @@
+2026-11-24 22:43 +08 — m4a (AAC) sound files
+- Sounds can be .m4a files with AAC. darkbot reads their length from the
+  MPEG-4 container headers (no decoder needed); the webview or OBS plays
+  them. Apple Lossless, copy-protected files and other codecs are
+  refused with a clear message.
+
 2026-11-24 20:38 +08 — Spotify login: second "connect" reopens the waiting login
 - Clicking "Connect Spotify" while a login waits for the pasted address
   opens that login again instead of starting a new one, so the address

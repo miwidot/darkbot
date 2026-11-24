@@ -20,7 +20,7 @@ import (
 )
 
 // Extensions lists the supported file types (lowercase, with dot).
-var Extensions = []string{".mp3", ".wav", ".ogg", ".flac"}
+var Extensions = []string{".mp3", ".wav", ".ogg", ".flac", ".m4a"}
 
 // MIMEType maps a supported extension to the type the webview expects.
 func MIMEType(path string) string {
@@ -33,6 +33,9 @@ func MIMEType(path string) string {
 		return "audio/ogg"
 	case ".flac":
 		return "audio/flac"
+	case ".m4a":
+		// The MPEG-4 audio type (RFC 4337); WebKit and Chromium play AAC in it.
+		return "audio/mp4"
 	}
 	return ""
 }
@@ -70,6 +73,17 @@ func Duration(path string) (time.Duration, error) {
 		format beep.Format
 	)
 	switch strings.ToLower(filepath.Ext(path)) {
+	case ".m4a":
+		defer f.Close()
+		fi, err := f.Stat()
+		if err != nil {
+			return 0, err
+		}
+		d, err := m4aDuration(f, fi.Size())
+		if err != nil {
+			return 0, fmt.Errorf("%s: %w", filepath.Base(path), err)
+		}
+		return d, nil
 	case ".mp3":
 		s, format, err = mp3.Decode(f)
 	case ".wav":

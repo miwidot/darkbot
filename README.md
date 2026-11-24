@@ -59,7 +59,7 @@ Builds aren't code-signed yet. On macOS right-click darkbot and choose *Open* th
 
 1. **Connect Twitch.** Open Settings (gear icon), then Twitch, then *Connect Twitch*, and confirm the code on twitch.tv/activate. Channel points need an Affiliate or Partner channel.
    Nothing to register: darkbot comes with its own Twitch Client ID. You only need your own if you build a fork (see [Build from source](#build-from-source)).
-2. **Add a sound.** *Add sound*, then choose a file (mp3, wav, ogg, flac), a reward name and a price. Click a pad to preview it.
+2. **Add a sound.** *Add sound*, then choose a file (mp3, wav, ogg, flac, m4a), a reward name and a price. m4a files must be AAC (not Apple Lossless); on Linux, playing them needs a GStreamer AAC decoder (e.g. `gstreamer1.0-libav`). Click a pad to preview it.
 3. **Choose the output.** Settings, then Audio output:
    - *Audio device:* to get the sound into OBS, pick a virtual cable or spare output and add it as *Audio Output Capture*. Or keep the default and add darkbot with *Application Audio Capture* (Windows) or *macOS Audio Capture* (macOS).
    - *Inside OBS:* in OBS open Tools, then WebSocket Server Settings, and enable it. Enter host, port and password in Settings, then OBS. Tick the tracks. darkbot creates the media source `[darkbot] sound`. With the `[darkbot]` scene set up (Settings, OBS) it plays in all your scenes; otherwise it is created in the current scene, and OBS only plays sources of the active scene.
