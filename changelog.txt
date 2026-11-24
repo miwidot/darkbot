@@ -1,3 +1,9 @@
+2026-11-25 00:37 +08 — Release v0.7.8
+- Backup: save/restore all settings with their files (ZIP, no logins).
+- m4a (AAC) sound files.
+- App and tray icons for macOS, Windows and Linux.
+- Spotify login: a second "connect" reopens the waiting login.
+
 2026-11-24 23:55 +08 — Backup: save and restore all settings with their files
 - Settings, Backup saves all settings plus the files they use (sounds,
   alert pictures/videos, answer files) as one ZIP, without logins or
