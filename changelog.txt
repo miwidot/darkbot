@@ -1,3 +1,9 @@
+2026-11-25 17:06 +08 — Release v0.7.9
+- Chat, redemptions and events right after connecting are handled at once.
+- A late first sound (Windows tray, waking audio device) no longer fails
+  with "no playback confirmation"; slow starts and device wake-up time
+  are logged.
+
 2026-11-25 17:05 +08 — Faster first chat message and first sound after start
 - EventSub reads messages while it still creates its ~25 subscriptions
   (several seconds from Asia), so chat, redemptions and events right after
