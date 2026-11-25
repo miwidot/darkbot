@@ -1,3 +1,11 @@
+2026-11-25 17:29 +08 — Greetings always name the viewer
+- A greeting (first message in the stream) without {user} gets the name in
+  front: lines written for Streamer.bot's "%user%" + line (", welcome!")
+  become "Anna, welcome!", other text "Anna, Welcome!"; "/me" stays first.
+  Other commands are sent as written.
+- The command editor explains this for greetings.
+- Tests: WithName cases, greeting from a file without {user}.
+
 2026-11-25 17:06 +08 — Release v0.7.9
 - Chat, redemptions and events right after connecting are handled at once.
 - A late first sound (Windows tray, waking audio device) no longer fails

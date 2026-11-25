@@ -589,6 +589,7 @@
   "cmdedit.response": "Antwort im Chat",
   "tip.cmdResponse": "Was darkbot in den Chat schreibt. Leer lassen, wenn der Befehl nur einen Sound abspielen soll.",
   "cmdedit.responsePlaceholder": "Komm auf unseren Discord: discord.gg/…",
+  "cmdedit.greetingName": "Steht in einer Begrüßung kein {user}, setzt darkbot den Namen davor: „, willkommen!“ wird zu „Anna, willkommen!“, „Willkommen!“ zu „Anna, Willkommen!“.",
   "cmdedit.greetingPlaceholder": "Willkommen im Stream, {user}!",
   "cmdedit.responseHint": "Platzhalter: {user} ist, wer den Befehl schreibt, {target} der Name dahinter (z. B. !hug @Anna), sonst wieder {user}. Anderer Text von Zuschauern wird nie übernommen.",
   "cmdedit.cooldown": "Abklingzeit für alle (s)",

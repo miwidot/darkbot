@@ -1257,6 +1257,7 @@ function cmdEditorMode() {
   const greeting = $('cmdTrigger').value === 'first';
   // The greeting has no name and always answers once per stream.
   for (const id of ['cmdNameField', 'cmdAliasesField', 'cmdOnceField']) $(id).classList.toggle('hidden', greeting);
+  $('cmdGreetName').classList.toggle('hidden', !greeting);
   $('cmdResponse').placeholder = t(greeting ? 'cmdedit.greetingPlaceholder' : 'cmdedit.responsePlaceholder');
   $('cmdBang').classList.toggle('hidden', word);
   $('cmdNameLabel').textContent = t(word ? 'cmdedit.word' : 'cmdedit.name');

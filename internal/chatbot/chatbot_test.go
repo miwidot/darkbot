@@ -2,6 +2,8 @@ package chatbot
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -494,5 +496,45 @@ func TestNormalizeGreeting(t *testing.T) {
 	}
 	if _, err := NormalizeCommand(welcome, []config.ChatCommand{welcome, discord}, nil); err != nil {
 		t.Fatalf("re-saving the greeting: %v", err)
+	}
+}
+
+func TestWithName(t *testing.T) {
+	for in, want := range map[string]string{
+		", willkommen im Stream!":  "{user}, willkommen im Stream!",
+		"! Schön, dass du da bist": "{user}! Schön, dass du da bist",
+		"Willkommen im Stream!":    "{user}, Willkommen im Stream!",
+		"Hallo {user}, willkommen": "Hallo {user}, willkommen",
+		"Hi @{target}":             "Hi @{target}",
+		"/me winkt":                "/me {user}, winkt",
+		"/ME , winkt":              "/ME {user}, winkt",
+		"/me ":                     "{user}, /me",
+		"  ":                       "",
+		"¡Hola!":                   "{user}, ¡Hola!",
+	} {
+		if got := WithName(in); got != want {
+			t.Errorf("WithName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// A greeting line without {user} (a Streamer.bot file ", welcome!") still
+// greets the viewer by name; other commands are left as written.
+func TestGreetingAddsName(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "greet.txt")
+	if err := os.WriteFile(file, []byte(", willkommen im Stream!\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	g := welcome
+	g.Response, g.ResponseFile = "", file
+	r := newRig(cmds(g, discord))
+	if got := r.say(chatter("1", "Anna", "hi")); !slices.Equal(got, []string{"Anna, willkommen im Stream!"}) {
+		t.Fatalf("greeting from file: %v", got)
+	}
+	plain := discord
+	plain.Response = "discord.gg/x"
+	r = newRig(cmds(plain))
+	if got := r.say(chatter("2", "Ben", "!discord")); !slices.Equal(got, []string{"discord.gg/x"}) {
+		t.Fatalf("a command got a name added: %v", got)
 	}
 }

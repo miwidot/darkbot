@@ -310,6 +310,8 @@ dialog::backdrop { background: rgba(6, 7, 10, .62); }
 .field > label output { color: var(--ink-3); font-weight: 400; margin-left: 4px; font-variant-numeric: tabular-nums; }
 .field input[type=range] { width: 100%; }
 .hint { color: var(--ink-3); font-size: var(--step--1); margin: 6px 0 0; max-width: 62ch; }
+/* Sits below the answer field (text or file), so it joins it. */
+#cmdGreetName { margin-top: -8px; }
 .error { color: var(--fault); margin: 10px 0 0; }
 .inline { display: flex; gap: 8px; }
 .inline > input, .inline > select { flex: 1; min-width: 0; }

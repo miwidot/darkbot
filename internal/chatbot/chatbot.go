@@ -219,6 +219,9 @@ func (b *Bot) run(ctx context.Context, cmd config.ChatCommand, m twitch.ChatMess
 		}
 		tmpl = line
 	}
+	if Trigger(cmd) == config.TriggerFirst {
+		tmpl = WithName(tmpl)
+	}
 	text := Render(tmpl, m, arg)
 	if text == "" && cmd.Sound == "" {
 		return
@@ -348,6 +351,36 @@ func Render(tmpl string, m twitch.ChatMessage, arg string) string {
 	}
 	r := strings.NewReplacer("{user}", m.ChatterName, "{target}", target)
 	return strings.TrimSpace(r.Replace(tmpl))
+}
+
+// meAction is the "/me " that makes a chat message an action; the name
+// goes after it.
+const meAction = "/me "
+
+// afterName: a greeting starting with one of these was written to follow
+// the name directly (", welcome!", "! Hi").
+const afterName = ",.!?:;"
+
+// WithName puts {user} in front of a greeting that names nobody, so every
+// greeting greets someone. Lines written for Streamer.bot's "%user%" +
+// line (", welcome!") get the name right before their punctuation; other
+// text gets "{user}, " in front. An empty greeting stays empty.
+func WithName(tmpl string) string {
+	tmpl = strings.TrimSpace(tmpl)
+	if tmpl == "" || strings.Contains(tmpl, "{user}") || strings.Contains(tmpl, "{target}") {
+		return tmpl
+	}
+	prefix := ""
+	if len(tmpl) >= len(meAction) && strings.EqualFold(tmpl[:len(meAction)], meAction) {
+		prefix, tmpl = tmpl[:len(meAction)], strings.TrimSpace(tmpl[len(meAction):])
+	}
+	switch {
+	case tmpl == "":
+		return prefix + "{user}"
+	case strings.ContainsAny(tmpl[:1], afterName):
+		return prefix + "{user}" + tmpl
+	}
+	return prefix + "{user}, " + tmpl
 }
 
 // take checks the cooldowns, the once-per-stream rule and the answer cap

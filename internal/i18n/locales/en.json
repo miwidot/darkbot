@@ -589,6 +589,7 @@
   "cmdedit.response": "Chat answer",
   "tip.cmdResponse": "What darkbot writes in chat. Leave it empty if the command should only play a sound.",
   "cmdedit.responsePlaceholder": "Join our Discord: discord.gg/…",
+  "cmdedit.greetingName": "If a greeting has no {user}, darkbot puts the name in front: \", welcome!\" becomes \"Anna, welcome!\", \"Welcome!\" becomes \"Anna, Welcome!\".",
   "cmdedit.greetingPlaceholder": "Welcome to the stream, {user}!",
   "cmdedit.responseHint": "Placeholders: {user} is who typed the command, {target} the name after it (e.g. !hug @Anna), otherwise {user} again. Other viewer text is never used.",
   "cmdedit.cooldown": "Cooldown for everyone (s)",
