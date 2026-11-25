@@ -1,3 +1,18 @@
+2026-11-25 17:05 +08 — Faster first chat message and first sound after start
+- EventSub reads messages while it still creates its ~25 subscriptions
+  (several seconds from Asia), so chat, redemptions and events right after
+  connecting are handled at once. A failed redemption subscription still
+  restarts the session; the stream title / hype train read at connect no
+  longer overwrites a newer notification that arrived meanwhile.
+- Sound playback is confirmed in two steps: the app window reports the
+  start (up to 30 s), then the end (length + 5 s from the start). A late
+  first sound (Windows tray, waking audio device) no longer fails with
+  "no playback confirmation"; a start over 2 s is logged.
+- At start the app window wakes the chosen audio device with 0.2 s of
+  silence and logs how long the device took.
+- Tests: chat during subscribing, failed redemption subscription, seeds
+  vs. notifications, late start / never starts / never ends.
+
 2026-11-25 00:37 +08 — Release v0.7.8
 - Backup: save/restore all settings with their files (ZIP, no logins).
 - m4a (AAC) sound files.

@@ -2318,6 +2318,7 @@ async function playSound(req) {
     finished = true;
     App().SoundDone(req.token, err || '');
   };
+  audio.addEventListener('playing', () => App().SoundStarted(req.token), { once: true });
   audio.addEventListener('ended', () => done(''));
   audio.addEventListener('error', () => done(t('play.cannotPlay')));
   try {
@@ -2330,6 +2331,46 @@ async function playSound(req) {
     await audio.play();
   } catch (e) {
     done(errText(e));
+  }
+}
+
+// WARMUP_SECONDS of silence open the audio device once at start: a device
+// that sleeps (or a virtual one like a Wave Link channel) then doesn't hold
+// up the first real sound. Web Audio, because the page's CSP only lets
+// <audio> load darkbot's own files. The time it took goes to the log.
+const WARMUP_SECONDS = 0.2;
+// WARMUP_TIMEOUT_MS: give up (and say so in the log) like the backend
+// gives up on a sound that never starts (playbackStartTimeout).
+const WARMUP_TIMEOUT_MS = 30000;
+async function warmUpAudio() {
+  const c = state.config || {};
+  if (c.output_mode !== 'device' || !window.AudioContext) return;
+  // Waking the default device instead of the chosen one would only mislead.
+  if (c.audio_device_id && !(SINK_SUPPORTED && 'setSinkId' in AudioContext.prototype)) return;
+  const began = performance.now();
+  let ctx;
+  try {
+    ctx = new AudioContext();
+    if (c.audio_device_id) await ctx.setSinkId(c.audio_device_id);
+    const src = ctx.createBufferSource();
+    src.buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * WARMUP_SECONDS), ctx.sampleRate);
+    src.connect(ctx.destination);
+    const ended = new Promise((resolve) => { src.onended = resolve; });
+    src.start();
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(t('play.warmupTimeout', { seconds: WARMUP_TIMEOUT_MS / 1000 }))), WARMUP_TIMEOUT_MS);
+    });
+    try {
+      await Promise.race([ctx.resume().then(() => ended), timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
+    App().ReportAudioWarmup(Math.round(performance.now() - began), '');
+  } catch (e) {
+    App().ReportAudioWarmup(Math.round(performance.now() - began), errText(e));
+  } finally {
+    if (ctx) ctx.close().catch(() => {});
   }
 }
 
@@ -2357,6 +2398,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   stats = await App().GetStats();
   await loadFeed();
   await refresh();
+  warmUpAudio();
   if (state.twitchLogin) {
     try { rewards = (await App().GetRewards()) || []; renderPads(); } catch (e) { /* shown when editing */ }
   }

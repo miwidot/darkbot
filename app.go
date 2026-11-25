@@ -56,10 +56,17 @@ func init() {
 
 const (
 	// playbackGrace is added to a sound's length before we give up waiting
-	// for the webview to report the end of playback.
-	playbackGrace  = 5 * time.Second
-	rewardsTimeout = 15 * time.Second
-	soundURLPrefix = "/sound/"
+	// for the webview to report the end of playback (counted from its start).
+	playbackGrace = 5 * time.Second
+	// playbackStartTimeout: how long the webview may take to start a sound.
+	// The first sound after a start can take seconds (audio device waking
+	// up, window hidden in the tray), so this is generous.
+	playbackStartTimeout = 30 * time.Second
+	// playbackLateStart: a start slower than this is logged, so a slow
+	// audio device or a sleeping window shows up in the log.
+	playbackLateStart = 2 * time.Second
+	rewardsTimeout    = 15 * time.Second
+	soundURLPrefix    = "/sound/"
 	// firstUpdateCheck waits a moment after start so the window is up first.
 	firstUpdateCheck = 5 * time.Second
 	// updateCheckEvery: while running, new releases are only announced.
@@ -167,7 +174,10 @@ func NewApp(log *applog.Log) (*App, error) {
 	a.moveOBSPassword()
 	a.obs = obs.New(a.onOBSDrop)
 	a.obs.OnScenesChanged(a.refreshOBSScene)
-	a.web = &webOutput{app: a, pending: map[string]chan string{}}
+	a.web = newWebOutput(a.log, func(req playRequest) {
+		req.DeviceID = a.cfg.Get().AudioDeviceID
+		runtime.EventsEmit(a.ctx, "play", req)
+	})
 	a.obsO = &obs.Output{OBS: a.obs, Cfg: cfg}
 	a.bot = bot.New(cfg, log, a.currentOutput, func(act bot.Activity) {
 		a.countActivity(act)
@@ -503,6 +513,21 @@ func (a *App) ReportAudioSupport(sinkSupported bool, outputs, named int) {
 		a.log.Infof("Audio: output device selection supported, %d output device(s) visible (%d with names)", outputs, named)
 	} else {
 		a.log.Warnf("Audio: this web view cannot select an output device, sounds use the system default (use OBS mode for track routing)")
+	}
+}
+
+// ReportAudioWarmup is called once by the frontend after it woke the audio
+// device with a moment of silence at start (see warmUpAudio): the time it
+// took shows whether the device is slow to wake.
+func (a *App) ReportAudioWarmup(ms int, errMsg string) {
+	took := (time.Duration(ms) * time.Millisecond).Round(10 * time.Millisecond)
+	switch dev := a.cfg.Get().AudioDeviceName; {
+	case errMsg != "":
+		a.log.Warnf("Audio: could not wake the output device at start (%s): %s", took, errMsg)
+	case dev == "":
+		a.log.Infof("Audio: default output device ready after %s", took)
+	default:
+		a.log.Infof("Audio: output device %q ready after %s", dev, took)
 	}
 }
 
@@ -948,6 +973,9 @@ func (a *App) TestSound(id string) {
 	a.bot.Test(id)
 }
 
+// SoundStarted is called by the frontend when a sound starts playing.
+func (a *App) SoundStarted(token string) { a.web.started(token) }
+
 // SoundDone is called by the frontend when playback finished. errMsg is
 // empty on success.
 func (a *App) SoundDone(token, errMsg string) { a.web.done(token, errMsg) }
@@ -988,9 +1016,29 @@ func (a *App) serveSound(w http.ResponseWriter, r *http.Request) {
 
 // webOutput plays sounds in the webview on the selected audio device.
 type webOutput struct {
-	app     *App
+	log  bot.Logger
+	emit func(playRequest) // sends the request to the webview
+	// startTimeout, grace and lateStart are playbackStartTimeout,
+	// playbackGrace and playbackLateStart; fields so tests needn't wait
+	// that long.
+	startTimeout, grace, lateStart time.Duration
+
 	mu      sync.Mutex
-	pending map[string]chan string
+	pending map[string]*playback
+}
+
+func newWebOutput(log bot.Logger, emit func(playRequest)) *webOutput {
+	return &webOutput{
+		log: log, emit: emit, startTimeout: playbackStartTimeout, grace: playbackGrace, lateStart: playbackLateStart,
+		pending: map[string]*playback{},
+	}
+}
+
+// playback is one sound sent to the webview, waiting for its reports.
+type playback struct {
+	start chan struct{} // closed when the sound started
+	end   chan string   // the error text ("" = played to the end)
+	began bool
 }
 
 // playRequest is sent to the frontend.
@@ -1001,15 +1049,19 @@ type playRequest struct {
 	DeviceID string  `json:"deviceId"`
 }
 
+// Play sends the sound to the webview and waits in two steps: up to
+// playbackStartTimeout for it to start, then its length plus
+// playbackGrace for it to end. Timing the length from the start keeps a
+// late start (first sound on a waking device) from counting as a failure.
 func (o *webOutput) Play(ctx context.Context, s config.Sound, master float64) error {
 	length, err := audio.Duration(s.File)
 	if err != nil {
 		return err
 	}
 	token := config.NewID()
-	ch := make(chan string, 1)
+	p := &playback{start: make(chan struct{}), end: make(chan string, 1)}
 	o.mu.Lock()
-	o.pending[token] = ch
+	o.pending[token] = p
 	o.mu.Unlock()
 	defer func() {
 		o.mu.Lock()
@@ -1017,34 +1069,61 @@ func (o *webOutput) Play(ctx context.Context, s config.Sound, master float64) er
 		o.mu.Unlock()
 	}()
 
-	cfg := o.app.cfg.Get()
-	runtime.EventsEmit(o.app.ctx, "play", playRequest{
-		Token:    token,
-		URL:      soundURLPrefix + s.ID + "?t=" + token,
-		Volume:   min(s.Volume*master, config.MaxVolume),
-		DeviceID: cfg.AudioDeviceID,
+	sent := time.Now()
+	o.emit(playRequest{
+		Token:  token,
+		URL:    soundURLPrefix + s.ID + "?t=" + token,
+		Volume: min(s.Volume*master, config.MaxVolume),
 	})
 
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case msg := <-ch:
-		if msg != "" {
-			return errors.New(msg)
+	case msg := <-p.end: // failed before it started
+		return playResult(msg)
+	case <-p.start:
+		if late := time.Since(sent); late > o.lateStart {
+			o.log.Warnf("%q started %s after it was sent to the app window (audio device waking up, or the window asleep in the tray)",
+				s.RewardTitle, late.Round(100*time.Millisecond))
 		}
-		return nil
-	case <-time.After(length + playbackGrace):
-		return i18n.E("err.noPlaybackConfirm", "seconds", int((length + playbackGrace).Round(time.Second).Seconds()))
+	case <-time.After(o.startTimeout):
+		return i18n.E("err.noPlaybackStart", "seconds", int(o.startTimeout.Round(time.Second).Seconds()))
+	}
+
+	wait := length + o.grace
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case msg := <-p.end:
+		return playResult(msg)
+	case <-time.After(wait):
+		return i18n.E("err.noPlaybackConfirm", "seconds", int(wait.Round(time.Second).Seconds()))
+	}
+}
+
+func playResult(msg string) error {
+	if msg != "" {
+		return errors.New(msg)
+	}
+	return nil
+}
+
+func (o *webOutput) started(token string) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if p := o.pending[token]; p != nil && !p.began {
+		p.began = true
+		close(p.start)
 	}
 }
 
 func (o *webOutput) done(token, errMsg string) {
 	o.mu.Lock()
-	ch := o.pending[token]
+	p := o.pending[token]
 	o.mu.Unlock()
-	if ch != nil {
+	if p != nil {
 		select {
-		case ch <- errMsg:
+		case p.end <- errMsg:
 		default:
 		}
 	}

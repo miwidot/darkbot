@@ -300,9 +300,22 @@ type channelTracker struct {
 	title, category string
 }
 
+// seed sets the state read when darkbot connects, unless an update that
+// arrived meanwhile (EventSub reads while it subscribes) already did: it
+// is newer than the read.
 func (c *channelTracker) seed(title, category string) {
 	c.mu.Lock()
-	c.known, c.title, c.category = true, title, category
+	if !c.known {
+		c.known, c.title, c.category = true, title, category
+	}
+	c.mu.Unlock()
+}
+
+// reset forgets the state at the start of a session; the channel may
+// have changed while darkbot was disconnected.
+func (c *channelTracker) reset() {
+	c.mu.Lock()
+	c.known, c.title, c.category = false, "", ""
 	c.mu.Unlock()
 }
 
@@ -321,9 +334,21 @@ func (c *channelTracker) filter(ev ChannelEvent) bool {
 
 // seed starts a hype train already running when darkbot connects, so its
 // next level-up is reported (not taken as the baseline).
+// A train already seen through a notification that arrived meanwhile is
+// left alone: that state is newer than the read.
 func (h *hypeTracker) seed(train string, level int) {
 	h.mu.Lock()
-	h.train, h.level = train, level
+	if h.train == "" {
+		h.train, h.level = train, level
+	}
+	h.mu.Unlock()
+}
+
+// reset forgets the train at the start of a session (it may have ended
+// while darkbot was disconnected).
+func (h *hypeTracker) reset() {
+	h.mu.Lock()
+	h.train, h.level = "", 0
 	h.mu.Unlock()
 }
 

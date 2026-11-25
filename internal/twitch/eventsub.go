@@ -24,8 +24,11 @@ import (
 //     until the new welcome arrives; subscriptions move over automatically.
 //   - After a real drop, subscriptions are gone and must be recreated.
 //   - We must never send messages ourselves (only pongs, handled by the lib).
+//
+// eventSubURL is a variable only so tests can use a fake server.
+var eventSubURL = "wss://eventsub.wss.twitch.tv/ws"
+
 const (
-	eventSubURL = "wss://eventsub.wss.twitch.tv/ws"
 	// keepaliveSeconds asks Twitch for a keepalive every 30 s (allowed 10–600).
 	keepaliveSeconds = 30
 	// keepaliveGrace tolerates network jitter on top of the keepalive window.
@@ -162,27 +165,33 @@ func (e *EventSub) session(ctx context.Context) error {
 	if tok == nil {
 		return ErrNotLoggedIn
 	}
-	switch err := e.helix.SubscribeRedemptions(ctx, welcome.Session.ID, tok.UserID); {
-	case errors.Is(err, ErrNotAffiliate):
-		// Lasting: channel points need Affiliate/Partner. Chat commands,
-		// song requests and events still work, so carry on without them.
-		e.log.Warnf("Connected to Twitch EventSub without channel point redemptions: %v", err)
-	case isDeprecated(err):
-		// Lasting: retrying can't help, the rest still works.
-		e.log.Errorf("Connected to Twitch EventSub without channel point redemptions, Twitch refused the subscription (update darkbot): %v", err)
-	case err != nil:
-		return fmt.Errorf("subscribe to redemptions: %w", err) // retried with backoff
-	default:
-		e.log.Infof("Connected to Twitch EventSub, listening for channel point redemptions of %s", tok.Login)
-	}
-	e.subscribeChat(ctx, welcome.Session.ID, tok)
-	e.subscribeEvents(ctx, welcome.Session.ID, tok)
-	e.onStatus(true)
+	// The subscriptions (about 25 Helix calls, several seconds from far
+	// away) run while this loop already reads: a chat message or
+	// redemption arriving meanwhile is handled at once, not after the
+	// last subscription. A failed redemption subscription ends the
+	// session through sctx's cause.
+	sctx, endSession := context.WithCancelCause(ctx)
+	subsDone := make(chan struct{})
+	defer func() {
+		endSession(nil)
+		<-subsDone // no onStatus(true) after the session ended
+	}()
+	e.hype.reset()
+	e.chanUp.reset()
+	go func() {
+		defer close(subsDone)
+		if err := e.subscribeAll(sctx, welcome.Session.ID, tok); err != nil {
+			endSession(err)
+		}
+	}()
 
 	keepalive := time.Duration(welcome.Session.KeepaliveTimeoutSeconds) * time.Second
 	for {
-		msg, err := readMsg(ctx, conn, keepalive+keepaliveGrace)
+		msg, err := readMsg(sctx, conn, keepalive+keepaliveGrace)
 		if err != nil {
+			if cause := context.Cause(sctx); ctx.Err() == nil && cause != nil {
+				return cause
+			}
 			return err
 		}
 		switch msg.Metadata.MessageType {
@@ -201,7 +210,7 @@ func (e *EventSub) session(ctx context.Context) error {
 			if !isTwitchWSURL(*sp.Session.ReconnectURL) {
 				return fmt.Errorf("refusing reconnect to unexpected URL %q", *sp.Session.ReconnectURL)
 			}
-			newConn, newWelcome, err := e.reconnect(ctx, conn, *sp.Session.ReconnectURL)
+			newConn, newWelcome, err := e.reconnect(sctx, conn, *sp.Session.ReconnectURL)
 			if err != nil {
 				return err
 			}
@@ -210,6 +219,33 @@ func (e *EventSub) session(ctx context.Context) error {
 			e.log.Infof("EventSub moved to a new server (requested by Twitch)")
 		}
 	}
+}
+
+// subscribeAll creates the session's subscriptions and then reports
+// EventSub as connected. Only a redemption subscription that may work on
+// a retry returns an error (the session is then started anew).
+func (e *EventSub) subscribeAll(ctx context.Context, sessionID string, tok *Token) error {
+	switch err := e.helix.SubscribeRedemptions(ctx, sessionID, tok.UserID); {
+	case ctx.Err() != nil:
+		return nil // the session already ended
+	case errors.Is(err, ErrNotAffiliate):
+		// Lasting: channel points need Affiliate/Partner. Chat commands,
+		// song requests and events still work, so carry on without them.
+		e.log.Warnf("Connected to Twitch EventSub without channel point redemptions: %v", err)
+	case isDeprecated(err):
+		// Lasting: retrying can't help, the rest still works.
+		e.log.Errorf("Connected to Twitch EventSub without channel point redemptions, Twitch refused the subscription (update darkbot): %v", err)
+	case err != nil:
+		return fmt.Errorf("subscribe to redemptions: %w", err) // retried with backoff
+	default:
+		e.log.Infof("Connected to Twitch EventSub, listening for channel point redemptions of %s", tok.Login)
+	}
+	e.subscribeChat(ctx, sessionID, tok)
+	e.subscribeEvents(ctx, sessionID, tok)
+	if ctx.Err() == nil {
+		e.onStatus(true)
+	}
+	return nil
 }
 
 // revocationPayload is the part of a revocation message darkbot reads
