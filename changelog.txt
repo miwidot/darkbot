@@ -1,3 +1,6 @@
+2026-11-25 17:31 +08 — Release v0.7.10
+- Greetings name the viewer even when the text or file line has no {user}.
+
 2026-11-25 17:29 +08 — Greetings always name the viewer
 - A greeting (first message in the stream) without {user} gets the name in
   front: lines written for Streamer.bot's "%user%" + line (", welcome!")
